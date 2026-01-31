@@ -1,0 +1,139 @@
+# Dockerignore for Nawal AI
+# Optimizes Docker build by excluding unnecessary files
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+docs/_build/
+*.md
+!README.md
+LICENSE
+CONTRIBUTING.md
+
+# Tests
+tests/
+test_*.py
+*_test.py
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model checkpoints (large files)
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.pkl
+*.pickle
+
+# Data files (should be mounted or fetched at runtime)
+data/
+datasets/
+*.csv
+*.tsv
+*.json
+!config/*.json  # Keep config JSONs
+*.parquet
+*.arrow
+
+# Logs
+logs/
+*.log
+tensorboard/
+wandb/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# CI/CD
+.github/workflows/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Development tools
+.pre-commit-config.yaml
+.editorconfig
+.coveragerc
+pytest.ini
+mypy.ini
+.bandit
+.ruff.toml
+
+# Security
+.env
+.env.local
+.env.*.local
+secrets/
+*.key
+*.pem
+
+# Build artifacts
+*.whl
+*.tar.gz
+*.zip
+
+# Profiling
+*.prof
+profiling/
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints/
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip

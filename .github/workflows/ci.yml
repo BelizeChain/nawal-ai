@@ -1,0 +1,170 @@
+name: CI - Test & Lint
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: belizechain
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: belizechain_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e ".[dev]"
+      
+      - name: Run linting (Ruff)
+        run: |
+          ruff check nawal/ --output-format=github
+      
+      - name: Run type checking (MyPy)
+        continue-on-error: true
+        run: |
+          mypy nawal/ --show-error-codes
+      
+      - name: Run tests with coverage
+        env:
+          DATABASE_URL: postgresql://belizechain:test_password@localhost:5432/belizechain_test
+          REDIS_URL: redis://localhost:6379/0
+          BLOCKCHAIN_ENABLED: "false"
+          KINICH_ENABLED: "false"
+          PAKIT_ENABLED: "false"
+        run: |
+          pytest tests/ \
+            --cov=nawal \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-report=html \
+            -v \
+            --tb=short
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: python-${{ matrix.python-version }}
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+      
+      - name: Archive coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: htmlcov/
+          retention-days: 7
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit[toml] safety
+      
+      - name: Run Bandit security scan
+        run: |
+          bandit -r nawal/ -f json -o bandit-report.json || true
+          bandit -r nawal/ -f txt
+      
+      - name: Run Safety dependency check
+        run: |
+          safety check --json || true
+          safety check
+      
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+          retention-days: 30
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black isort
+      
+      - name: Check code formatting (Black)
+        run: |
+          black --check --diff nawal/
+      
+      - name: Check import sorting (isort)
+        run: |
+          isort --check-only --diff nawal/
+      
+      - name: Run Ruff linter
+        run: |
+          ruff check nawal/ --statistics

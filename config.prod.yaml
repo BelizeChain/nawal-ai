@@ -1,0 +1,81 @@
+# Nawal Configuration - Production Environment
+# BelizeChain Federated AI with Genomic Evolution
+
+# System
+project_name: nawal
+version: 0.1.0
+environment: production
+
+# Validator Identity (set via environment variables)
+validator_id: null  # Set via NAWAL_VALIDATOR_ID
+validator_address: null  # Set via NAWAL_VALIDATOR_ADDRESS
+staking_account: null  # Set via NAWAL_STAKING_ACCOUNT
+
+# Evolution Configuration
+evolution:
+  population_size: 100  # Large population for production
+  num_generations: 1000  # Many generations
+  selection_pressure: 0.3  # Top 30% selected as parents
+  mutation_rate: 0.1  # 10% chance of mutation
+  mutation_strength: 0.2  # Moderate mutations
+  crossover_rate: 0.7  # 70% chance of crossover
+  elitism_count: 10  # Preserve top 10 genomes
+  diversity_threshold: 0.5  # Minimum diversity
+  checkpoint_frequency: 20  # Checkpoint every 20 generations
+
+# Federated Learning Configuration
+federated:
+  aggregation_strategy: fedavg  # FedAvg for production
+  min_participants: 5  # Minimum 5 validators
+  max_participants: 100  # Up to 100 validators
+  num_rounds: 1000  # Many rounds
+  aggregation_threshold: 0.75  # 75% participation required
+  round_timeout: 7200.0  # 2 hour timeout
+  participant_timeout: 3600.0  # 1 hour timeout
+  min_samples: 1000  # Substantial training data
+  min_quality_score: 50.0  # Higher quality threshold
+
+# Training Configuration
+training:
+  learning_rate: 0.0001  # Conservative LR
+  batch_size: 64  # Production batch size
+  local_epochs: 5  # More local training
+  max_grad_norm: 1.0  # Gradient clipping
+  warmup_steps: 500  # Longer warmup
+  optimizer: adamw  # AdamW for production
+  weight_decay: 0.01  # L2 regularization
+  scheduler: cosine  # Cosine annealing
+  device: auto  # Auto-detect GPU
+  mixed_precision: true  # FP16 for speed
+  gradient_accumulation_steps: 4  # Effective batch 256
+  privacy_epsilon: 1.0  # Differential privacy enabled
+  gradient_clipping: true
+
+# Model Configuration
+model:
+  vocab_size: 50257  # GPT-2 vocabulary
+  max_seq_length: 2048  # Production sequence length
+  min_hidden_size: 512
+  max_hidden_size: 4096  # Large models allowed
+  min_layers: 12
+  max_layers: 48  # Deep models allowed
+
+# Compliance Configuration
+compliance:
+  data_sovereignty_check: true  # Required for Belize
+  compliance_mode: true  # Full compliance
+  require_kyc: true  # KYC required in production
+  kyc_provider: belizean_fsc  # FSC verification
+  audit_logging: true  # Full audit trail
+  audit_retention_days: 2190  # 6 years (regulatory requirement)
+  data_encryption: true  # Encryption required
+  anonymization: true  # Anonymize all data
+
+# Storage Configuration
+storage:
+  checkpoint_dir: /var/lib/nawal/checkpoints
+  log_dir: /var/log/nawal
+  data_dir: /var/lib/nawal/data
+  save_best_only: false  # Keep history
+  max_checkpoints: 20  # Keep more checkpoints
+  compress_checkpoints: true  # Save space

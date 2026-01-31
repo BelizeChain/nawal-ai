@@ -1,0 +1,81 @@
+# Nawal Configuration - Development Environment
+# BelizeChain Federated AI with Genomic Evolution
+
+# System
+project_name: nawal
+version: 0.1.0
+environment: development
+
+# Validator Identity
+validator_id: validator-001
+validator_address: 5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty
+staking_account: belizechain:validator001
+
+# Evolution Configuration
+evolution:
+  population_size: 20  # Small population for development
+  num_generations: 50  # Fewer generations for quick testing
+  selection_pressure: 0.3  # Top 30% selected as parents
+  mutation_rate: 0.1  # 10% chance of mutation
+  mutation_strength: 0.2  # Small mutations
+  crossover_rate: 0.7  # 70% chance of crossover
+  elitism_count: 2  # Preserve top 2 genomes
+  diversity_threshold: 0.5  # Minimum diversity
+  checkpoint_frequency: 10  # Checkpoint every 10 generations
+
+# Federated Learning Configuration
+federated:
+  aggregation_strategy: fedavg  # Options: fedavg, fedprox, fedadam
+  min_participants: 2  # Minimum validators per round
+  max_participants: 10  # Maximum validators per round
+  num_rounds: 100  # Number of FL rounds
+  aggregation_threshold: 0.8  # 80% participation required
+  round_timeout: 3600.0  # 1 hour timeout
+  participant_timeout: 1800.0  # 30 minute timeout
+  min_samples: 50  # Minimum samples per participant
+  min_quality_score: 30.0  # Minimum quality score
+
+# Training Configuration
+training:
+  learning_rate: 0.0001  # 1e-4
+  batch_size: 16  # Small batch for development
+  local_epochs: 2  # Quick local training
+  max_grad_norm: 1.0  # Gradient clipping
+  warmup_steps: 50  # LR warmup
+  optimizer: adamw  # Options: adamw, adam, sgd
+  weight_decay: 0.01  # L2 regularization
+  scheduler: cosine  # Options: cosine, linear, none
+  device: auto  # Options: auto, cuda, cpu
+  mixed_precision: true  # FP16 training
+  gradient_accumulation_steps: 1  # No accumulation
+  privacy_epsilon: null  # Differential privacy (null = disabled)
+  gradient_clipping: true
+
+# Model Configuration
+model:
+  vocab_size: 50257  # GPT-2 vocabulary
+  max_seq_length: 512  # Short sequences for development
+  min_hidden_size: 256
+  max_hidden_size: 1024  # Smaller models for development
+  min_layers: 4
+  max_layers: 12
+
+# Compliance Configuration
+compliance:
+  data_sovereignty_check: true
+  compliance_mode: true
+  require_kyc: false  # Disabled for development
+  kyc_provider: belizean_fsc
+  audit_logging: true
+  audit_retention_days: 730  # 2 years
+  data_encryption: true
+  anonymization: true
+
+# Storage Configuration
+storage:
+  checkpoint_dir: ./checkpoints
+  log_dir: ./logs
+  data_dir: ./data
+  save_best_only: false
+  max_checkpoints: 5  # Keep last 5 checkpoints
+  compress_checkpoints: true

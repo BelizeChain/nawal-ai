@@ -1,0 +1,253 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nawal-ai"
+version = "1.0.0"
+description = "Sovereign AI with pure transformer architecture, hybrid teacher-student system, and federated learning for BelizeChain"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "BelizeChain Core Team", email = "dev@belizechain.org"}
+]
+maintainers = [
+    {name = "BelizeChain Core Team", email = "dev@belizechain.org"}
+]
+keywords = [
+    "artificial intelligence",
+    "federated learning",
+    "privacy-preserving ML",
+    "sovereign AI",
+    "evolutionary algorithms",
+    "knowledge distillation",
+    "transformer models",
+    "multilingual NLP",
+    "hybrid AI",
+    "teacher-student learning",
+    "genome evolution"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Distributed Computing",
+    "Topic :: Security :: Cryptography",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    # Core ML frameworks
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
+    "transformers>=4.45.0",
+    "datasets>=3.0.0",
+    "accelerate>=1.0.0",
+    "huggingface-hub>=0.25.0",
+    
+    # Federated learning
+    "flwr[simulation]>=1.11.0",
+    
+    # Blockchain integration
+    "substrate-interface>=1.7.9",
+    
+    # Security & privacy
+    "cryptography>=42.0.4,<43.0.0",
+    "pynacl>=1.5.0",
+    "opacus>=1.5.0",  # Differential privacy
+    
+    # Data processing & ML utilities
+    "numpy>=2.1.0",
+    "pandas>=2.2.0",
+    "scikit-learn>=1.5.0",
+    "scipy>=1.14.0",
+    
+    # Configuration & validation
+    "pyyaml>=6.0.2",
+    "python-dotenv>=1.0.1",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    
+    # Logging & observability
+    "structlog>=24.4.0",
+    "rich>=13.9.0",
+    
+    # Serialization
+    "msgpack>=1.1.0",
+    "orjson>=3.10.0",
+    
+    # Async networking
+    "aiohttp>=3.10.0",
+    "websockets>=13.1.0",
+    
+    # gRPC for federated communication
+    "grpcio>=1.67.0",
+    "protobuf>=4.21.6,<5.0.0",
+]
+
+[project.optional-dependencies]
+# Development tools
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "pytest-mock>=3.14.0",
+    "pytest-xdist>=3.6.0",
+    "ruff>=0.7.0",
+    "mypy>=1.13.0",
+    "pre-commit>=4.0.0",
+]
+
+# API server
+server = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.31.0",
+    "python-multipart>=0.0.9",
+]
+
+# Visualization & monitoring
+monitoring = [
+    "matplotlib>=3.9.0",
+    "seaborn>=0.13.0",
+    "plotly>=5.24.0",
+    "tensorboard>=2.17.0",
+    "wandb>=0.18.0",
+]
+
+# DeepSeek teacher model support
+deepseek = [
+    "vllm>=0.6.0",  # Fast inference for large models
+    "bitsandbytes>=0.44.0",  # Quantization
+    "sentencepiece>=0.2.0",  # Tokenization
+]
+
+# Advanced model compression
+compression = [
+    "bitsandbytes>=0.44.0",
+    "auto-gptq>=0.7.0",
+    "optimum>=1.23.0",
+]
+
+# All optional dependencies
+all = [
+    "nawal-ai[dev,server,monitoring,deepseek,compression]",
+]
+
+[project.urls]
+Homepage = "https://github.com/BelizeChain/nawal-ai"
+Documentation = "https://github.com/BelizeChain/nawal-ai#readme"
+Repository = "https://github.com/BelizeChain/nawal-ai"
+"Bug Tracker" = "https://github.com/BelizeChain/nawal-ai/issues"
+Changelog = "https://github.com/BelizeChain/nawal-ai/blob/main/CHANGELOG.md"
+
+[project.scripts]
+nawal = "nawal.orchestrator:main"
+nawal-server = "nawal.orchestrator:main"
+nawal-client = "nawal.client.trainer:main"
+nawal-hybrid = "nawal.hybrid.engine:main"  # Hybrid engine CLI
+
+[tool.setuptools]
+packages = ["nawal"]
+
+[tool.setuptools.package-data]
+nawal = ["py.typed", "config/*.yaml", "data/vocab/*.json"]
+
+# ============================================================================
+# Ruff Configuration
+# ============================================================================
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["nawal", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = ["E501", "B008", "B904"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["nawal"]
+
+# ============================================================================
+# MyPy Configuration
+# ============================================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "transformers.*",
+    "torch.*",
+    "flwr.*",
+    "substrate_interface.*",
+    "opacus.*",
+]
+ignore_missing_imports = true
+
+# ============================================================================
+# Pytest Configuration
+# ============================================================================
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=nawal",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "-v",
+]
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "blockchain: marks tests requiring blockchain connection",
+    "gpu: marks tests requiring GPU",
+]
+asyncio_mode = "auto"
+
+# ============================================================================
+# Coverage Configuration
+# ============================================================================
+[tool.coverage.run]
+source = ["nawal"]
+omit = [
+    "*/tests/*",
+    "*/examples/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]

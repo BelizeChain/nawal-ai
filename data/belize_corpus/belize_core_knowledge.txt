@@ -1,0 +1,171 @@
+# BELIZE CORE KNOWLEDGE - Training Corpus
+
+## GOVERNMENT & LEGAL
+
+Belize is a parliamentary constitutional monarchy and Commonwealth nation. The official language is English. The capital is Belmopan, while Belize City is the largest city. The country gained independence from the United Kingdom on September 21, 1981.
+
+The Financial Services Commission (FSC) regulates financial institutions in Belize. All banks, credit unions, and money service businesses must comply with FSC guidelines and Anti-Money Laundering (AML) regulations.
+
+BelizeID is the national digital identity system that integrates Social Security Numbers (SSN) and passport information. Citizens can use BelizeID for KYC verification when opening bank accounts or accessing government services.
+
+The Land Registry maintains official records of all property ownership in Belize. Land titles are recorded by district: Belize, Cayo, Corozal, Orange Walk, Stann Creek, and Toledo.
+
+## ECONOMY & CURRENCY
+
+The Belize Dollar (BZD) is pegged to the US Dollar at a 2:1 ratio. One US dollar equals two Belize dollars.
+
+BelizeChain introduces the DALLA token as the native cryptocurrency for the national blockchain. DALLA rewards validators through Proof of Useful Work (PoUW) consensus.
+
+The bBZD is a stablecoin pegged 1:1 to the Belize Dollar (BZD), governed by the central bank through the Economy pallet. The peg maintains monetary stability for domestic transactions and international trade.
+
+BelizeX is the national decentralized exchange (DEX) for trading digital assets including DALLA, bBZD, and tokenized real estate.
+
+Tourism is Belize's largest industry, contributing over 40% of GDP. The country is famous for the Belize Barrier Reef, the second-largest coral reef system in the world, and the Great Blue Hole.
+
+## LANGUAGES & CULTURE
+
+Belize is one of the most culturally diverse nations in Central America. The main ethnic groups are:
+- Mestizo (Spanish-Maya mix): 52% of population
+- Creole (Kriol): 25% of population
+- Maya: 11% of population (Q'eqchi', Mopan, Yucatec)
+- Garifuna: 6% of population
+- Mennonite: 4% of population
+- East Indian, Chinese, and others: 2%
+
+Languages spoken in Belize:
+- English (official): 62% of population
+- Spanish: 56% of population
+- Kriol (Belizean Creole): 44% of population
+- Maya languages (Q'eqchi', Mopan): 9% of population
+- Garifuna: 3% of population
+- German (Mennonite communities): 3% of population
+
+Kriol phrases:
+- "Weh di gat?" = What's up? / What do you have?
+- "Fi true?" = Really? / Is that true?
+- "Ah di yaad" = At home
+- "Unu" = You all
+- "Da how lang?" = How much? / How long?
+
+September Celebrations commemorate Belize's independence. The festivities include the Battle of St. George's Caye Day on September 10th and Independence Day on September 21st.
+
+## GEOGRAPHY
+
+Belize is located on the eastern coast of Central America, bordered by Mexico to the north, Guatemala to the west and south, and the Caribbean Sea to the east.
+
+The six districts of Belize are:
+1. Belize District - Includes Belize City (former capital)
+2. Cayo District - Includes Belmopan (capital), San Ignacio
+3. Corozal District - Northern border with Mexico
+4. Orange Walk District - Sugar cane region
+5. Stann Creek District - Includes Dangriga, Hopkins
+6. Toledo District - Southernmost district, Maya heartland
+
+Major landmarks:
+- Great Blue Hole: UNESCO World Heritage Site, famous diving location
+- Belize Barrier Reef: Second largest in the world
+- Cockscomb Basin Wildlife Sanctuary: World's first jaguar preserve
+- Caracol: Ancient Maya archaeological site
+- Actun Tunichil Muknal (ATM Cave): Sacred Maya cave
+
+## BLOCKCHAIN TECHNOLOGY
+
+BelizeChain is Belize's sovereign blockchain infrastructure built on Substrate and compatible with Polkadot. The blockchain features 13 custom pallets:
+
+1. Economy Pallet: Manages DALLA and bBZD tokens with multi-signature treasury
+2. Identity Pallet: BelizeID system with SSN and passport integration
+3. Governance Pallet: Democratic district council voting
+4. Compliance Pallet: KYC/AML enforcement and FSC oversight
+5. Staking Pallet: Proof of Useful Work (PoUW) consensus with AI training rewards
+6. Oracle Pallet: Price feeds and merchant verification
+7. Payroll Pallet: Government and private sector payroll management
+8. Interoperability Pallet: Cross-chain bridges to Ethereum and Polkadot
+9. BelizeX Pallet: Decentralized exchange and asset registry
+10. LandLedger Pallet: Digital property registry
+11. Consensus Pallet: PoUW coordination
+12. Quantum Pallet: Integration with Kinich quantum computing
+13. Community Pallet: Community governance and proposals
+
+Nawal is BelizeChain's sovereign AI system that uses federated learning. Validators earn DALLA rewards by training Nawal on local data without sharing sensitive information.
+
+Kinich is the quantum computing layer that provides quantum workload orchestration through Azure Quantum, Qiskit, and Cirq backends.
+
+Pakit is the decentralized storage system using IPFS and Arweave for document storage with quantum compression algorithms.
+
+## LEGAL FRAMEWORK
+
+Know Your Customer (KYC) requirements in Belize mandate that all financial institutions verify customer identity using BelizeID or government-issued identification. Business accounts require additional documentation including business registration certificates.
+
+Anti-Money Laundering (AML) regulations require reporting of suspicious transactions over $10,000 BZD to the Financial Intelligence Unit (FIU). Banks must maintain transaction records for at least seven years.
+
+Data sovereignty laws require that all government and citizen data be stored on infrastructure located within Belize or on Belizean-controlled blockchain systems.
+
+## TECHNOLOGY TERMS
+
+Substrate: Blockchain framework developed by Parity Technologies, used as the foundation for BelizeChain.
+
+WebAssembly (WASM): High-performance runtime used for BelizeChain's on-chain logic.
+
+Polkadot: Multi-chain network that BelizeChain can connect to via XCM (Cross-Consensus Messaging).
+
+IPFS: InterPlanetary File System, decentralized storage protocol used by Pakit.
+
+Arweave: Permanent data storage network integrated with Pakit for archival documents.
+
+Proof of Useful Work (PoUW): BelizeChain's consensus mechanism that rewards validators for federated learning contributions based on Quality (40%), Timeliness (30%), and Honesty (30%).
+
+## EDUCATION
+
+The University of Belize (UB) is the national university with campuses in Belmopan and Belize City. The university offers programs in agriculture, business, education, engineering, health sciences, and liberal arts.
+
+The Belize Education System uses British-based standards with primary school (ages 5-14), secondary school (ages 14-18), and tertiary education. The Caribbean Examinations Council (CXC) administers standardized exams.
+
+## BUSINESS & COMMERCE
+
+Starting a business in Belize requires:
+1. Register with the Companies Registry
+2. Obtain Trade License from local municipality
+3. Register for General Sales Tax (GST) if applicable
+4. Open business bank account with KYC documentation
+5. Register with Social Security Board for employee contributions
+
+The General Sales Tax (GST) in Belize is 12.5% on most goods and services.
+
+Import duties vary by product category, ranging from 0% to 65%. CARICOM member states receive preferential rates.
+
+## NATURAL RESOURCES
+
+Belize's main exports include:
+- Sugar (largest agricultural export)
+- Bananas
+- Citrus fruits (oranges, grapefruit)
+- Marine products (lobster, conch, fish)
+- Crude petroleum
+- Papayas
+
+The Mennonite community contributes significantly to agriculture, particularly poultry, dairy, and grain production.
+
+Sustainable forestry produces mahogany, cedar, and rosewood for export while protecting rainforest ecosystems.
+
+## HEALTHCARE
+
+The Belize Healthcare System includes:
+- Karl Heusner Memorial Hospital (KHMH) in Belize City - national referral hospital
+- Western Regional Hospital in Belmopan
+- Northern Regional Hospital in Orange Walk
+- Southern Regional Hospital in Dangriga
+- District hospitals and rural health posts throughout the country
+
+The National Health Insurance (NHI) program provides affordable healthcare coverage to Belizean citizens.
+
+## BELIZEAN INNOVATIONS
+
+BelizeChain represents Belize's commitment to digital sovereignty and technological independence. By developing a national blockchain, Belize ensures:
+- Financial inclusion for all citizens
+- Transparent government operations
+- Secure digital identity
+- Privacy-preserving AI development
+- Democratic governance through on-chain voting
+- Economic opportunities through DALLA token rewards
+
+The combination of blockchain (BelizeChain), AI (Nawal), quantum computing (Kinich), and decentralized storage (Pakit) positions Belize as a leader in sovereign digital infrastructure.

@@ -1,0 +1,4 @@
+# Nawal component dependencies (federated learning)
+# Keep aligned with root requirements; duplicated here for component installs.
+pandas>=2.2.0
+pycryptodome>=3.20.0
