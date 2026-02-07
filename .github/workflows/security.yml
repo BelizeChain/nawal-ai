@@ -34,11 +34,12 @@ jobs:
       
       - name: Run Bandit scan
         run: |
-          bandit -r nawal/ \
+          bandit -r . \
             -f json \
             -o bandit-report.json \
             -ll \
-            --exit-zero
+            --exit-zero \
+            --exclude ./tests
       
       - name: Upload Bandit results
         uses: actions/upload-artifact@v4

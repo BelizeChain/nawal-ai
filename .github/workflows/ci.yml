@@ -59,16 +59,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          pip install -e ".[dev]"
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist ruff mypy
       
       - name: Run linting (Ruff)
         run: |
-          ruff check nawal/ --output-format=github
+          ruff check . --output-format=github
       
       - name: Run type checking (MyPy)
         continue-on-error: true
         run: |
-          mypy nawal/ --show-error-codes
+          mypy . --show-error-codes --ignore-missing-imports --exclude tests
       
       - name: Run tests with coverage
         env:
@@ -79,7 +80,7 @@ jobs:
           PAKIT_ENABLED: "false"
         run: |
           pytest tests/ \
-            --cov=nawal \
+            --cov \
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-report=html \
@@ -122,8 +123,8 @@ jobs:
       
       - name: Run Bandit security scan
         run: |
-          bandit -r nawal/ -f json -o bandit-report.json || true
-          bandit -r nawal/ -f txt
+          bandit -r . -f json -o bandit-report.json --exclude ./tests || true
+          bandit -r . -f txt --exclude ./tests
       
       - name: Run Safety dependency check
         run: |
@@ -159,12 +160,12 @@ jobs:
       
       - name: Check code formatting (Black)
         run: |
-          black --check --diff nawal/
+          black --check --diff --exclude "(tests|docs|examples)" .
       
       - name: Check import sorting (isort)
         run: |
-          isort --check-only --diff nawal/
+          isort --check-only --diff --skip tests .
       
       - name: Run Ruff linter
         run: |
-          ruff check nawal/ --statistics
+          ruff check . --statistics

@@ -153,11 +153,8 @@ nawal-server = "nawal.orchestrator:main"
 nawal-client = "nawal.client.trainer:main"
 nawal-hybrid = "nawal.hybrid.engine:main"  # Hybrid engine CLI
 
-[tool.setuptools]
-packages = ["nawal"]
-
-[tool.setuptools.package-data]
-nawal = ["py.typed", "config/*.yaml", "data/vocab/*.json"]
+[tool.setuptools.packages.find]
+exclude = ["tests*", "docs*", "examples*"]
 
 # ============================================================================
 # Ruff Configuration
@@ -165,7 +162,7 @@ nawal = ["py.typed", "config/*.yaml", "data/vocab/*.json"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["nawal", "tests"]
+src = [".", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
@@ -175,7 +172,7 @@ ignore = ["E501", "B008", "B904"]
 "__init__.py" = ["F401", "F403"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["nawal"]
+known-first-party = ["core", "api", "blockchain", "client", "hybrid", "models"]
 
 # ============================================================================
 # MyPy Configuration
@@ -234,13 +231,13 @@ asyncio_mode = "auto"
 # Coverage Configuration
 # ============================================================================
 [tool.coverage.run]
-source = ["nawal"]
+source = ["."]
 omit = [
     "*/tests/*",
     "*/examples/*",
     "*/__pycache__/*",
+    "setup.py",
 ]
-
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
