@@ -109,6 +109,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+        continue-on-error: true
       - name: Build Docker image
         run: |
           docker build -t nawal-ai:scan .
@@ -160,7 +161,7 @@ jobs:
       
       - name: Run OSV Scanner
         continue-on-error: true
-        uses: google/osv-scanner-action/osv-scanner-action@v2
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.2
         with:
           scan-args: |-
             --recursive
