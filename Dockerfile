@@ -11,12 +11,13 @@ RUN apt-get update && \
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt requirements-ml.txt* ./
+# Install PyTorch CPU first to avoid resolution conflicts
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt && \
-    if [ -f requirements-ml.txt ]; then pip install --no-cache-dir -r requirements-ml.txt; fi
+# Copy and install remaining requirements
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt || \
+    pip install --no-cache-dir --no-deps -r requirements.txt
 
 # Copy all application code
 COPY . .

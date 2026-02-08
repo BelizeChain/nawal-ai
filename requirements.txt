@@ -1,60 +1,63 @@
-# Nawal AI - Python Requirements
-# Generated from pyproject.toml for Docker/CI compatibility
+# Nawal AI - Core Requirements
+# NOTE: Heavy ML deps (torch, etc.) are installed separately
+# to avoid pip resolution-too-deep errors
 
-# Core ML frameworks
-torch>=2.5.0
-torchvision>=0.20.0
-transformers>=4.45.0
-datasets>=3.0.0
-accelerate>=1.0.0
-huggingface-hub>=0.25.0
+# Core ML (CPU-only via PyTorch index in CI/Docker)
+torch>=2.0.0
+torchvision>=0.15.0
+
+# NLP
+transformers>=4.30.0
+datasets>=2.14.0
+accelerate>=0.21.0
+huggingface-hub>=0.16.0
 
 # Federated learning
-flwr[simulation]>=1.11.0
+flwr>=1.5.0
 
 # Blockchain integration
-substrate-interface>=1.7.9
+substrate-interface>=1.7.0
 
 # Security & privacy
-cryptography>=42.0.4,<43.0.0
+cryptography>=42.0.0
 pynacl>=1.5.0
-pycryptodome>=3.20.0
+pycryptodome>=3.19.0
 
-# Data processing & ML utilities
-numpy>=2.1.0
-pandas>=2.2.0
-scikit-learn>=1.5.0
-scipy>=1.14.0
+# Data processing
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
 
 # Configuration & validation
-pyyaml>=6.0.2
-python-dotenv>=1.0.1
-pydantic>=2.9.0
-pydantic-settings>=2.5.0
+pyyaml>=6.0
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
 
-# Logging & observability
-structlog>=24.4.0
-rich>=13.9.0
+# Logging
+structlog>=23.1.0
+rich>=13.0.0
 loguru>=0.7.0
 
 # Serialization
-msgpack>=1.1.0
-orjson>=3.10.0
+msgpack>=1.0.0
+orjson>=3.9.0
 
-# Async networking
-aiohttp>=3.10.0
-websockets>=13.1.0
+# Networking
+aiohttp>=3.8.0
+websockets>=11.0
 
-# gRPC for federated communication
-grpcio>=1.67.0
-protobuf>=4.21.6,<5.0.0
+# gRPC
+grpcio>=1.56.0
+protobuf>=4.21.0,<5.0.0
 
-# API server
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-python-multipart>=0.0.9
+# API
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
 
 # Monitoring
-prometheus-client>=0.21.0
+prometheus-client>=0.17.0
 psutil>=5.9.0
 Pillow>=10.0.0
