@@ -70,9 +70,10 @@ jobs:
       
       - name: Generate SBOM
         if: github.event_name != 'pull_request'
+        continue-on-error: true
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          image: ghcr.io/belizechain/nawal-ai:latest
           format: spdx-json
           output-file: sbom.spdx.json
       
