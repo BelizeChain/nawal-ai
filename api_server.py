@@ -640,8 +640,10 @@ def main():
     )
     
     # Get configuration from environment
-    host = os.getenv("NAWAL_HOST", "127.0.0.1")  # Localhost by default for security
-    port = int(os.getenv("NAWAL_PORT", "8080"))
+    # Priority: NAWAL_API_HOST → NAWAL_HOST → HOST → default
+    # Use 0.0.0.0 for Docker/cloud deployments, 127.0.0.1 for local dev
+    host = os.getenv("NAWAL_API_HOST", os.getenv("NAWAL_HOST", os.getenv("HOST", "0.0.0.0")))
+    port = int(os.getenv("NAWAL_PORT", os.getenv("PORT", "8080")))
     reload = os.getenv("RELOAD", "false").lower() == "true"
     workers = int(os.getenv("WORKERS", "1"))
     
