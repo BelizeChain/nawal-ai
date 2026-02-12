@@ -65,4 +65,4 @@ repos:
     hooks:
       - id: pydocstyle
         args: [--convention=google]
-        exclude: ^(tests/|setup.py)
+        exclude: ^tests/

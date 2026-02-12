@@ -101,8 +101,6 @@ azure-pipelines.yml
 # Development tools
 .pre-commit-config.yaml
 .editorconfig
-.coveragerc
-pytest.ini
 mypy.ini
 .bandit
 .ruff.toml
