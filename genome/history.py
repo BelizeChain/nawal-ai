@@ -163,7 +163,7 @@ class EvolutionHistory:
     - Track genome lineages
     - Analyze fitness progression
     - Export history for visualization
-    - Persist to storage (IPFS, Arweave, local)
+    - Persist to storage (Pakit DAG, local)
     """
     
     def __init__(self, experiment_name: str = "nawal-evolution"):

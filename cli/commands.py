@@ -297,7 +297,7 @@ def genome():
 @click.option("--generation", type=int, required=True, help="Generation number")
 @click.option("--keypair-uri", default="//Alice", help="Keypair URI")
 @click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
-@click.option("--storage", default="local", type=click.Choice(["local", "ipfs", "arweave"]))
+@click.option("--storage", default="local", type=click.Choice(["local", "pakit"]))
 def genome_store(genome_file: str, fitness: float, generation: int, keypair_uri: str, chain: str, storage: str):
     """Store genome on-chain."""
     logger.info(f"Storing genome: generation={generation}, fitness={fitness}")

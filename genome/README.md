@@ -14,7 +14,7 @@ Genome = {
     hyperparameters: {learning_rate, batch_size, optimizer, precision},
     fitness: {quality: 40%, timeliness: 30%, honesty: 30%},
     lineage: [parent_ids, generation, descendants],
-    storage: [ipfs_hash, arweave_tx, blockchain_anchor]
+    storage: [pakit_dag_hash, blockchain_anchor]
 }
 ```
 
@@ -316,8 +316,7 @@ PopulationStatistics = {
 Every genome can be anchored on the blockchain:
 
 ```python
-genome.ipfs_hash = "QmX..."           # IPFS content hash
-genome.arweave_tx = "tx_ABC..."       # Arweave transaction ID
+genome.pakit_hash = "abc123..."        # Pakit DAG content hash
 genome.blockchain_anchor = "0x123..."  # Substrate extrinsic hash
 ```
 

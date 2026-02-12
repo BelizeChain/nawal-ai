@@ -18,7 +18,7 @@
 ### 🧬 **Genome Evolution System**
 - DNA-based architecture encoding: **5KB vs 500MB** model weights
 - Genetic algorithms optimize layer count, hidden size, attention heads
-- Stores evolved architectures in **Pakit** (IPFS/Arweave) for decentralized access
+- Stores evolved architectures in **Pakit DAG storage** for decentralized access
 - Converts genome DNA → NawalConfig → NawalTransformer via `GenomeToNawalAdapter`
 
 ### 🎓 **Hybrid Teacher-Student Learning**
@@ -44,7 +44,7 @@
 - Culturally-aware responses for Belizean contexts
 
 ### 📦 **Pakit Storage Integration**
-- Decentralized model hosting via **IPFS** (primary) and **Arweave** (permanent)
+- Decentralized model hosting via **DAG-based content-addressable storage**
 - Quantum compression reduces model sizes by **60-80%**
 - Content-addressable deduplication for efficient storage
 - Off-chain storage with on-chain proofs in `LandLedger` pallet
@@ -91,7 +91,8 @@ helm install nawal belizechain/nawal \
   --namespace belizechain \
   --set blockchain.wsUrl=ws://blockchain:9944 \
   --set kinich.apiUrl=http://kinich:8888 \
-  --set pakit.apiUrl=http://pakit:8080
+  --set pakit.apiUrl=http://pakit:8080 \
+  --set pakit.dagGatewayUrl=http://pakit:8081
 ```
 
 ### Integration Workflows

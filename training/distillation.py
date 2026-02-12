@@ -173,7 +173,7 @@ class KnowledgeDistillationTrainer:
         teacher (DeepSeekTeacher): Frozen teacher model providing soft targets.
         loss_fn (KnowledgeDistillationLoss): Combined KL + CE loss.
         optimizer (torch.optim.Optimizer): Student model optimizer.
-        pakit_client (Optional[PakitClient]): For uploading checkpoints to IPFS/Arweave.
+        pakit_client (Optional[PakitClient]): For uploading checkpoints to Pakit DAG storage.
     
     Examples:
         Train on local dataset::
@@ -205,9 +205,9 @@ class KnowledgeDistillationTrainer:
         
             trainer.save_student("/path/to/nawal-distilled")
             
-            # Upload to Pakit
-            cid = trainer.upload_to_pakit(metadata={"version": "1.0-distilled"})
-            print(f"Model on IPFS: {cid}")
+            # Upload to Pakit DAG
+            content_hash = trainer.upload_to_pakit(metadata={"version": "1.0-distilled"})
+            print(f"Model on Pakit: {content_hash}")
     """
     
     def __init__(
@@ -235,7 +235,7 @@ class KnowledgeDistillationTrainer:
             learning_rate: AdamW learning rate. Typical: 1e-5 to 5e-5.
             device: Training device ("cuda", "cpu", "mps").
             use_wandb: Enable Weights & Biases logging.
-            pakit_gateway: IPFS gateway URL for checkpoint uploads (e.g., "http://localhost:5001").
+            pakit_gateway: Pakit DAG gateway URL for checkpoint uploads (e.g., "http://localhost:8081").
         
         Raises:
             ValueError: If both student_config and student_model are None.
@@ -279,7 +279,7 @@ class KnowledgeDistillationTrainer:
         # Pakit integration
         self.pakit_client = None
         if pakit_gateway:
-            self.pakit_client = PakitClient(ipfs_gateway=pakit_gateway)
+            self.pakit_client = PakitClient(dag_gateway_url=pakit_gateway)
         
         # Training state
         self.global_step = 0
@@ -653,13 +653,13 @@ class KnowledgeDistillationTrainer:
         logger.info(f"Student model saved to {path}")
     
     def upload_to_pakit(self, metadata: Optional[Dict[str, Any]] = None) -> str:
-        """Upload distilled model to Pakit (IPFS/Arweave).
+        """Upload distilled model to Pakit DAG storage.
         
         Args:
             metadata: Model metadata (version, description, metrics).
         
         Returns:
-            str: IPFS content identifier (CID).
+            str: DAG content hash.
         
         Raises:
             RuntimeError: If pakit_client not initialized (need pakit_gateway in __init__).
@@ -673,8 +673,8 @@ class KnowledgeDistillationTrainer:
             model_path = Path(tmpdir) / "model"
             self.save_student(model_path)
             
-            # Upload to IPFS
-            cid = self.pakit_client.upload_directory(
+            # Upload to Pakit DAG
+            content_hash = self.pakit_client.upload_directory(
                 directory=str(model_path),
                 metadata=metadata or {}
             )
