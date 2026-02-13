@@ -4,8 +4,29 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Substrate](https://img.shields.io/badge/Substrate-Polkadot%20SDK%202512-E6007A)](https://substrate.io/)
 [![PyTorch 2.5+](https://img.shields.io/badge/PyTorch-2.5+-EE4C2C.svg)](https://pytorch.org/)
+[![Version](https://img.shields.io/badge/version-1.1.0-green.svg)](https://github.com/BelizeChain/nawal-ai/releases)
 
 > **Nawal** (Mayan: "Wisdom") is a 100% sovereign AI platform combining pure transformer architecture, hybrid teacher-student learning, federated training, and evolutionary genome optimization for BelizeChain's national infrastructure.
+
+## 🎉 What's New in v1.1.0
+
+### 🌐 Mesh Networking
+- **Decentralized P2P communication** for validators
+- Automatic peer discovery via blockchain validator registry
+- **Ed25519 cryptographic signing** for all messages
+- Gossip protocol for message propagation
+- Byzantine-resistant consensus
+
+📖 **[Read the Mesh Networking Guide](docs/guides/mesh-networking.md)**
+
+### 💰 ZK-Proof Payroll System
+- **Privacy-preserving payroll** for government entities
+- Zero-knowledge proofs hide individual salaries
+- Merkle tree commitments for verification
+- Automated **Belize tax calculations** (0%, 25%, 40% brackets)
+- Validators earn PoUW rewards for verification
+
+📖 **[Read the Payroll Integration Guide](docs/guides/payroll-integration.md)**
 
 ## 🌟 Key Features
 
@@ -48,7 +69,19 @@
 - Quantum compression reduces model sizes by **60-80%**
 - Content-addressable deduplication for efficient storage
 - Off-chain storage with on-chain proofs in `LandLedger` pallet
+### 🌐 **Mesh Networking** (v1.1.0+)
+- **Decentralized P2P communication** between validators
+- Automatic peer discovery via blockchain validator registry
+- **Ed25519 cryptographic signing** for message integrity
+- Gossip protocol for efficient message propagation
+- Byzantine-resistant consensus mechanisms
 
+### 💰 **ZK-Proof Payroll System** (v1.1.0+)
+- **Privacy-preserving payroll** submissions for government entities
+- Zero-knowledge proofs hide individual salaries while proving correctness
+- **Merkle tree commitments** for efficient verification
+- Automated **Belize tax calculations** (0%, 25%, 40% brackets)
+- Validators earn **PoUW rewards** for payroll verification
 ## � Integration Architecture
 
 Nawal AI is part of the **BelizeChain ecosystem** with multi-repository architecture:
@@ -473,7 +506,20 @@ We welcome contributions from the Belizean developer community!
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
-## 📄 License
+## � Documentation
+
+Comprehensive documentation is available in the [docs/](docs/) directory:
+
+- **[Documentation Index](docs/README.md)** - Complete documentation overview
+- **[Quick Reference](docs/reference/quick-reference.md)** - Fast command lookup
+- **[Mesh Networking Guide](docs/guides/mesh-networking.md)** - P2P validator communication
+- **[Payroll Integration Guide](docs/guides/payroll-integration.md)** - ZK-proof payroll system
+- **[Deployment Guide](docs/guides/deployment.md)** - Production deployment
+- **[Architecture Overview](docs/architecture/overview.md)** - System design
+- **[API Reference](docs/reference/api-reference.md)** - Complete API docs
+- **[Configuration Reference](docs/reference/configuration.md)** - All configuration options
+
+## �📄 License
 
 This project is licensed under the **MIT License** - see [LICENSE](LICENSE) file for details.
 

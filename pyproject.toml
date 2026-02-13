@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nawal-ai"
-version = "1.0.0"
-description = "Sovereign AI with pure transformer architecture, hybrid teacher-student system, and federated learning for BelizeChain"
+version = "1.1.0"
+description = "Sovereign AI with pure transformer architecture, hybrid teacher-student system, federated learning, mesh networking, and ZK-proof payroll for BelizeChain"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}

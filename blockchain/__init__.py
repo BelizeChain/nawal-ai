@@ -9,12 +9,16 @@ Key Features:
 - Staking pallet integration (submit fitness scores)
 - Genome registry (on-chain storage with IPFS)
 - Validator identity management
+- Mesh networking for P2P communication
+- ZK-proof payroll integration
 
 Components:
 - SubstrateClient: Core blockchain connection
 - StakingInterface: PoUW fitness score submission
 - GenomeRegistry: On-chain genome storage
 - ValidatorManager: Identity and KYC verification
+- MeshNetworkClient: P2P mesh networking for validators
+- PayrollConnector: Zero-knowledge payroll system
 
 Author: BelizeChain Team
 License: MIT
@@ -41,6 +45,21 @@ from .validator_manager import (
     ValidatorIdentity,
     KYCStatus,
 )
+from .mesh_network import (
+    MeshNetworkClient,
+    MeshMessage,
+    MessageType,
+    PeerInfo,
+    FLRoundAnnouncement,
+)
+from .payroll_connector import (
+    PayrollConnector,
+    PayrollEntry,
+    PayrollSubmission,
+    PayrollStatus,
+    EmployeeType,
+    EmployeePaystub,
+)
 
 __all__ = [
     # Substrate Client
@@ -60,6 +79,19 @@ __all__ = [
     "ValidatorManager",
     "ValidatorIdentity",
     "KYCStatus",
+    # Mesh Network
+    "MeshNetworkClient",
+    "MeshMessage",
+    "MessageType",
+    "PeerInfo",
+    "FLRoundAnnouncement",
+    # Payroll
+    "PayrollConnector",
+    "PayrollEntry",
+    "PayrollSubmission",
+    "PayrollStatus",
+    "EmployeeType",
+    "EmployeePaystub",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"  # Updated for mesh network and payroll integration
