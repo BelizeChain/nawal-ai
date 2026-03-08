@@ -51,7 +51,7 @@ class NetworkType(Enum):
 class ChainConfig:
     """
     Configuration for BelizeChain connection.
-    
+
     Attributes:
         network: Network type (local/testnet/mainnet)
         rpc_url: WebSocket RPC endpoint
@@ -62,7 +62,7 @@ class ChainConfig:
     rpc_url: str = "ws://127.0.0.1:9944"
     type_registry: Optional[Dict] = None
     ss58_format: int = 42
-    
+
     @classmethod
     def local(cls) -> "ChainConfig":
         """Create config for local development."""
@@ -70,7 +70,7 @@ class ChainConfig:
             network=NetworkType.LOCAL,
             rpc_url="ws://127.0.0.1:9944",
         )
-    
+
     @classmethod
     def testnet(cls) -> "ChainConfig":
         """Create config for testnet."""
@@ -78,7 +78,7 @@ class ChainConfig:
             network=NetworkType.TESTNET,
             rpc_url="wss://testnet-rpc.belizechain.io",
         )
-    
+
     @classmethod
     def mainnet(cls) -> "ChainConfig":
         """Create config for mainnet."""
@@ -92,7 +92,7 @@ class ChainConfig:
 class ExtrinsicReceipt:
     """
     Receipt from submitted extrinsic.
-    
+
     Attributes:
         extrinsic_hash: Hash of the extrinsic
         block_hash: Hash of block containing extrinsic
@@ -108,28 +108,44 @@ class ExtrinsicReceipt:
     events: List[Dict] = field(default_factory=list)
     error: Optional[str] = None
 
+    # Compatibility properties matching substrate-interface library naming
+    @property
+    def is_success(self) -> bool:
+        """Alias for `success` — matches substrate-interface receipt API."""
+        return self.success
+
+    @property
+    def error_message(self) -> Optional[str]:
+        """Alias for `error` — matches substrate-interface receipt API."""
+        return self.error
+
+    @property
+    def triggered_events(self) -> List[Dict]:
+        """Alias for `events` — matches substrate-interface receipt API."""
+        return self.events
+
 
 class SubstrateClient:
     """
     Client for interacting with BelizeChain.
-    
+
     Provides high-level interface for:
     - Chain state queries
     - Extrinsic submission
     - Event monitoring
     - Block tracking
-    
+
     Usage:
         # Connect to local node
         client = SubstrateClient(ChainConfig.local())
-        
+
         # Query storage
         value = client.query_storage(
             module="System",
             storage_function="Account",
             params=["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"],
         )
-        
+
         # Submit extrinsic
         keypair = Keypair.create_from_uri("//Alice")
         receipt = client.submit_extrinsic(
@@ -139,11 +155,11 @@ class SubstrateClient:
             call_params={"score": 95},
         )
     """
-    
+
     def __init__(self, config: ChainConfig):
         """
         Initialize Substrate client.
-        
+
         Args:
             config: Chain configuration
         """
@@ -152,48 +168,64 @@ class SubstrateClient:
                 "substrate-interface required. "
                 "Install: pip install substrate-interface"
             )
-        
+
         self.config = config
         self.substrate: Optional[SubstrateInterface] = None
         self._connected = False
-        
+
         logger.info(f"SubstrateClient initialized: {config.network.value}")
-    
-    def connect(self) -> None:
-        """Connect to BelizeChain RPC."""
-        try:
-            self.substrate = SubstrateInterface(
-                url=self.config.rpc_url,
-                ss58_format=self.config.ss58_format,
-                type_registry=self.config.type_registry or {},
-            )
-            
-            # Test connection
-            chain = self.substrate.chain
-            runtime_version = self.substrate.runtime_version
-            
-            self._connected = True
-            logger.success(
-                f"Connected to {chain} "
-                f"(runtime: {runtime_version})"
-            )
-            
-        except Exception as e:
-            self._connected = False
-            logger.error(f"Failed to connect to BelizeChain: {e}")
-            raise
-    
+
+    def connect(self, max_retries: int = 3, base_delay: float = 1.0) -> None:
+        """Connect to BelizeChain RPC with exponential backoff.
+
+        Args:
+            max_retries: Maximum connection attempts (default: 3)
+            base_delay: Base delay in seconds for backoff (default: 1.0)
+        """
+        for attempt in range(max_retries):
+            try:
+                self.substrate = SubstrateInterface(
+                    url=self.config.rpc_url,
+                    ss58_format=self.config.ss58_format,
+                    type_registry=self.config.type_registry or {},
+                )
+
+                # Test connection
+                chain = self.substrate.chain
+                runtime_version = self.substrate.runtime_version
+
+                self._connected = True
+                logger.success(
+                    f"Connected to {chain} "
+                    f"(runtime: {runtime_version})"
+                )
+                return
+
+            except Exception as e:
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    f"Connection attempt {attempt + 1}/{max_retries} failed: {e}."
+                    + (f" Retrying in {delay}s" if attempt < max_retries - 1 else "")
+                )
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+
+        self._connected = False
+        raise ConnectionError(
+            f"Failed to connect to {self.config.rpc_url} after {max_retries} attempts"
+        )
+
     def disconnect(self) -> None:
         """Disconnect from BelizeChain RPC."""
         if self.substrate:
             self.substrate.close()
             self._connected = False
             logger.info("Disconnected from BelizeChain")
-    
+
     def is_connected(self) -> bool:
         """Check if connected to chain."""
         return self._connected and self.substrate is not None
-    
+
     def query_storage(
         self,
         module: str,
@@ -203,19 +235,19 @@ class SubstrateClient:
     ) -> Any:
         """
         Query chain storage.
-        
+
         Args:
             module: Pallet name (e.g., "System", "Staking")
             storage_function: Storage item name
             params: Optional storage key parameters
             block_hash: Optional block hash (None = latest)
-        
+
         Returns:
             Storage value
         """
         if not self.is_connected():
             self.connect()
-        
+
         try:
             result = self.substrate.query(
                 module=module,
@@ -223,18 +255,18 @@ class SubstrateClient:
                 params=params or [],
                 block_hash=block_hash,
             )
-            
+
             logger.debug(
                 f"Queried {module}.{storage_function}: "
                 f"{str(result)[:100]}"
             )
-            
+
             return result.value if hasattr(result, 'value') else result
-            
+
         except SubstrateRequestException as e:
             logger.error(f"Storage query failed: {e}")
             raise
-    
+
     def query_map(
         self,
         module: str,
@@ -243,34 +275,34 @@ class SubstrateClient:
     ) -> List[tuple]:
         """
         Query all entries in a storage map.
-        
+
         Args:
             module: Pallet name
             storage_function: Storage map name
             block_hash: Optional block hash
-        
+
         Returns:
             List of (key, value) tuples
         """
         if not self.is_connected():
             self.connect()
-        
+
         try:
             result = self.substrate.query_map(
                 module=module,
                 storage_function=storage_function,
                 block_hash=block_hash,
             )
-            
+
             entries = [(k.value, v.value) for k, v in result]
             logger.debug(f"Queried {module}.{storage_function}: {len(entries)} entries")
-            
+
             return entries
-            
+
         except SubstrateRequestException as e:
             logger.error(f"Storage map query failed: {e}")
             raise
-    
+
     def submit_extrinsic(
         self,
         keypair: "Keypair",
@@ -282,7 +314,7 @@ class SubstrateClient:
     ) -> ExtrinsicReceipt:
         """
         Submit signed extrinsic to chain.
-        
+
         Args:
             keypair: Signing keypair
             call_module: Pallet name
@@ -290,13 +322,13 @@ class SubstrateClient:
             call_params: Extrinsic parameters
             wait_for_inclusion: Wait for block inclusion
             wait_for_finalization: Wait for block finalization
-        
+
         Returns:
             Extrinsic receipt
         """
         if not self.is_connected():
             self.connect()
-        
+
         try:
             # Create call
             call = self.substrate.compose_call(
@@ -304,59 +336,59 @@ class SubstrateClient:
                 call_function=call_function,
                 call_params=call_params,
             )
-            
+
             # Create signed extrinsic
             extrinsic = self.substrate.create_signed_extrinsic(
                 call=call,
                 keypair=keypair,
             )
-            
+
             # Submit extrinsic
             receipt = ExtrinsicReceipt(
                 extrinsic_hash=extrinsic.extrinsic_hash,
             )
-            
+
             logger.info(
                 f"Submitting extrinsic: {call_module}.{call_function} "
                 f"from {keypair.ss58_address}"
             )
-            
+
             result = self.substrate.submit_extrinsic(
                 extrinsic,
                 wait_for_inclusion=wait_for_inclusion,
                 wait_for_finalization=wait_for_finalization,
             )
-            
+
             # Update receipt
             if wait_for_inclusion or wait_for_finalization:
                 receipt.block_hash = result.block_hash
                 receipt.success = result.is_success
                 receipt.error = result.error_message
-                
+
                 # Get block number
                 block = self.substrate.get_block(block_hash=result.block_hash)
                 receipt.block_number = block['header']['number']
-                
+
                 # Get events
                 receipt.events = self._get_extrinsic_events(result)
-                
+
                 if receipt.success:
                     logger.success(
                         f"Extrinsic included in block #{receipt.block_number}"
                     )
                 else:
                     logger.error(f"Extrinsic failed: {receipt.error}")
-            
+
             return receipt
-            
+
         except SubstrateRequestException as e:
             logger.error(f"Extrinsic submission failed: {e}")
             raise
-    
+
     def _get_extrinsic_events(self, result) -> List[Dict]:
         """Extract events from extrinsic result."""
         events = []
-        
+
         if hasattr(result, 'triggered_events'):
             for event in result.triggered_events:
                 events.append({
@@ -364,52 +396,52 @@ class SubstrateClient:
                     'event': event.value['event_id'],
                     'attributes': event.value.get('attributes', {}),
                 })
-        
+
         return events
-    
+
     def get_block(self, block_hash: Optional[str] = None) -> Dict:
         """
         Get block information.
-        
+
         Args:
             block_hash: Block hash (None = latest)
-        
+
         Returns:
             Block data
         """
         if not self.is_connected():
             self.connect()
-        
+
         return self.substrate.get_block(block_hash=block_hash)
-    
+
     def get_block_number(self, block_hash: Optional[str] = None) -> int:
         """
         Get block number.
-        
+
         Args:
             block_hash: Block hash (None = latest)
-        
+
         Returns:
             Block number
         """
         block = self.get_block(block_hash=block_hash)
         return block['header']['number']
-    
+
     def get_events(self, block_hash: Optional[str] = None) -> List[Dict]:
         """
         Get events from block.
-        
+
         Args:
             block_hash: Block hash (None = latest)
-        
+
         Returns:
             List of events
         """
         if not self.is_connected():
             self.connect()
-        
+
         events = self.substrate.get_events(block_hash=block_hash)
-        
+
         return [
             {
                 'module': event.value['module_id'],
@@ -419,7 +451,7 @@ class SubstrateClient:
             }
             for event in events
         ]
-    
+
     def subscribe_events(
         self,
         callback: Callable[[Dict], None],
@@ -428,7 +460,10 @@ class SubstrateClient:
     ) -> None:
         """
         Subscribe to chain events.
-        
+
+        Note: This method blocks the current thread via substrate_block_headers.
+        For async usage, run in a background thread or use asyncio.to_thread().
+
         Args:
             callback: Function to call for each event
             module_filter: Optional module name filter
@@ -436,30 +471,30 @@ class SubstrateClient:
         """
         if not self.is_connected():
             self.connect()
-        
+
         logger.info(
             f"Subscribing to events: "
             f"module={module_filter}, event={event_filter}"
         )
-        
+
         def event_handler(obj, update_nr, subscription_id):
             """Handle incoming events."""
             block_hash = obj['header']['parentHash']
             events = self.get_events(block_hash=block_hash)
-            
+
             for event in events:
                 # Apply filters
                 if module_filter and event['module'] != module_filter:
                     continue
                 if event_filter and event['event'] != event_filter:
                     continue
-                
+
                 # Call user callback
                 callback(event)
-        
+
         # Subscribe to new block headers
         self.substrate.subscribe_block_headers(event_handler)
-    
+
     def get_runtime_constant(
         self,
         module: str,
@@ -467,38 +502,38 @@ class SubstrateClient:
     ) -> Any:
         """
         Get runtime constant value.
-        
+
         Args:
             module: Pallet name
             constant_name: Constant name
-        
+
         Returns:
             Constant value
         """
         if not self.is_connected():
             self.connect()
-        
+
         result = self.substrate.get_constant(
             module_name=module,
             constant_name=constant_name,
         )
-        
+
         return result.value if hasattr(result, 'value') else result
-    
+
     def get_metadata(self) -> Dict:
         """Get runtime metadata."""
         if not self.is_connected():
             self.connect()
-        
+
         return self.substrate.get_metadata()
-    
+
     def get_account_info(self, address: str) -> Dict:
         """
         Get account information.
-        
+
         Args:
             address: Account address (SS58 format)
-        
+
         Returns:
             Account data (nonce, balance, etc.)
         """
@@ -507,20 +542,20 @@ class SubstrateClient:
             storage_function="Account",
             params=[address],
         )
-    
+
     def get_balance(self, address: str) -> int:
         """
         Get account free balance.
-        
+
         Args:
             address: Account address
-        
+
         Returns:
             Free balance in plancks
         """
         account_info = self.get_account_info(address)
         return account_info['data']['free']
-    
+
     @staticmethod
     def create_keypair(
         mnemonic: Optional[str] = None,
@@ -529,12 +564,12 @@ class SubstrateClient:
     ) -> "Keypair":
         """
         Create keypair for signing.
-        
+
         Args:
             mnemonic: BIP39 mnemonic phrase
             seed: Hex seed
             uri: URI (e.g., "//Alice")
-        
+
         Returns:
             Keypair
         """
@@ -546,12 +581,12 @@ class SubstrateClient:
             return Keypair.create_from_seed(seed)
         else:
             return Keypair.create_from_mnemonic(Keypair.generate_mnemonic())
-    
+
     def __enter__(self):
         """Context manager entry."""
         self.connect()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         self.disconnect()

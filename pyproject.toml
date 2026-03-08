@@ -51,42 +51,45 @@ dependencies = [
     "datasets>=3.0.0",
     "accelerate>=1.0.0",
     "huggingface-hub>=0.25.0",
-    
+
     # Federated learning
     "flwr[simulation]>=1.11.0",
-    
+
     # Blockchain integration
     "substrate-interface>=1.7.9",
-    
+
     # Security & privacy
     "cryptography>=42.0.4,<43.0.0",
     "pynacl>=1.5.0",
     "opacus>=1.5.0",  # Differential privacy
-    
+
     # Data processing & ML utilities
     "numpy>=2.1.0",
     "pandas>=2.2.0",
     "scikit-learn>=1.5.0",
     "scipy>=1.14.0",
-    
+
     # Configuration & validation
     "pyyaml>=6.0.2",
     "python-dotenv>=1.0.1",
     "pydantic>=2.9.0",
     "pydantic-settings>=2.5.0",
-    
+
     # Logging & observability
     "structlog>=24.4.0",
     "rich>=13.9.0",
-    
+
     # Serialization
     "msgpack>=1.1.0",
     "orjson>=3.10.0",
-    
+
     # Async networking
     "aiohttp>=3.10.0",
     "websockets>=13.1.0",
-    
+
+    # Secure code sandbox
+    "RestrictedPython>=7.0",
+
     # gRPC for federated communication
     "grpcio>=1.67.0",
     "protobuf>=4.21.6,<5.0.0",
@@ -135,9 +138,17 @@ compression = [
     "optimum>=1.23.0",
 ]
 
+# Memory subsystem backends (Phase 1+)
+memory = [
+    "chromadb>=0.5.0",          # episodic vector DB (local)
+    "qdrant-client>=1.12.0",    # episodic vector DB (server)
+    "rank-bm25>=0.2.2",         # BM25 sparse retrieval for semantic memory
+    "networkx>=3.4.0",          # knowledge graph (semantic memory)
+]
+
 # All optional dependencies
 all = [
-    "nawal-ai[dev,server,monitoring,deepseek,compression]",
+    "nawal-ai[dev,server,monitoring,deepseek,compression,memory]",
 ]
 
 [project.urls]
@@ -172,7 +183,15 @@ ignore = ["E501", "B008", "B904"]
 "__init__.py" = ["F401", "F403"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["core", "api", "blockchain", "client", "hybrid", "models"]
+known-first-party = [
+    "core", "api", "blockchain", "client", "hybrid", "models",
+    # Brain architecture modules (Phase 0+)
+    "quantum", "cortex", "memory", "control", "perception",
+    "valuation", "metacognition", "action", "maintenance",
+    # Existing top-level modules
+    "architecture", "genome", "integration", "security",
+    "server", "storage", "monitoring", "data", "training",
+]
 
 # ============================================================================
 # MyPy Configuration
@@ -212,7 +231,27 @@ python_functions = ["test_*"]
 addopts = [
     "--strict-markers",
     "--strict-config",
+    "--cov=action",
+    "--cov=api",
+    "--cov=architecture",
+    "--cov=blockchain",
+    "--cov=cli",
+    "--cov=client",
+    "--cov=control",
+    "--cov=genome",
+    "--cov=maintenance",
+    "--cov=memory",
+    "--cov=metacognition",
     "--cov=nawal",
+    "--cov=perception",
+    "--cov=quantum",
+    "--cov=security",
+    "--cov=storage",
+    "--cov=training",
+    "--cov=valuation",
+    "--cov=hybrid",
+    "--cov=integration",
+    "--cov=monitoring",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
@@ -226,6 +265,14 @@ markers = [
     "gpu: marks tests requiring GPU",
 ]
 asyncio_mode = "auto"
+filterwarnings = [
+    # DNA compat-wrapper emits DeprecationWarning at call site (stacklevel=2)
+    "ignore:DNA is deprecated:DeprecationWarning",
+    # Protobuf metaclass deprecation — third-party, fixed upstream in protobuf≥5
+    "ignore:.*PyType_Spec.*:DeprecationWarning",
+    # Placeholder ZK proofs warn intentionally during tests
+    "ignore:Using PLACEHOLDER:UserWarning",
+]
 
 # ============================================================================
 # Coverage Configuration
@@ -236,8 +283,14 @@ omit = [
     "*/tests/*",
     "*/examples/*",
     "*/__pycache__/*",
+    "*/venv/*",
+    "*/htmlcov/*",
+    "*/checkpoints/*",
+    "*/logs/*",
+    "*/models/*",
     "setup.py",
 ]
+
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",

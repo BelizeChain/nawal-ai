@@ -11,16 +11,19 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from .differential_privacy import DifferentialPrivacy, PrivacyBudget
+from .differential_privacy import DifferentialPrivacy, PrivacyBudget, PrivacyAccountant
 from .secure_aggregation import SecureAggregator
 from .byzantine_detection import ByzantineDetector, AggregationMethod
+from .dp_inference import DPInferenceGuard
 
 __all__ = [
     "DifferentialPrivacy",
     "PrivacyBudget",
+    "PrivacyAccountant",
     "SecureAggregator",
     "ByzantineDetector",
     "AggregationMethod",
+    "DPInferenceGuard",
 ]
 
 __version__ = "0.1.0"

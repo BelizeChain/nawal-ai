@@ -11,18 +11,18 @@ import json
 
 
 @dataclass
-class NawalConfig:
+class NawalModelConfig:
     """
     Configuration for Nawal Transformer
-    
+
     Pure sovereign design with NO external dependencies on GPT-2, DialoGPT, or
     any pretrained models. Built from scratch for Belize.
-    
+
     Architecture Sizes:
     - nawal-small:  117M params (768 hidden, 12 layers, 12 heads)
     - nawal-medium: 350M params (1024 hidden, 24 layers, 16 heads)
     - nawal-large:  1.3B params (1536 hidden, 36 layers, 24 heads)
-    
+
     Attributes:
         vocab_size: Vocabulary size including Belizean tokens (52000)
         hidden_size: Hidden dimension size (768/1024/1536)
@@ -42,7 +42,7 @@ class NawalConfig:
         multilingual_mode: Enable multi-language support (True)
         supported_languages: List of supported language codes
     """
-    
+
     # Core Architecture
     vocab_size: int = 52000  # Extended for Belizean terms
     hidden_size: int = 768  # nawal-small default
@@ -50,22 +50,22 @@ class NawalConfig:
     num_heads: int = 12
     intermediate_size: int = 3072  # 4 * hidden_size
     max_position_embeddings: int = 1024
-    
+
     # Regularization
     dropout: float = 0.1
     attention_dropout: float = 0.1
     layer_norm_eps: float = 1e-5
-    
+
     # Activation and Initialization
     activation: str = "gelu"  # "gelu", "relu", "swish"
     initializer_range: float = 0.02
-    
+
     # Generation
     use_cache: bool = True
     pad_token_id: int = 0
     bos_token_id: int = 1
     eos_token_id: int = 2
-    
+
     # Belizean-Specific
     belizean_vocab_extension: bool = True
     multilingual_mode: bool = True
@@ -76,14 +76,14 @@ class NawalConfig:
         "cab", # Garifuna
         "mop"  # Mopan Maya
     ])
-    
+
     # Model Metadata
     model_type: str = "nawal"
     model_size: str = "small"  # "small", "medium", "large"
     version: str = "1.0.0"
-    
+
     @classmethod
-    def nawal_small(cls) -> "NawalConfig":
+    def nawal_small(cls) -> "NawalModelConfig":
         """117M parameter configuration"""
         return cls(
             hidden_size=768,
@@ -93,9 +93,9 @@ class NawalConfig:
             max_position_embeddings=1024,
             model_size="small"
         )
-    
+
     @classmethod
-    def nawal_medium(cls) -> "NawalConfig":
+    def nawal_medium(cls) -> "NawalModelConfig":
         """350M parameter configuration"""
         return cls(
             hidden_size=1024,
@@ -105,9 +105,9 @@ class NawalConfig:
             max_position_embeddings=2048,
             model_size="medium"
         )
-    
+
     @classmethod
-    def nawal_large(cls) -> "NawalConfig":
+    def nawal_large(cls) -> "NawalModelConfig":
         """1.3B parameter configuration"""
         return cls(
             hidden_size=1536,
@@ -117,19 +117,19 @@ class NawalConfig:
             max_position_embeddings=2048,
             model_size="large"
         )
-    
+
     def save_to_json(self, path: str) -> None:
         """Save configuration to JSON file"""
         with open(path, 'w') as f:
             json.dump(self.__dict__, f, indent=2)
-    
+
     @classmethod
-    def load_from_json(cls, path: str) -> "NawalConfig":
+    def load_from_json(cls, path: str) -> "NawalModelConfig":
         """Load configuration from JSON file"""
         with open(path, 'r') as f:
             config_dict = json.load(f)
         return cls(**config_dict)
-    
+
     @property
     def num_parameters(self) -> int:
         """Estimate total number of parameters"""
@@ -137,9 +137,9 @@ class NawalConfig:
         token_emb = self.vocab_size * self.hidden_size
         # Position embeddings
         pos_emb = self.max_position_embeddings * self.hidden_size
-        
+
         # Transformer blocks
-        # Each block: QKV (3 * hidden^2), output proj (hidden^2), 
+        # Each block: QKV (3 * hidden^2), output proj (hidden^2),
         # FFN (2 * hidden * intermediate), LayerNorms (4 * hidden)
         per_block = (
             3 * self.hidden_size * self.hidden_size +  # QKV
@@ -148,16 +148,16 @@ class NawalConfig:
             4 * self.hidden_size  # LayerNorms
         )
         transformer_params = self.num_layers * per_block
-        
+
         # LM head
         lm_head = self.vocab_size * self.hidden_size
-        
+
         total = token_emb + pos_emb + transformer_params + lm_head
         return total
-    
+
     def __repr__(self) -> str:
         return (
-            f"NawalConfig(\n"
+            f"NawalModelConfig(\n"
             f"  model_size={self.model_size},\n"
             f"  hidden_size={self.hidden_size},\n"
             f"  num_layers={self.num_layers},\n"
@@ -166,3 +166,7 @@ class NawalConfig:
             f"  parameters={self.num_parameters:,}\n"
             f")"
         )
+
+
+# Backward-compatible alias
+NawalConfig = NawalModelConfig

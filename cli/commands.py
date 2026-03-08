@@ -31,13 +31,13 @@ except ImportError:
 def cli(ctx, config: Optional[str], verbose: bool):
     """
     Nawal AI - Federated Learning for BelizeChain.
-    
+
     Evolutionary AI with Proof of Useful Work consensus.
     """
     ctx.ensure_object(dict)
     ctx.obj["config"] = config
     ctx.obj["verbose"] = verbose
-    
+
     # Configure logging
     log_level = "DEBUG" if verbose else "INFO"
     logger.remove()
@@ -55,11 +55,11 @@ def cli(ctx, config: Optional[str], verbose: bool):
 def train(ctx, dataset: str, epochs: int, batch_size: int, learning_rate: float, checkpoint_dir: str):
     """Train AI model locally."""
     logger.info(f"Starting local training: dataset={dataset}, epochs={epochs}")
-    
+
     try:
         from nawal.training import ValidatorTrainer, TrainingConfig
         from nawal.data import DataManager, DatasetConfig, DatasetType
-        
+
         # Load dataset
         data_config = DatasetConfig(
             dataset_type=DatasetType(dataset),
@@ -67,14 +67,14 @@ def train(ctx, dataset: str, epochs: int, batch_size: int, learning_rate: float,
         )
         data_manager = DataManager(data_config)
         train_loader, val_loader, _ = data_manager.get_dataloaders()
-        
+
         # Create trainer
         training_config = TrainingConfig(
             epochs=epochs,
             learning_rate=learning_rate,
             checkpoint_dir=Path(checkpoint_dir),
         )
-        
+
         # Create simple model (placeholder)
         import torch.nn as nn
         model = nn.Sequential(
@@ -82,14 +82,14 @@ def train(ctx, dataset: str, epochs: int, batch_size: int, learning_rate: float,
             nn.ReLU(),
             nn.Linear(256, 10),
         )
-        
+
         trainer = ValidatorTrainer(training_config)
-        
+
         # Train
         results = trainer.train(model, train_loader, val_loader)
-        
+
         logger.success(f"Training complete! Final loss: {results['final_loss']:.4f}")
-        
+
     except Exception as e:
         logger.error(f"Training failed: {e}")
         sys.exit(1)
@@ -106,12 +106,12 @@ def train(ctx, dataset: str, epochs: int, batch_size: int, learning_rate: float,
 def evolve(ctx, generations: int, population: int, mutation_rate: float, crossover_rate: float, checkpoint_dir: str):
     """Run evolutionary optimization."""
     logger.info(f"Starting evolution: generations={generations}, population={population}")
-    
+
     try:
         from nawal.orchestrator import EvolutionOrchestrator
         from nawal.genome import GenomeConfig, GeneticAlgorithmConfig
         from nawal.config import EvolutionConfig
-        
+
         # Configure evolution
         genome_config = GenomeConfig()
         ga_config = GeneticAlgorithmConfig(
@@ -123,19 +123,19 @@ def evolve(ctx, generations: int, population: int, mutation_rate: float, crossov
             num_generations=generations,
             checkpoint_dir=Path(checkpoint_dir),
         )
-        
+
         # Create orchestrator
         orchestrator = EvolutionOrchestrator(
             genome_config=genome_config,
             ga_config=ga_config,
             evolution_config=evolution_config,
         )
-        
+
         # Run evolution
         best_genome = orchestrator.run()
-        
+
         logger.success(f"Evolution complete! Best fitness: {best_genome.fitness:.4f}")
-        
+
     except Exception as e:
         logger.error(f"Evolution failed: {e}")
         sys.exit(1)
@@ -151,10 +151,10 @@ def evolve(ctx, generations: int, population: int, mutation_rate: float, crossov
 def federate(ctx, num_clients: int, rounds: int, min_clients: int, port: int):
     """Start federated learning server."""
     logger.info(f"Starting federated server: clients={num_clients}, rounds={rounds}")
-    
+
     try:
         from nawal.server import FederatedServer, ServerConfig
-        
+
         # Configure server
         server_config = ServerConfig(
             num_clients=num_clients,
@@ -162,13 +162,13 @@ def federate(ctx, num_clients: int, rounds: int, min_clients: int, port: int):
             min_clients_per_round=min_clients,
             port=port,
         )
-        
+
         # Create and start server
         server = FederatedServer(server_config)
         server.start()
-        
+
         logger.success("Federated server started successfully")
-        
+
     except Exception as e:
         logger.error(f"Server failed: {e}")
         sys.exit(1)
@@ -186,15 +186,15 @@ def validator():
 @click.option("--email", required=True, help="Contact email")
 @click.option("--legal-name", help="Legal entity name")
 @click.option("--tax-id", help="Tax ID")
-@click.option("--keypair-uri", default="//Alice", help="Keypair URI")
+@click.option("--keypair-uri", required=True, help="Keypair URI (e.g. seed phrase or //Alice for dev)")
 @click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
 def validator_register(name: str, email: str, legal_name: Optional[str], tax_id: Optional[str], keypair_uri: str, chain: str):
     """Register validator identity on-chain."""
     logger.info(f"Registering validator: {name}")
-    
+
     try:
         from nawal.blockchain import SubstrateClient, ChainConfig, ValidatorManager, ValidatorIdentity
-        
+
         # Connect to chain
         if chain == "local":
             config = ChainConfig.local()
@@ -202,13 +202,13 @@ def validator_register(name: str, email: str, legal_name: Optional[str], tax_id:
             config = ChainConfig.testnet()
         else:
             config = ChainConfig.mainnet()
-        
+
         client = SubstrateClient(config)
         client.connect()
-        
+
         # Create keypair
         keypair = client.create_keypair(uri=keypair_uri)
-        
+
         # Create identity
         identity = ValidatorIdentity(
             address=keypair.ss58_address,
@@ -217,17 +217,17 @@ def validator_register(name: str, email: str, legal_name: Optional[str], tax_id:
             legal_name=legal_name,
             tax_id=tax_id,
         )
-        
+
         # Register
         manager = ValidatorManager(client)
         receipt = manager.register_identity(keypair, identity)
-        
+
         if receipt.success:
             logger.success(f"Validator registered: {keypair.ss58_address}")
         else:
             logger.error(f"Registration failed: {receipt.error}")
             sys.exit(1)
-        
+
     except Exception as e:
         logger.error(f"Validator registration failed: {e}")
         sys.exit(1)
@@ -238,15 +238,15 @@ def validator_register(name: str, email: str, legal_name: Optional[str], tax_id:
 @click.option("--timeliness", type=float, required=True, help="Timeliness score (0-100)")
 @click.option("--honesty", type=float, required=True, help="Honesty score (0-100)")
 @click.option("--round", type=int, required=True, help="Training round")
-@click.option("--keypair-uri", default="//Alice", help="Keypair URI")
+@click.option("--keypair-uri", required=True, help="Keypair URI (e.g. seed phrase or //Alice for dev)")
 @click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
 def validator_submit_fitness(quality: float, timeliness: float, honesty: float, round: int, keypair_uri: str, chain: str):
     """Submit PoUW fitness score."""
     logger.info(f"Submitting fitness: Q={quality}, T={timeliness}, H={honesty}")
-    
+
     try:
         from nawal.blockchain import SubstrateClient, ChainConfig, StakingInterface, FitnessScore
-        
+
         # Connect to chain
         if chain == "local":
             config = ChainConfig.local()
@@ -254,13 +254,13 @@ def validator_submit_fitness(quality: float, timeliness: float, honesty: float, 
             config = ChainConfig.testnet()
         else:
             config = ChainConfig.mainnet()
-        
+
         client = SubstrateClient(config)
         client.connect()
-        
+
         # Create keypair
         keypair = client.create_keypair(uri=keypair_uri)
-        
+
         # Create fitness score
         score = FitnessScore(
             quality=quality,
@@ -268,17 +268,17 @@ def validator_submit_fitness(quality: float, timeliness: float, honesty: float, 
             honesty=honesty,
             round=round,
         )
-        
+
         # Submit
         staking = StakingInterface(client)
         receipt = staking.submit_fitness(keypair, score)
-        
+
         if receipt.success:
             logger.success(f"Fitness submitted: total={score.total:.2f}")
         else:
             logger.error(f"Submission failed: {receipt.error}")
             sys.exit(1)
-        
+
     except Exception as e:
         logger.error(f"Fitness submission failed: {e}")
         sys.exit(1)
@@ -295,21 +295,21 @@ def genome():
 @click.option("--genome-file", type=click.Path(exists=True), required=True, help="Genome JSON file")
 @click.option("--fitness", type=float, required=True, help="Fitness score")
 @click.option("--generation", type=int, required=True, help="Generation number")
-@click.option("--keypair-uri", default="//Alice", help="Keypair URI")
+@click.option("--keypair-uri", required=True, help="Keypair URI (e.g. seed phrase or //Alice for dev)")
 @click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
 @click.option("--storage", default="local", type=click.Choice(["local", "pakit"]))
 def genome_store(genome_file: str, fitness: float, generation: int, keypair_uri: str, chain: str, storage: str):
     """Store genome on-chain."""
     logger.info(f"Storing genome: generation={generation}, fitness={fitness}")
-    
+
     try:
         import json
         from nawal.blockchain import SubstrateClient, ChainConfig, GenomeRegistry, StorageBackend
-        
+
         # Load genome
         with open(genome_file, "r") as f:
             genome_data = json.load(f)
-        
+
         # Connect to chain
         if chain == "local":
             config = ChainConfig.local()
@@ -317,13 +317,13 @@ def genome_store(genome_file: str, fitness: float, generation: int, keypair_uri:
             config = ChainConfig.testnet()
         else:
             config = ChainConfig.mainnet()
-        
+
         client = SubstrateClient(config)
         client.connect()
-        
+
         # Create keypair
         keypair = client.create_keypair(uri=keypair_uri)
-        
+
         # Store genome
         backend = StorageBackend(storage)
         registry = GenomeRegistry(client, storage_backend=backend)
@@ -333,11 +333,11 @@ def genome_store(genome_file: str, fitness: float, generation: int, keypair_uri:
             fitness=fitness,
             generation=generation,
         )
-        
+
         logger.success(f"Genome stored: ID={metadata.genome_id[:16]}...")
         click.echo(f"Genome ID: {metadata.genome_id}")
         click.echo(f"Content Hash: {metadata.content_hash}")
-        
+
     except Exception as e:
         logger.error(f"Genome storage failed: {e}")
         sys.exit(1)
@@ -350,11 +350,11 @@ def genome_store(genome_file: str, fitness: float, generation: int, keypair_uri:
 def genome_get(genome_id: str, output: Optional[str], chain: str):
     """Retrieve genome from chain."""
     logger.info(f"Retrieving genome: {genome_id[:16]}...")
-    
+
     try:
         import json
         from nawal.blockchain import SubstrateClient, ChainConfig, GenomeRegistry, StorageBackend
-        
+
         # Connect to chain
         if chain == "local":
             config = ChainConfig.local()
@@ -362,18 +362,18 @@ def genome_get(genome_id: str, output: Optional[str], chain: str):
             config = ChainConfig.testnet()
         else:
             config = ChainConfig.mainnet()
-        
+
         client = SubstrateClient(config)
         client.connect()
-        
+
         # Retrieve genome
         registry = GenomeRegistry(client, storage_backend=StorageBackend.LOCAL)
         genome_data = registry.get_genome(genome_id)
-        
+
         if genome_data is None:
             logger.error(f"Genome not found: {genome_id}")
             sys.exit(1)
-        
+
         # Output
         if output:
             with open(output, "w") as f:
@@ -381,7 +381,7 @@ def genome_get(genome_id: str, output: Optional[str], chain: str):
             logger.success(f"Genome saved to {output}")
         else:
             click.echo(json.dumps(genome_data, indent=2))
-        
+
     except Exception as e:
         logger.error(f"Genome retrieval failed: {e}")
         sys.exit(1)
@@ -396,7 +396,7 @@ def genome_get(genome_id: str, output: Optional[str], chain: str):
 def config(ctx, init: bool, validate: bool, show: bool):
     """Manage configuration files."""
     config_file = ctx.obj.get("config", "config.yaml")
-    
+
     if init:
         logger.info("Initializing default configuration")
         try:
@@ -407,7 +407,7 @@ def config(ctx, init: bool, validate: bool, show: bool):
         except Exception as e:
             logger.error(f"Config initialization failed: {e}")
             sys.exit(1)
-    
+
     elif validate:
         logger.info(f"Validating config: {config_file}")
         try:
@@ -418,7 +418,7 @@ def config(ctx, init: bool, validate: bool, show: bool):
         except Exception as e:
             logger.error(f"Config validation failed: {e}")
             sys.exit(1)
-    
+
     elif show:
         try:
             from nawal.cli.config_manager import ConfigManager
@@ -429,7 +429,7 @@ def config(ctx, init: bool, validate: bool, show: bool):
         except Exception as e:
             logger.error(f"Failed to show config: {e}")
             sys.exit(1)
-    
+
     else:
         click.echo("Use --init, --validate, or --show")
 
@@ -438,5 +438,5 @@ if __name__ == "__main__":
     if not CLICK_AVAILABLE:
         print("Click library required. Install: pip install click")
         sys.exit(1)
-    
+
     cli()

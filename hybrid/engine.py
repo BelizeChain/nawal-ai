@@ -17,7 +17,7 @@ Usage:
 import torch
 from typing import Optional, Dict, List
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from nawal.client.nawal import Nawal, create_nawal
 from .confidence import ConfidenceScorer
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 class HybridNawalEngine:
     """
     Hybrid Nawal Engine - Intelligent routing between sovereign and teacher models
-    
+
     Architecture:
     ┌──────────────────────────────────────────────────────┐
     │                   User Query                          │
@@ -75,19 +75,19 @@ class HybridNawalEngine:
                                  │ - Improve Nawal        │
                                  │ - Increase threshold   │
                                  └────────────────────────┘
-    
+
     Economic Model:
     - Nawal query: 0.01 DALLA (cheap, sovereign)
     - DeepSeek query: 0.10 DALLA (10x cost, but teaches Nawal)
     - Over time: Nawal handles more → Lower costs → Higher sovereignty
-    
+
     Performance Targets (Month 6):
     - 95% Nawal handling rate (sovereignty)
     - 5% DeepSeek fallback rate (learning)
     - <2s average response time
     - >90% user satisfaction
     """
-    
+
     def __init__(
         self,
         nawal_model: Optional[Nawal] = None,
@@ -98,7 +98,7 @@ class HybridNawalEngine:
     ):
         """
         Initialize Hybrid Nawal Engine
-        
+
         Args:
             nawal_model: Nawal model instance (creates small if None)
             teacher_model: DeepSeek teacher (loads on first fallback if None)
@@ -109,24 +109,24 @@ class HybridNawalEngine:
         # Initialize Nawal (sovereign model)
         self.nawal = nawal_model or create_nawal(size="small")
         logger.info("Nawal sovereign model loaded")
-        
+
         # Initialize confidence scorer
         self.confidence_scorer = ConfidenceScorer(
             confidence_threshold=confidence_threshold
         )
-        
+
         # Initialize router
         self.router = IntelligentRouter(
             confidence_threshold=confidence_threshold,
             log_fallbacks=enable_distillation_logging,
         )
-        
+
         # Initialize teacher (lazy load by default)
         self.teacher = teacher_model
         if auto_load_teacher and self.teacher is None:
             logger.info("Pre-loading DeepSeek teacher model...")
             self.teacher = create_deepseek_teacher()
-        
+
         logger.info(
             f"Hybrid Nawal Engine initialized:\n"
             f"  Nawal size: {self.nawal.config.model_size}\n"
@@ -134,14 +134,14 @@ class HybridNawalEngine:
             f"  Teacher pre-loaded: {self.teacher is not None}\n"
             f"  Distillation logging: {enable_distillation_logging}"
         )
-    
+
     def _ensure_teacher_loaded(self) -> None:
         """Lazy load DeepSeek teacher on first fallback"""
         if self.teacher is None:
             logger.info("Loading DeepSeek teacher for first fallback...")
             self.teacher = create_deepseek_teacher()
             logger.info("DeepSeek teacher loaded")
-    
+
     def generate(
         self,
         prompt: str,
@@ -151,13 +151,13 @@ class HybridNawalEngine:
     ) -> Dict:
         """
         Generate response using hybrid routing
-        
+
         Args:
             prompt: Input query
             max_length: Maximum tokens to generate
             temperature: Sampling temperature
             detect_language: Auto-detect language
-        
+
         Returns:
             Dictionary containing:
                 - text: Generated response
@@ -166,38 +166,41 @@ class HybridNawalEngine:
                 - latency_ms: Response time in milliseconds
                 - metadata: Additional routing info
         """
-        start_time = datetime.utcnow()
-        
+        start_time = datetime.now(timezone.utc)
+
         # Detect language
         detected_lang = "en"
         if detect_language:
-            detected_lang = self.nawal.language_detector.detect(prompt)
-        
+            if hasattr(self.nawal, 'language_detector') and self.nawal.language_detector:
+                detected_lang = self.nawal.language_detector.detect(prompt)
+            else:
+                logger.debug("No language_detector available, defaulting to English")
+
         # Get Nawal's prediction
         input_ids = self.nawal.tokenizer.encode(prompt, return_tensors="pt")
-        
+
         with torch.no_grad():
             nawal_outputs = self.nawal.forward(
                 input_ids=input_ids,
                 use_cache=False,
             )
-        
+
         nawal_logits = nawal_outputs["logits"]
-        
+
         # Compute confidence
         confidence_scores = self.confidence_scorer.compute_confidence(
             logits=nawal_logits,
             input_ids=input_ids,
             detected_language=detected_lang,
         )
-        
+
         # Route based on confidence
         decision, routing_metadata = self.router.route(
             query=prompt,
             nawal_logits=nawal_logits,
             confidence_scores=confidence_scores,
         )
-        
+
         # Generate response
         if decision == "nawal":
             # Use Nawal (sovereign path)
@@ -209,7 +212,7 @@ class HybridNawalEngine:
             )
             response_text = responses[0]
             model_used = "nawal"
-            
+
         else:
             # Use DeepSeek (teacher path)
             self._ensure_teacher_loaded()
@@ -219,11 +222,11 @@ class HybridNawalEngine:
             )
             response_text = teacher_response["text"]
             model_used = "deepseek"
-        
+
         # Calculate latency
-        end_time = datetime.utcnow()
+        end_time = datetime.now(timezone.utc)
         latency_ms = (end_time - start_time).total_seconds() * 1000
-        
+
         return {
             "text": response_text,
             "model_used": model_used,
@@ -233,7 +236,7 @@ class HybridNawalEngine:
             "latency_ms": latency_ms,
             "metadata": routing_metadata,
         }
-    
+
     def get_statistics(self) -> Dict:
         """Get comprehensive statistics"""
         return {
@@ -245,23 +248,23 @@ class HybridNawalEngine:
             },
             "teacher_loaded": self.teacher is not None,
         }
-    
+
     def update_threshold(self, new_threshold: float) -> None:
         """
         Update confidence threshold globally
-        
+
         Affects both confidence scorer and router
         """
         self.confidence_scorer.update_threshold(new_threshold)
         self.router.update_threshold(new_threshold)
-    
+
     def export_distillation_data(self, output_path: str) -> int:
         """
         Export logged fallback queries for distillation training
-        
+
         Args:
             output_path: Path to export training data
-        
+
         Returns:
             Number of queries exported
         """
@@ -276,17 +279,17 @@ def create_hybrid_engine(
 ) -> HybridNawalEngine:
     """
     Create hybrid engine with common configuration
-    
+
     Args:
         nawal_size: Nawal model size ("small", "medium", "large")
         confidence_threshold: Routing threshold (0-1)
         auto_load_teacher: Pre-load DeepSeek at startup
-    
+
     Returns:
         Initialized hybrid engine
     """
     nawal = create_nawal(size=nawal_size)
-    
+
     return HybridNawalEngine(
         nawal_model=nawal,
         confidence_threshold=confidence_threshold,
@@ -298,10 +301,10 @@ if __name__ == "__main__":
     # Demo usage
     print("🇧🇿 Hybrid Nawal Engine - Sovereign AI with World-Class Fallback")
     print("=" * 70)
-    
+
     # Create engine
     engine = create_hybrid_engine(nawal_size="small", confidence_threshold=0.75)
-    
+
     # Example queries
     queries = [
         "What is the capital of Belize?",
@@ -309,13 +312,13 @@ if __name__ == "__main__":
         "Weh di gat fi du fi register wan land?",  # Kriol
         "Implement a quantum circuit for Grover's algorithm.",  # Complex coding
     ]
-    
+
     for i, query in enumerate(queries, 1):
         print(f"\n[Query {i}] {query}")
         result = engine.generate(query, max_length=50)
         print(f"[{result['model_used'].upper()}] {result['text'][:200]}")
         print(f"Confidence: {result['confidence']:.3f} | Latency: {result['latency_ms']:.1f}ms")
-    
+
     # Show statistics
     print("\n" + "=" * 70)
     stats = engine.get_statistics()

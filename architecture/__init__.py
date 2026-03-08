@@ -5,14 +5,17 @@ Nawal Pure Transformer Architecture
 All components built from scratch for Belizean AI sovereignty.
 """
 
-from .config import NawalConfig
+from .config import NawalModelConfig
+# Backward-compatible alias
+NawalConfig = NawalModelConfig
 from .transformer import NawalTransformer
 from .attention import MultiHeadAttention
 from .feedforward import FeedForward
 from .embeddings import NawalEmbeddings
 
 __all__ = [
-    "NawalConfig",
+    "NawalModelConfig",
+    "NawalConfig",  # backward-compatible alias
     "NawalTransformer",
     "MultiHeadAttention",
     "FeedForward",

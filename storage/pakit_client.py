@@ -24,14 +24,14 @@ except ImportError:
 class PakitClient:
     """
     Client for uploading Nawal models to Pakit storage.
-    
+
     Integrates with Pakit's DAG-based storage engine for:
     - Model checkpoint persistence
     - Training dataset archival
     - Genome evolution history
     - Federated learning aggregation results
     """
-    
+
     def __init__(
         self,
         pakit_api_url: str = "http://localhost:8080",
@@ -40,7 +40,7 @@ class PakitClient:
     ):
         """
         Initialize Pakit client.
-        
+
         Args:
             pakit_api_url: Pakit API server URL
             dag_gateway_url: Pakit DAG gateway URL
@@ -49,17 +49,17 @@ class PakitClient:
         self.pakit_api_url = pakit_api_url
         self.dag_gateway_url = dag_gateway_url
         self.compression = compression
-    
+
     @classmethod
     def from_env(cls) -> "PakitClient":
         """
         Create PakitClient from environment variables.
-        
+
         Reads:
             PAKIT_API_URL: Pakit API endpoint (default: http://localhost:8080)
             PAKIT_DAG_GATEWAY_URL: DAG gateway endpoint (default: http://localhost:8081)
             PAKIT_COMPRESSION: Compression algorithm (default: zstd)
-        
+
         Returns:
             PakitClient instance configured from environment
         """
@@ -68,7 +68,7 @@ class PakitClient:
             dag_gateway_url=os.getenv("PAKIT_DAG_GATEWAY_URL", "http://localhost:8081"),
             compression=os.getenv("PAKIT_COMPRESSION", "zstd")
         )
-    
+
     def upload_file(
         self,
         file_path: str,
@@ -76,47 +76,54 @@ class PakitClient:
     ) -> str:
         """
         Upload single file to Pakit DAG storage.
-        
+
         Args:
             file_path: Path to file
             metadata: Optional metadata
-            
+
         Returns:
             DAG content hash
         """
         if not REQUESTS_AVAILABLE:
-            logger.warning("requests not available, using mock upload")
-            return self._mock_upload(file_path, metadata)
-        
+            raise RuntimeError(
+                "requests library required for Pakit uploads. Install: pip install requests"
+            )
+
         try:
             # Read file
             with open(file_path, 'rb') as f:
                 content = f.read()
-            
+
             # Upload via Pakit DAG gateway
+            # Note: cannot mix files= and json= in requests; send metadata as form data
+            upload_metadata = json.dumps({
+                'metadata': metadata or {},
+                'compression': self.compression,
+                'deduplicate': True
+            })
             response = requests.post(
                 f"{self.dag_gateway_url}/api/v1/upload",
-                files={'file': (os.path.basename(file_path), content)},
-                json={
-                    'metadata': metadata or {},
-                    'compression': self.compression,
-                    'deduplicate': True
-                }
+                files={
+                    'file': (os.path.basename(file_path), content),
+                    'options': (None, upload_metadata, 'application/json'),
+                },
             )
-            
+
             if response.status_code == 200:
                 result = response.json()
                 content_hash = result.get('hash') or result.get('content_hash')
                 logger.info(f"✅ Uploaded {file_path} to Pakit DAG: {content_hash}")
                 return content_hash
             else:
-                logger.error(f"Upload failed: {response.status_code}")
-                return self._mock_upload(file_path, metadata)
-                
-        except Exception as e:
-            logger.error(f"Upload error: {e}")
-            return self._mock_upload(file_path, metadata)
-    
+                logger.error(f"Upload failed: {response.status_code} - {response.text}")
+                raise RuntimeError(
+                    f"Pakit upload failed with status {response.status_code}"
+                )
+
+        except requests.RequestException as e:
+            logger.error(f"Upload network error: {e}")
+            raise RuntimeError(f"Pakit upload failed: {e}") from e
+
     def upload_directory(
         self,
         dir_path: str,
@@ -124,38 +131,38 @@ class PakitClient:
     ) -> str:
         """
         Upload entire directory to Pakit.
-        
+
         Args:
             dir_path: Directory path
             metadata: Optional metadata
-            
+
         Returns:
             Root content ID
         """
         if not REQUESTS_AVAILABLE:
-            return self._mock_upload(dir_path, metadata)
-        
+            raise RuntimeError("requests library required for Pakit uploads. Install: pip install requests")
+
         try:
             # Create tar archive
             import tarfile
             import tempfile
-            
+
             with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp:
                 with tarfile.open(tmp.name, 'w:gz') as tar:
                     tar.add(dir_path, arcname=os.path.basename(dir_path))
-                
+
                 # Upload archive
                 cid = self.upload_file(tmp.name, metadata)
-                
+
                 # Cleanup
                 os.unlink(tmp.name)
-                
+
                 return cid
-                
+
         except Exception as e:
             logger.error(f"Directory upload error: {e}")
-            return self._mock_upload(dir_path, metadata)
-    
+            raise
+
     def download_file(
         self,
         content_hash: str,
@@ -163,52 +170,52 @@ class PakitClient:
     ) -> bool:
         """
         Download file from Pakit DAG storage.
-        
+
         Args:
             content_hash: DAG content hash to retrieve
             output_path: Where to save file
-            
+
         Returns:
             True if successful
         """
         if not REQUESTS_AVAILABLE:
             logger.warning("requests not available, cannot download")
             return False
-        
+
         try:
             response = requests.get(
                 f"{self.dag_gateway_url}/api/v1/retrieve/{content_hash}",
                 stream=True
             )
-            
+
             if response.status_code == 200:
                 with open(output_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
-                
+
                 logger.info(f"✅ Downloaded {content_hash} to {output_path}")
                 return True
             else:
                 logger.error(f"Download failed: {response.status_code}")
                 return False
-                
+
         except Exception as e:
             logger.error(f"Download error: {e}")
             return False
-    
+
     def pin_content(self, content_hash: str) -> bool:
         """
         Pin content in DAG to ensure it stays available.
-        
+
         Args:
             content_hash: DAG content hash to pin
-            
+
         Returns:
             True if pinned
         """
         if not REQUESTS_AVAILABLE:
             return True  # Mock success
-        
+
         try:
             response = requests.post(
                 f"{self.dag_gateway_url}/api/v1/pin/{content_hash}"
@@ -217,33 +224,33 @@ class PakitClient:
         except Exception as e:
             logger.error(f"Pin error: {e}")
             return False
-    
+
     def get_metadata(self, content_hash: str) -> Optional[Dict[str, Any]]:
         """
         Get metadata for stored content.
-        
+
         Args:
             content_hash: DAG content hash
-            
+
         Returns:
             Metadata dict or None
         """
         if not REQUESTS_AVAILABLE:
             return None
-        
+
         try:
             response = requests.get(
                 f"{self.dag_gateway_url}/api/v1/metadata/{content_hash}"
             )
-            
+
             if response.status_code == 200:
                 return response.json()
             return None
-            
+
         except Exception as e:
             logger.error(f"Metadata retrieval error: {e}")
             return None
-    
+
     def _mock_upload(
         self,
         path: str,
@@ -255,7 +262,7 @@ class PakitClient:
         hasher.update(path.encode())
         if metadata:
             hasher.update(json.dumps(metadata, sort_keys=True).encode())
-        
+
         mock_hash = hasher.hexdigest()
         logger.info(f"📦 MOCK upload: {path} -> {mock_hash}")
         return mock_hash

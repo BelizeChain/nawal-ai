@@ -30,48 +30,48 @@ logger.add(sys.stdout, level="INFO")
 
 async def main():
     """Run mesh network validator node."""
-    
+
     logger.info("🌐 Starting Nawal AI Mesh Network Validator")
     logger.info("=" * 70)
-    
+
     # Configuration
     PEER_ID = "validator_belizecity_01"
     LISTEN_PORT = 9090
     BLOCKCHAIN_RPC = "ws://127.0.0.1:9944"
-    
+
     # Initialize mesh network
     mesh = MeshNetworkClient(
         peer_id=PEER_ID,
         listen_port=LISTEN_PORT,
         blockchain_rpc=BLOCKCHAIN_RPC,
     )
-    
+
     logger.info(f"Peer ID: {PEER_ID}")
     logger.info(f"Listen Port: {LISTEN_PORT}")
     logger.info(f"Public Key: {mesh.public_key_hex[:32]}...")
     logger.info("")
-    
+
     # Start mesh network
     logger.info("Starting mesh network server...")
     await mesh.start()
     logger.info(f"✅ Mesh network started on port {LISTEN_PORT}")
     logger.info("")
-    
+
     # Discover peers from blockchain
     logger.info("Discovering validator peers from blockchain...")
     peers = await mesh.discover_peers()
     logger.info(f"✅ Discovered {len(peers)} validator peers")
-    
+
     for peer in peers:
         logger.info(
             f"  - {peer.peer_id} @ {peer.multiaddr} "
             f"(stake: {peer.stake_amount / 100000000:.0f} DALLA)"
         )
     logger.info("")
-    
+
     # Register message handlers
     logger.info("Registering message handlers...")
-    
+
     async def handle_fl_round_start(message: MeshMessage):
         """Handle FL round start announcement."""
         payload = message.payload
@@ -83,14 +83,15 @@ async def main():
         logger.info(f"  Reward Pool: {payload['reward_pool'] / 100000000:.0f} DALLA")
         logger.info(f"  Deadline: {payload['deadline']}")
         logger.info("")
-        
-        # TODO: Enroll in round if interested
-        # await staking.enroll_validator(...)
-    
+
+        # DESIGN NOTE: Enrollment requires checking local stake, compute
+        # budget, and dataset compatibility before calling
+        # staking.enroll_validator(). Deferred until that API is finalised.
+
     async def handle_heartbeat(message: MeshMessage):
         """Handle peer heartbeat."""
         logger.debug(f"💓 Heartbeat from {message.sender_id}")
-    
+
     async def handle_model_delta(message: MeshMessage):
         """Handle model delta transfer."""
         payload = message.payload
@@ -99,19 +100,19 @@ async def main():
         logger.info(f"  Model CID: {payload['model_cid']}")
         logger.info(f"  Quality Score: {payload['quality_score']:.2f}")
         logger.info("")
-    
+
     mesh.register_handler(MessageType.FL_ROUND_START, handle_fl_round_start)
     mesh.register_handler(MessageType.HEARTBEAT, handle_heartbeat)
     mesh.register_handler(MessageType.MODEL_DELTA_TRANSFER, handle_model_delta)
-    
+
     logger.info("✅ Message handlers registered")
     logger.info("")
-    
+
     # Simulate announcing an FL round (if this is the coordinator)
     if len(sys.argv) > 1 and sys.argv[1] == "--coordinator":
         logger.info("🎯 COORDINATOR MODE - Announcing FL round...")
         await asyncio.sleep(5)  # Wait for peers to connect
-        
+
         await mesh.announce_fl_round(
             round_id="round_20260213_001",
             dataset_name="belize_corpus",
@@ -121,21 +122,21 @@ async def main():
             reward_pool=5000000000000,  # 50,000 DALLA
             model_hash="Qm...",
         )
-        
+
         logger.info("✅ FL round announced to mesh network")
         logger.info("")
-    
+
     # Keep running and process messages
     logger.info("🔄 Listening for mesh network messages...")
     logger.info("Press Ctrl+C to stop")
     logger.info("")
-    
+
     try:
         # Process messages from queue
         async for message in mesh.receive_messages():
             # Messages are handled by registered handlers
             pass
-    
+
     except KeyboardInterrupt:
         logger.info("")
         logger.info("🛑 Shutting down...")

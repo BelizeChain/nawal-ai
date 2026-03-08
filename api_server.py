@@ -21,13 +21,15 @@ import asyncio
 import logging
 import os
 import uuid
+from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import time
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, status
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -49,7 +51,7 @@ from nawal.server.aggregator import FederatedAggregator, AggregationStrategy
 
 class ServerConfig(BaseModel):
     """API server configuration."""
-    
+
     host: str = Field(
         default="127.0.0.1",
         description="Server host (use 0.0.0.0 for Docker/cloud, set via NAWAL_HOST env var)"
@@ -57,7 +59,7 @@ class ServerConfig(BaseModel):
     port: int = Field(default=8080, description="Server port")
     workers: int = Field(default=1, description="Number of worker processes")
     reload: bool = Field(default=False, description="Auto-reload on code changes")
-    
+
     # Blockchain connection
     blockchain_rpc: str = Field(
         default="ws://localhost:9944",
@@ -67,22 +69,22 @@ class ServerConfig(BaseModel):
         default=True,
         description="Enable blockchain integration"
     )
-    
+
     # FL configuration
     min_participants: int = Field(default=3, ge=1, description="Minimum FL participants")
     max_participants: int = Field(default=100, le=1000, description="Maximum FL participants")
     round_timeout: int = Field(default=3600, description="Round timeout in seconds")
-    
+
     # Security
     enable_auth: bool = Field(default=False, description="Enable API authentication")
     api_key: Optional[str] = Field(default=None, description="API key for authentication")
-    
+
     # Storage
     checkpoint_dir: Path = Field(
         default=Path("./checkpoints"),
         description="Directory for model checkpoints"
     )
-    
+
     @field_validator('checkpoint_dir')
     @classmethod
     def create_checkpoint_dir(cls, v: Path) -> Path:
@@ -97,7 +99,7 @@ class ServerConfig(BaseModel):
 
 class EnrollRequest(BaseModel):
     """Request to enroll FL participant."""
-    
+
     account_id: str = Field(..., description="Participant account ID (SS58 address)")
     stake_amount: int = Field(..., ge=1000, description="Stake amount in Mahogany")
     public_key: Optional[str] = Field(None, description="Encryption public key")
@@ -105,7 +107,7 @@ class EnrollRequest(BaseModel):
 
 class EnrollResponse(BaseModel):
     """Response for enrollment."""
-    
+
     success: bool
     participant_id: str
     message: str
@@ -114,7 +116,7 @@ class EnrollResponse(BaseModel):
 
 class SubmitModelRequest(BaseModel):
     """Request to submit model delta."""
-    
+
     participant_id: str = Field(..., description="Participant ID")
     round_id: str = Field(..., description="FL round ID")
     model_cid: str = Field(..., description="IPFS CID of model delta")
@@ -125,7 +127,7 @@ class SubmitModelRequest(BaseModel):
 
 class SubmitModelResponse(BaseModel):
     """Response for model submission."""
-    
+
     success: bool
     submission_id: str
     reward_eligible: bool
@@ -135,7 +137,7 @@ class SubmitModelResponse(BaseModel):
 
 class StartRoundRequest(BaseModel):
     """Request to start FL round."""
-    
+
     dataset_name: str = Field(..., description="Dataset identifier")
     target_accuracy: float = Field(default=0.85, ge=0.0, le=1.0, description="Target accuracy")
     max_participants: int = Field(default=10, ge=1, le=100, description="Max participants")
@@ -144,7 +146,7 @@ class StartRoundRequest(BaseModel):
 
 class StartRoundResponse(BaseModel):
     """Response for starting round."""
-    
+
     round_id: str
     status: str
     start_time: str
@@ -153,7 +155,7 @@ class StartRoundResponse(BaseModel):
 
 class RoundStatus(BaseModel):
     """FL round status."""
-    
+
     round_id: str
     status: str  # "pending", "active", "completed", "failed"
     participants: int
@@ -165,7 +167,7 @@ class RoundStatus(BaseModel):
 
 class ParticipantStats(BaseModel):
     """Participant statistics."""
-    
+
     account_id: str
     total_rounds: int
     successful_rounds: int
@@ -176,7 +178,7 @@ class ParticipantStats(BaseModel):
 
 class SystemMetrics(BaseModel):
     """System-wide FL metrics."""
-    
+
     total_rounds: int
     active_rounds: int
     total_participants: int
@@ -192,7 +194,7 @@ class SystemMetrics(BaseModel):
 
 class AppState:
     """Application state."""
-    
+
     def __init__(self):
         self.config: Optional[ServerConfig] = None
         self.staking_connector: Optional[StakingConnector] = None
@@ -202,11 +204,11 @@ class AppState:
         # Metrics tracking
         self.participant_submissions: Dict[str, float] = {}  # account_id -> last_submission_timestamp
         self.completed_rounds: List[Dict[str, Any]] = []  # Track completed rounds for stats
-    
+
     async def initialize(self, config: ServerConfig):
         """Initialize application state."""
         self.config = config
-        
+
         # Initialize blockchain connector
         if config.blockchain_enabled:
             self.staking_connector = StakingConnector(
@@ -221,10 +223,10 @@ class AppState:
                 logger.warning("Running in degraded mode (blockchain unavailable)")
         else:
             logger.info("Blockchain integration disabled")
-        
+
         # Initialize FL aggregator (will be created per round)
         logger.info("✅ Nawal API server initialized")
-    
+
     async def shutdown(self):
         """Cleanup resources."""
         if self.staking_connector:
@@ -250,9 +252,9 @@ async def lifespan(app: FastAPI):
         port=int(os.getenv("PORT", "8080")),
     )
     await app_state.initialize(config)
-    
+
     yield
-    
+
     # Shutdown
     await app_state.shutdown()
 
@@ -268,14 +270,89 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# CORS middleware — restrict origins in production
+_allowed_origins = os.getenv(
+    "NAWAL_CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:8080"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=[o.strip() for o in _allowed_origins],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
+
+
+# =============================================================================
+# API Key Authentication Middleware
+# =============================================================================
+
+async def verify_api_key(request: Request) -> None:
+    """Verify API key when authentication is enabled."""
+    # Skip auth for health check
+    if request.url.path in ("/health", "/docs", "/openapi.json", "/redoc"):
+        return
+
+    if not app_state.config or not app_state.config.enable_auth:
+        return
+
+    api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+    if not api_key or api_key != app_state.config.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+        )
+
+
+app.middleware("http")(verify_api_key)
+
+
+# =============================================================================
+# Rate Limiting Middleware
+# =============================================================================
+
+class RateLimiter:
+    """Simple in-memory sliding-window rate limiter."""
+
+    def __init__(self, max_requests: int = 60, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self._hits: Dict[str, List[float]] = defaultdict(list)
+
+    def is_allowed(self, key: str) -> bool:
+        now = time.monotonic()
+        hits = self._hits[key]
+        # Prune expired entries
+        self._hits[key] = [t for t in hits if now - t < self.window]
+        if len(self._hits[key]) >= self.max_requests:
+            return False
+        self._hits[key].append(now)
+        return True
+
+
+_rate_limiter = RateLimiter(
+    max_requests=int(os.getenv("NAWAL_RATE_LIMIT", "60")),
+    window_seconds=int(os.getenv("NAWAL_RATE_WINDOW", "60")),
+)
+
+
+async def rate_limit_middleware(request: Request, call_next):
+    """Enforce per-IP rate limiting."""
+    if request.url.path in ("/health",):
+        return await call_next(request)
+
+    client_ip = request.client.host if request.client else "unknown"
+    if not _rate_limiter.is_allowed(client_ip):
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": "Rate limit exceeded. Try again later."},
+        )
+    return await call_next(request)
+
+
+app.middleware("http")(rate_limit_middleware)
 
 
 # =============================================================================
@@ -288,7 +365,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "nawal-fl-api",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "blockchain_connected": app_state.staking_connector is not None,
     }
 
@@ -317,7 +394,7 @@ async def get_status():
 async def start_fl_round(request: StartRoundRequest):
     """
     Start new federated learning round.
-    
+
     This endpoint:
     1. Creates new FL round with unique ID
     2. Initializes aggregator
@@ -327,9 +404,9 @@ async def start_fl_round(request: StartRoundRequest):
         # Generate round ID
         round_id = f"round_{app_state.round_counter}_{uuid.uuid4().hex[:8]}"
         app_state.round_counter += 1
-        
+
         # Create round metadata
-        start_time = datetime.utcnow()
+        start_time = datetime.now(timezone.utc)
         round_data = {
             "round_id": round_id,
             "dataset": request.dataset_name,
@@ -342,27 +419,27 @@ async def start_fl_round(request: StartRoundRequest):
             "start_time": start_time.isoformat(),
             "completion_time": None,
         }
-        
+
         app_state.active_rounds[round_id] = round_data
-        
+
         logger.info(
             "🚀 Started FL round {} for dataset '{}'",
             round_id,
             request.dataset_name
         )
-        
+
         return StartRoundResponse(
             round_id=round_id,
             status="pending",
             start_time=start_time.isoformat(),
-            expected_completion=(start_time.timestamp() + request.timeout).__str__(),
+            expected_completion=(start_time + timedelta(seconds=request.timeout)).isoformat(),
         )
-        
+
     except Exception as e:
         logger.error("Failed to start FL round: {}", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to start FL round: {str(e)}"
+            detail="Failed to start FL round. Check server logs for details."
         )
 
 
@@ -374,9 +451,9 @@ async def get_round_status(round_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Round {round_id} not found"
         )
-    
+
     round_data = app_state.active_rounds[round_id]
-    
+
     return RoundStatus(
         round_id=round_id,
         status=round_data["status"],
@@ -396,7 +473,7 @@ async def get_round_status(round_id: str):
 async def enroll_participant(request: EnrollRequest):
     """
     Enroll participant in federated learning.
-    
+
     This endpoint:
     1. Verifies participant KYC via Identity pallet
     2. Enrolls participant via Staking pallet
@@ -408,35 +485,35 @@ async def enroll_participant(request: EnrollRequest):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Blockchain connector not available"
             )
-        
+
         # Enroll via blockchain
         result = await app_state.staking_connector.enroll_participant(
             account_id=request.account_id,
             stake_amount=request.stake_amount,
         )
-        
+
         if not result["success"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=result["message"]
             )
-        
+
         logger.info("✅ Enrolled participant: {}", request.account_id)
-        
+
         return EnrollResponse(
             success=True,
             participant_id=request.account_id,
             message="Participant enrolled successfully",
-            enrollment_time=datetime.utcnow().isoformat(),
+            enrollment_time=datetime.now(timezone.utc).isoformat(),
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to enroll participant: {}", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Enrollment failed: {str(e)}"
+            detail="Enrollment failed. Check server logs for details."
         )
 
 
@@ -444,7 +521,7 @@ async def enroll_participant(request: EnrollRequest):
 async def submit_model_delta(request: SubmitModelRequest):
     """
     Submit model delta for FL round.
-    
+
     This endpoint:
     1. Validates participant enrollment
     2. Stores model delta (IPFS CID)
@@ -458,16 +535,16 @@ async def submit_model_delta(request: SubmitModelRequest):
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Round {request.round_id} not found"
             )
-        
+
         round_data = app_state.active_rounds[request.round_id]
-        
+
         # Verify round is active
         if round_data["status"] != "active":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Round {request.round_id} is not active"
             )
-        
+
         # Create submission
         submission = TrainingSubmission(
             participant_id=request.participant_id,
@@ -477,38 +554,38 @@ async def submit_model_delta(request: SubmitModelRequest):
             sample_count=request.training_samples,
             privacy_proof=request.privacy_proof or "",
         )
-        
+
         # Submit to blockchain if available
         if app_state.staking_connector:
             result = await app_state.staking_connector.submit_training_proof(submission)
-            
+
             if not result["success"]:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=result["message"]
                 )
-        
+
         # Track submission timestamp
         from time import time
         app_state.participant_submissions[request.participant_id] = time()
-        
+
         # Add to round submissions
         round_data["submissions"].append({
             "participant_id": request.participant_id,
             "model_cid": request.model_cid,
             "quality_score": request.quality_score,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         })
-        
+
         # Calculate estimated reward (simplified)
         estimated_reward = int(request.quality_score * 1_000_000_000)  # Quality-based
-        
+
         logger.info(
             "✅ Received model submission from {} for round {}",
             request.participant_id,
             request.round_id
         )
-        
+
         return SubmitModelResponse(
             success=True,
             submission_id=f"{request.round_id}_{request.participant_id}",
@@ -516,14 +593,14 @@ async def submit_model_delta(request: SubmitModelRequest):
             estimated_reward=estimated_reward,
             message="Model delta submitted successfully",
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to submit model: {}", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Model submission failed: {str(e)}"
+            detail="Model submission failed. Check server logs for details."
         )
 
 
@@ -536,23 +613,22 @@ async def get_participant_stats(account_id: str):
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Blockchain connector not available"
             )
-        
+
         # Get participant info from blockchain
         participant = await app_state.staking_connector.get_participant(account_id)
-        
+
         if not participant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Participant {account_id} not found"
             )
-        
+
         # Get last submission timestamp
         last_submission_ts = app_state.participant_submissions.get(account_id)
         last_submission_iso = None
         if last_submission_ts:
-            from datetime import datetime
-            last_submission_iso = datetime.fromtimestamp(last_submission_ts).isoformat()
-        
+            last_submission_iso = datetime.fromtimestamp(last_submission_ts, tz=timezone.utc).isoformat()
+
         return ParticipantStats(
             account_id=account_id,
             total_rounds=participant.total_rounds,
@@ -561,14 +637,14 @@ async def get_participant_stats(account_id: str):
             average_quality=participant.avg_quality_score,
             last_submission=last_submission_iso,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error("Failed to get participant stats: {}", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch stats: {str(e)}"
+            detail="Failed to fetch participant stats. Check server logs for details."
         )
 
 
@@ -584,16 +660,16 @@ async def get_system_metrics():
             1 for r in app_state.active_rounds.values()
             if r["status"] == "active"
         )
-        
+
         # Get blockchain stats if available
         total_participants = 0
         active_participants = 0
-        
+
         if app_state.staking_connector:
             participants = await app_state.staking_connector.get_all_participants()
             total_participants = len(participants)
             active_participants = sum(1 for p in participants if p.is_enrolled)
-        
+
         # Calculate average round time from completed rounds
         average_round_time_seconds = 0.0
         if app_state.completed_rounds:
@@ -603,10 +679,10 @@ async def get_system_metrics():
                     start = datetime.fromisoformat(round_info["start_time"])
                     end = datetime.fromisoformat(round_info["completion_time"])
                     total_time += (end - start).total_seconds()
-            
+
             if total_time > 0:
                 average_round_time_seconds = total_time / len(app_state.completed_rounds)
-        
+
         return SystemMetrics(
             total_rounds=app_state.round_counter,
             active_rounds=active_rounds_count,
@@ -616,12 +692,12 @@ async def get_system_metrics():
             average_round_time=average_round_time_seconds,
             blockchain_connected=app_state.staking_connector is not None,
         )
-        
+
     except Exception as e:
         logger.error("Failed to get metrics: {}", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch metrics: {str(e)}"
+            detail="Failed to fetch metrics. Check server logs for details."
         )
 
 
@@ -638,20 +714,20 @@ def main():
         retention="30 days",
         level="INFO"
     )
-    
+
     # Get configuration from environment
     # Priority: NAWAL_API_HOST → NAWAL_HOST → HOST → default
-    # Use 0.0.0.0 for Docker/cloud deployments, 127.0.0.1 for local dev
-    host = os.getenv("NAWAL_API_HOST", os.getenv("NAWAL_HOST", os.getenv("HOST", "0.0.0.0")))
+    # Default to 127.0.0.1 for security; set HOST=0.0.0.0 explicitly for Docker/cloud
+    host = os.getenv("NAWAL_API_HOST", os.getenv("NAWAL_HOST", os.getenv("HOST", "127.0.0.1")))
     port = int(os.getenv("NAWAL_PORT", os.getenv("PORT", "8080")))
     reload = os.getenv("RELOAD", "false").lower() == "true"
     workers = int(os.getenv("WORKERS", "1"))
-    
+
     logger.info("🚀 Starting Nawal FL API server on {}:{}", host, port)
     logger.info("   Blockchain RPC: {}", os.getenv("BLOCKCHAIN_RPC", "ws://localhost:9944"))
     logger.info("   Reload: {}", reload)
     logger.info("   Workers: {}", workers)
-    
+
     # Run server
     uvicorn.run(
         "nawal.api_server:app",

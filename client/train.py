@@ -2,7 +2,7 @@
 BelizeChain Federated AI - Local Training Client
 
 This module implements the local participant side of BelizeChain's federated learning
-architecture. It handles local model training while preserving data privacy and 
+architecture. It handles local model training while preserving data privacy and
 sovereignty requirements for Belize's national digital infrastructure.
 
 Key Features:
@@ -25,7 +25,7 @@ from dataclasses import dataclass
 import os
 from pathlib import Path
 
-from .model import BelizeChainLLM, QuantizedBelizeModel  
+from .model import BelizeChainLLM, QuantizedBelizeModel
 from .data_loader import BelizeDataLoader, ComplianceDataFilter
 
 # Configure logging for Belize compliance
@@ -56,22 +56,22 @@ class BelizeTrainingConfig:
 class BelizeChainFederatedClient(fl.client.NumPyClient):
     """
     BelizeChain Federated Learning Client
-    
+
     Implements privacy-preserving federated learning for Belize's sovereign AI infrastructure.
     Ensures all training complies with Belizean data protection and sovereignty requirements.
     """
-    
+
     def __init__(self, config: BelizeTrainingConfig):
         self.config = config
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = None
         self.data_loader = None
         self.compliance_filter = ComplianceDataFilter()
-        
+
         logger.info(f"Initializing BelizeChain FL client: {config.participant_id}")
         self._setup_model()
         self._setup_data()
-        
+
     def _setup_model(self):
         """Initialize the local model with quantization for efficiency"""
         try:
@@ -86,11 +86,11 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
                     model_name=self.config.model_name
                 ).to(self.device)
                 logger.info("Loaded full-precision model")
-                
+
         except Exception as e:
             logger.error(f"Model initialization failed: {e}")
             raise
-            
+
     def _setup_data(self):
         """Setup local data loader with compliance filtering"""
         try:
@@ -101,7 +101,7 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
                 data_sovereignty_check=self.config.data_sovereignty_check
             )
             logger.info("Data loader initialized with compliance filtering")
-            
+
         except Exception as e:
             logger.error(f"Data loader setup failed: {e}")
             raise
@@ -112,116 +112,131 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
     def set_parameters(self, parameters: List[np.ndarray]) -> None:
-        """Set model parameters from federated aggregation"""
+        """Set model parameters from federated aggregation with integrity checks."""
         logger.info("Setting model parameters from global aggregation")
         params_dict = zip(self.model.state_dict().keys(), parameters)
-        state_dict = {k: torch.tensor(v) for k, v in params_dict}
+        state_dict = {}
+        for k, v in params_dict:
+            t = torch.tensor(v)
+            # Integrity check: reject NaN/Inf values (possible poisoning)
+            if torch.isnan(t).any() or torch.isinf(t).any():
+                raise ValueError(
+                    f"Rejected FL parameter '{k}': contains NaN or Inf values "
+                    "(possible model poisoning)"
+                )
+            # Integrity check: reject extreme magnitudes
+            if t.abs().max().item() > 1e6:
+                logger.warning(
+                    f"FL parameter '{k}' has extreme magnitude "
+                    f"({t.abs().max().item():.2f}), possible poisoning"
+                )
+            state_dict[k] = t
         self.model.load_state_dict(state_dict, strict=True)
 
     def fit(self, parameters: List[np.ndarray], config: Dict) -> Tuple[List[np.ndarray], int, Dict]:
         """
         Local training round with privacy preservation
-        
+
         Args:
             parameters: Global model parameters from aggregation
             config: Training configuration from server
-            
+
         Returns:
             Updated parameters, number of samples, training metrics
         """
         logger.info(f"Starting local training round for participant {self.config.participant_id}")
-        
+
         # Set global parameters
         self.set_parameters(parameters)
-        
+
         # Prepare model for training
         self.model.train()
         optimizer = torch.optim.AdamW(
-            self.model.parameters(), 
+            self.model.parameters(),
             lr=self.config.learning_rate
         )
-        
+
         total_loss = 0.0
         num_samples = 0
-        
+
         # Local training loop
         for epoch in range(self.config.local_epochs):
             epoch_loss = 0.0
             epoch_samples = 0
-            
+
             for batch in self.data_loader.get_train_loader():
                 # Compliance check on batch
                 if self.config.compliance_mode:
                     batch = self.compliance_filter.filter_batch(batch)
                     if batch is None:
                         continue
-                
+
                 optimizer.zero_grad()
-                
+
                 # Forward pass
                 outputs = self.model(
                     input_ids=batch['input_ids'].to(self.device),
                     attention_mask=batch['attention_mask'].to(self.device),
                     labels=batch['labels'].to(self.device)
                 )
-                
+
                 loss = outputs.loss
                 loss.backward()
-                
+
                 # Gradient clipping for stability
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                
+
                 optimizer.step()
-                
+
                 epoch_loss += loss.item()
                 epoch_samples += batch['input_ids'].size(0)
-                
+
             total_loss += epoch_loss
             num_samples += epoch_samples
-            
+
             logger.info(f"Epoch {epoch + 1}/{self.config.local_epochs}: "
                        f"Loss = {epoch_loss / max(epoch_samples, 1):.4f}")
-        
+
         # Privacy-preserving parameter extraction
         updated_parameters = self.get_parameters({})
-        
+
         # Apply differential privacy if configured
         if config.get('differential_privacy', False):
             updated_parameters = self._apply_differential_privacy(
-                updated_parameters, 
+                updated_parameters,
                 config.get('privacy_budget', 1.0)
             )
-        
+
         metrics = {
             'loss': total_loss / max(num_samples, 1),
             'num_samples': num_samples,
             'participant_id': self.config.participant_id,
             'compliance_checks_passed': self.compliance_filter.get_stats()
         }
-        
+
         logger.info(f"Local training completed: {metrics}")
         return updated_parameters, num_samples, metrics
 
     def evaluate(self, parameters: List[np.ndarray], config: Dict) -> Tuple[float, int, Dict]:
         """
         Local evaluation with privacy preservation
-        
+
         Args:
             parameters: Global model parameters
             config: Evaluation configuration
-            
+
         Returns:
             Loss, number of samples, evaluation metrics
         """
         logger.info("Starting local evaluation")
-        
+
         self.set_parameters(parameters)
         self.model.eval()
-        
+
         total_loss = 0.0
         total_accuracy = 0.0
         num_samples = 0
-        
+
         with torch.no_grad():
             for batch in self.data_loader.get_eval_loader():
                 # Compliance filtering
@@ -229,47 +244,57 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
                     batch = self.compliance_filter.filter_batch(batch)
                     if batch is None:
                         continue
-                
+
                 outputs = self.model(
                     input_ids=batch['input_ids'].to(self.device),
                     attention_mask=batch['attention_mask'].to(self.device),
                     labels=batch['labels'].to(self.device)
                 )
-                
+
                 total_loss += outputs.loss.item()
-                
+
                 # Calculate accuracy for classification tasks
                 if hasattr(outputs, 'logits'):
                     predictions = torch.argmax(outputs.logits, dim=-1)
                     accuracy = (predictions == batch['labels']).float().mean()
                     total_accuracy += accuracy.item()
-                
+
                 num_samples += batch['input_ids'].size(0)
-        
+
         avg_loss = total_loss / max(len(self.data_loader.get_eval_loader()), 1)
         avg_accuracy = total_accuracy / max(len(self.data_loader.get_eval_loader()), 1)
-        
+
         metrics = {
             'accuracy': avg_accuracy,
             'participant_id': self.config.participant_id,
             'evaluation_samples': num_samples
         }
-        
+
         logger.info(f"Evaluation completed: Loss={avg_loss:.4f}, Accuracy={avg_accuracy:.4f}")
         return avg_loss, num_samples, metrics
 
     def _apply_differential_privacy(self, parameters: List[np.ndarray], epsilon: float) -> List[np.ndarray]:
-        """Apply differential privacy to model parameters"""
-        logger.info(f"Applying differential privacy with ε={epsilon}")
-        
+        """Apply differential privacy to model parameters using Gaussian mechanism.
+
+        Uses L2-sensitivity with Gaussian noise, aligned with the Gaussian mechanism
+        in security/differential_privacy.py. For full DP-SGD training guarantees,
+        use the DPOptimizer from the security module instead.
+        """
+        clip_norm = 1.0  # L2 clipping bound
+        delta = 1e-5  # Failure probability
+        logger.info(f"Applying differential privacy with ε={epsilon}, δ={delta}")
+
         private_parameters = []
         for param in parameters:
-            # Add calibrated noise for differential privacy
-            sensitivity = np.max(np.abs(param))  # L-infinity sensitivity
-            noise_scale = sensitivity / epsilon
-            noise = np.random.laplace(0, noise_scale, param.shape)
+            # Clip parameter values to bound L2 sensitivity
+            param_norm = np.linalg.norm(param)
+            if param_norm > clip_norm:
+                param = param * (clip_norm / param_norm)
+            # Gaussian mechanism: σ = sensitivity * sqrt(2 * ln(1.25/δ)) / ε
+            noise_scale = clip_norm * np.sqrt(2 * np.log(1.25 / delta)) / epsilon
+            noise = np.random.normal(0, noise_scale, param.shape)
             private_parameters.append(param + noise)
-        
+
         return private_parameters
 
 def main():
@@ -279,13 +304,13 @@ def main():
         azure_endpoint=os.getenv('AZURE_ML_ENDPOINT'),
         compliance_mode=os.getenv('BELIZECHAIN_COMPLIANCE', 'true').lower() == 'true'
     )
-    
+
     # Initialize federated learning client
     client = BelizeChainFederatedClient(config)
-    
+
     # Start federated learning
     fl.client.start_numpy_client(
-        server_address="localhost:8080",  # Configure for your federated server
+        server_address=os.getenv('FL_SERVER_ADDRESS', 'localhost:8080'),
         client=client
     )
 

@@ -17,7 +17,7 @@ License: MIT
 
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 import hashlib
@@ -39,7 +39,7 @@ class StorageBackend(Enum):
 class GenomeMetadata:
     """
     Metadata for stored genome.
-    
+
     Attributes:
         genome_id: Unique genome identifier (hash)
         owner: Creator SS58 address
@@ -60,11 +60,11 @@ class GenomeMetadata:
     parent_ids: List[str] = field(default_factory=list)
     created_at: Optional[datetime] = None
     size_bytes: int = 0
-    
+
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = datetime.now()
-    
+
     def to_dict(self) -> Dict:
         """Convert to dictionary for chain storage."""
         return {
@@ -83,16 +83,16 @@ class GenomeMetadata:
 class GenomeRegistry:
     """
     Registry for evolved AI genomes.
-    
+
     Manages:
     - On-chain genome metadata
     - Decentralized content storage (IPFS/Arweave)
     - Genome versioning
     - Provenance tracking
-    
+
     Usage:
         registry = GenomeRegistry(client)
-        
+
         # Store genome
         genome_data = {...}  # Genome dictionary
         metadata = registry.store_genome(
@@ -102,11 +102,11 @@ class GenomeRegistry:
             generation=10,
             parent_ids=["parent1_id", "parent2_id"],
         )
-        
+
         # Retrieve genome
         genome = registry.get_genome(metadata.genome_id)
     """
-    
+
     def __init__(
         self,
         client: SubstrateClient,
@@ -116,7 +116,7 @@ class GenomeRegistry:
     ):
         """
         Initialize GenomeRegistry.
-        
+
         Args:
             client: Substrate client
             storage_backend: Storage backend to use
@@ -126,19 +126,19 @@ class GenomeRegistry:
         self.client = client
         self.storage_backend = storage_backend
         self.ipfs_url = ipfs_url
-        
+
         # Local storage directory
         if local_storage_dir:
             self.local_storage_dir = local_storage_dir
         else:
             self.local_storage_dir = Path("./genome_storage")
-        
+
         self.local_storage_dir.mkdir(parents=True, exist_ok=True)
-        
+
         logger.info(
             f"GenomeRegistry initialized: backend={storage_backend.value}"
         )
-    
+
     def store_genome(
         self,
         keypair,
@@ -150,7 +150,7 @@ class GenomeRegistry:
     ) -> GenomeMetadata:
         """
         Store genome on-chain and in decentralized storage.
-        
+
         Args:
             keypair: Owner keypair
             genome: Genome data (dictionary)
@@ -158,7 +158,7 @@ class GenomeRegistry:
             generation: Generation number
             parent_ids: Parent genome IDs
             wait_for_finalization: Wait for block finalization
-        
+
         Returns:
             Genome metadata
         """
@@ -166,14 +166,14 @@ class GenomeRegistry:
             f"Storing genome: generation={generation}, "
             f"fitness={fitness:.2f}"
         )
-        
+
         # Serialize genome
         genome_json = json.dumps(genome, sort_keys=True)
         genome_bytes = genome_json.encode('utf-8')
-        
+
         # Generate genome ID (content hash)
         genome_id = hashlib.sha256(genome_bytes).hexdigest()
-        
+
         # Store content in decentralized storage
         if self.storage_backend == StorageBackend.IPFS:
             content_hash = self._store_ipfs(genome_bytes)
@@ -182,7 +182,7 @@ class GenomeRegistry:
         else:
             # Local storage
             content_hash = self._store_local(genome_id, genome_bytes)
-        
+
         # Create metadata
         metadata = GenomeMetadata(
             genome_id=genome_id,
@@ -194,7 +194,7 @@ class GenomeRegistry:
             parent_ids=parent_ids or [],
             size_bytes=len(genome_bytes),
         )
-        
+
         # Store metadata on-chain
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
@@ -204,7 +204,7 @@ class GenomeRegistry:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success(
                 f"Genome stored: ID={genome_id[:16]}..., "
@@ -213,16 +213,16 @@ class GenomeRegistry:
         else:
             logger.error(f"Genome storage failed: {receipt.error}")
             raise RuntimeError(f"Failed to store genome: {receipt.error}")
-        
+
         return metadata
-    
+
     def get_genome(self, genome_id: str) -> Optional[Dict]:
         """
         Retrieve genome from storage.
-        
+
         Args:
             genome_id: Genome identifier
-        
+
         Returns:
             Genome data or None if not found
         """
@@ -231,7 +231,7 @@ class GenomeRegistry:
         if metadata is None:
             logger.warning(f"Genome not found: {genome_id}")
             return None
-        
+
         # Retrieve content from storage
         if metadata.storage_backend == StorageBackend.IPFS:
             genome_bytes = self._retrieve_ipfs(metadata.content_hash)
@@ -239,20 +239,32 @@ class GenomeRegistry:
             genome_bytes = self._retrieve_arweave(metadata.content_hash)
         else:
             genome_bytes = self._retrieve_local(metadata.content_hash)
-        
+
+        # Verify content integrity against on-chain hash
+        actual_hash = hashlib.sha256(genome_bytes).hexdigest()
+        if actual_hash != metadata.genome_id:
+            logger.error(
+                f"Genome integrity check FAILED: "
+                f"expected {metadata.genome_id[:16]}..., "
+                f"got {actual_hash[:16]}..."
+            )
+            raise ValueError(
+                f"Content integrity verification failed for genome {genome_id}"
+            )
+
         # Parse genome
         genome = json.loads(genome_bytes.decode('utf-8'))
-        
+
         logger.debug(f"Retrieved genome: {genome_id[:16]}...")
         return genome
-    
+
     def get_metadata(self, genome_id: str) -> Optional[GenomeMetadata]:
         """
         Get genome metadata from chain.
-        
+
         Args:
             genome_id: Genome identifier
-        
+
         Returns:
             Genome metadata or None
         """
@@ -262,10 +274,10 @@ class GenomeRegistry:
                 storage_function="Genomes",
                 params=[genome_id],
             )
-            
+
             if data is None:
                 return None
-            
+
             metadata = GenomeMetadata(
                 genome_id=genome_id,
                 owner=data['owner'],
@@ -274,56 +286,56 @@ class GenomeRegistry:
                 storage_backend=StorageBackend(data['storage_backend']),
                 content_hash=data['content_hash'],
                 parent_ids=data.get('parent_ids', []),
-                created_at=datetime.fromtimestamp(data['timestamp']),
+                created_at=datetime.fromtimestamp(data['timestamp'], tz=timezone.utc),
                 size_bytes=data['size_bytes'],
             )
-            
+
             return metadata
-            
+
         except Exception as e:
             logger.error(f"Failed to get genome metadata: {e}")
             return None
-    
+
     def get_lineage(self, genome_id: str, depth: int = 10) -> List[GenomeMetadata]:
         """
         Get genome lineage (ancestors).
-        
+
         Args:
             genome_id: Starting genome ID
             depth: Maximum depth to traverse
-        
+
         Returns:
             List of ancestor genomes (oldest first)
         """
         lineage = []
         current_id = genome_id
-        
+
         for _ in range(depth):
             metadata = self.get_metadata(current_id)
             if metadata is None:
                 break
-            
+
             lineage.append(metadata)
-            
+
             # Get first parent
             if not metadata.parent_ids:
                 break
-            
+
             current_id = metadata.parent_ids[0]
-        
+
         # Reverse to get oldest first
         lineage.reverse()
-        
+
         logger.debug(f"Retrieved lineage: {len(lineage)} generations")
         return lineage
-    
+
     def get_by_owner(self, owner: str) -> List[GenomeMetadata]:
         """
         Get all genomes owned by address.
-        
+
         Args:
             owner: Owner SS58 address
-        
+
         Returns:
             List of genome metadata
         """
@@ -334,31 +346,31 @@ class GenomeRegistry:
                 storage_function="GenomesByOwner",
                 params=[owner],
             )
-            
+
             if genome_ids is None:
                 return []
-            
+
             # Get metadata for each genome
             genomes = []
             for genome_id in genome_ids:
                 metadata = self.get_metadata(genome_id)
                 if metadata:
                     genomes.append(metadata)
-            
+
             logger.debug(f"Found {len(genomes)} genomes for {owner}")
             return genomes
-            
+
         except Exception as e:
             logger.error(f"Failed to get genomes by owner: {e}")
             return []
-    
+
     def _store_ipfs(self, data: bytes) -> str:
         """
         Store data on IPFS.
-        
+
         Args:
             data: Data to store
-        
+
         Returns:
             IPFS CID
         """
@@ -367,14 +379,16 @@ class GenomeRegistry:
             response = requests.post(
                 f"{self.ipfs_url}/api/v0/add",
                 files={'file': data},
+                timeout=30,
             )
+            response.raise_for_status()
             cid = response.json()['Hash']
             logger.debug(f"Stored on IPFS: {cid}")
             return cid
         except Exception as e:
             logger.error(f"IPFS storage failed: {e}")
             raise RuntimeError("IPFS storage not available")
-    
+
     def _retrieve_ipfs(self, cid: str) -> bytes:
         """Retrieve data from IPFS."""
         try:
@@ -382,51 +396,73 @@ class GenomeRegistry:
             response = requests.post(
                 f"{self.ipfs_url}/api/v0/cat",
                 params={'arg': cid},
+                timeout=30,
             )
+            response.raise_for_status()
             return response.content
         except Exception as e:
             logger.error(f"IPFS retrieval failed: {e}")
             raise
-    
+
     def _store_arweave(self, data: bytes) -> str:
         """
         Store data on Arweave.
-        
+
         Args:
             data: Data to store
-        
+
         Returns:
             Arweave transaction ID
         """
-        # Placeholder - would need Arweave client library
-        logger.warning("Arweave storage not implemented, using local")
+        # WARNING: Arweave client not implemented — data is stored locally only.
+        # This means genome data is NOT decentralized and will be lost if local
+        # storage is cleared. Implement Arweave integration before production use.
+        logger.warning(
+            "CRITICAL: Arweave storage not implemented. Genome data is being "
+            "stored LOCALLY ONLY — no decentralized persistence guarantee. "
+            "Implement arweave-python-client before production deployment."
+        )
         return self._store_local(hashlib.sha256(data).hexdigest(), data)
-    
+
     def _retrieve_arweave(self, tx_id: str) -> bytes:
         """Retrieve data from Arweave."""
-        # Placeholder
-        logger.warning("Arweave retrieval not implemented, using local")
+        # WARNING: Arweave retrieval not implemented — falling back to local.
+        logger.warning(
+            "CRITICAL: Arweave retrieval not implemented. Falling back to "
+            "local storage — data may not be available if stored on a "
+            "different node. Implement arweave-python-client for production."
+        )
         return self._retrieve_local(tx_id)
-    
+
     def _store_local(self, genome_id: str, data: bytes) -> str:
         """
         Store data locally.
-        
+
         Args:
             genome_id: Genome identifier
             data: Data to store
-        
+
         Returns:
             File path (used as content hash)
         """
-        file_path = self.local_storage_dir / f"{genome_id}.json"
+        # Sanitize genome_id to prevent path traversal
+        safe_id = Path(genome_id).name
+        if not safe_id or safe_id in ('.', '..') or '/' in genome_id or '\\' in genome_id:
+            raise ValueError(f"Invalid genome ID: {genome_id}")
+        file_path = self.local_storage_dir / f"{safe_id}.json"
+        # Verify resolved path is under storage dir
+        if not file_path.resolve().is_relative_to(self.local_storage_dir.resolve()):
+            raise ValueError(f"Path traversal detected in genome ID: {genome_id}")
         file_path.write_bytes(data)
         logger.debug(f"Stored locally: {file_path}")
         return str(file_path)
-    
+
     def _retrieve_local(self, content_hash: str) -> bytes:
         """Retrieve data from local storage."""
         file_path = Path(content_hash)
+        # Verify path is under local storage directory to prevent path traversal
+        if not file_path.resolve().is_relative_to(self.local_storage_dir.resolve()):
+            raise ValueError(f"Path traversal detected: {content_hash}")
         if not file_path.exists():
             raise FileNotFoundError(f"Genome not found: {content_hash}")
         return file_path.read_bytes()

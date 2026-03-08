@@ -72,7 +72,7 @@ class EmployeeType(Enum):
 @dataclass
 class PayrollEntry:
     """Individual payroll entry for an employee."""
-    
+
     employee_id: str  # BelizeID account
     employee_name_hash: str  # SHA-256 hash of name (privacy)
     gross_salary: int  # In Planck (smallest unit)
@@ -83,15 +83,15 @@ class PayrollEntry:
     payment_period: str  # YYYY-MM format
     employee_type: EmployeeType
     department: Optional[str] = None
-    
+
     def __post_init__(self):
         """Validate payroll entry."""
         if self.gross_salary < 0:
             raise ValueError("Gross salary cannot be negative")
-        
+
         if self.net_salary < 0:
             raise ValueError("Net salary cannot be negative")
-        
+
         # Validate calculation
         expected_net = self.gross_salary - self.tax_withholding - self.social_security - self.pension_contribution
         if abs(expected_net - self.net_salary) > 1:  # Allow 1 Planck rounding error
@@ -101,7 +101,7 @@ class PayrollEntry:
 @dataclass
 class PayrollSubmission:
     """Complete payroll submission for multiple employees."""
-    
+
     submission_id: str
     employer_id: str  # BelizeID or business registration
     employer_name: str
@@ -115,63 +115,73 @@ class PayrollSubmission:
     merkle_root: str  # Merkle root of all entries
     timestamp: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
     status: PayrollStatus = PayrollStatus.PENDING
-    
+
     def validate(self) -> List[str]:
         """Validate submission data."""
         errors = []
-        
+
         if self.employee_count != len(self.entries):
             errors.append(f"Employee count mismatch: {self.employee_count} vs {len(self.entries)}")
-        
+
         # Validate totals
         calc_gross = sum(e.gross_salary for e in self.entries)
         calc_tax = sum(e.tax_withholding for e in self.entries)
         calc_net = sum(e.net_salary for e in self.entries)
-        
+
         if abs(calc_gross - self.total_gross) > len(self.entries):
             errors.append(f"Total gross mismatch: {calc_gross} vs {self.total_gross}")
-        
+
         if abs(calc_tax - self.total_tax) > len(self.entries):
             errors.append(f"Total tax mismatch: {calc_tax} vs {self.total_tax}")
-        
+
         if abs(calc_net - self.total_net) > len(self.entries):
             errors.append(f"Total net mismatch: {calc_net} vs {self.total_net}")
-        
+
         # Validate individual entries
         for i, entry in enumerate(self.entries):
             try:
                 entry.__post_init__()
             except ValueError as e:
                 errors.append(f"Entry {i} invalid: {e}")
-        
+
         return errors
 
 
 @dataclass
 class PayrollProof:
     """Zero-knowledge proof for payroll submission."""
-    
+
     proof_type: str  # "zk-snark" or "bulletproof"
     proof_data: str  # Serialized proof
     public_inputs: List[str]  # Public verification inputs
     commitment: str  # Commitment to private data
-    
+
     def verify(self) -> bool:
         """
-        Verify the ZK proof (simplified implementation).
-        
-        In production, this would use a proper ZK-SNARK library
-        like py-ecc, libsnark bindings, or circom.
+        Verify the ZK proof.
+
+        WARNING: This is a PLACEHOLDER implementation. In production,
+        this must use a proper ZK-SNARK library (py-ecc, circom, bellman).
         """
-        # TODO: Implement actual ZK proof verification
-        # For now, basic commitment verification
+        import os
+        import warnings
+        if os.environ.get('NAWAL_ENV', '').lower() == 'production':
+            raise NotImplementedError(
+                "ZK proof verification is not implemented for production. "
+                "Integrate a proper ZK-SNARK library before deploying."
+            )
+        warnings.warn(
+            "Using PLACEHOLDER ZK proof verification — not cryptographically secure. "
+            "Do NOT use in production.",
+            stacklevel=2,
+        )
         return len(self.proof_data) > 0 and len(self.commitment) > 0
 
 
 @dataclass
 class EmployeePaystub:
     """Employee paystub (private, for employee's view only)."""
-    
+
     employee_id: str
     payment_period: str
     gross_salary: int
@@ -192,18 +202,18 @@ class EmployeePaystub:
 class PayrollConnector:
     """
     Connector to BelizeChain Payroll pallet.
-    
+
     Enables privacy-preserving payroll submissions using zero-knowledge proofs.
     Validators can verify payroll correctness without seeing individual salaries.
-    
+
     Usage:
         connector = PayrollConnector(
             websocket_url="ws://localhost:9944",
             keypair=employer_keypair,
         )
-        
+
         await connector.connect()
-        
+
         # Submit payroll
         submission = await connector.submit_payroll(
             entries=[
@@ -222,7 +232,7 @@ class PayrollConnector:
             payment_period="2026-02",
         )
     """
-    
+
     def __init__(
         self,
         websocket_url: str = "ws://127.0.0.1:9944",
@@ -231,7 +241,7 @@ class PayrollConnector:
     ):
         """
         Initialize Payroll pallet connector.
-        
+
         Args:
             websocket_url: BelizeChain node WebSocket endpoint
             keypair: Employer account keypair for signing transactions
@@ -242,40 +252,40 @@ class PayrollConnector:
         self.mock_mode = mock_mode or not SUBSTRATE_AVAILABLE
         self.substrate: Optional[SubstrateInterface] = None
         self._connected = False
-        
+
         if self.mock_mode:
             logger.warning("Payroll connector running in MOCK MODE")
-    
+
     async def connect(self) -> bool:
         """
         Connect to BelizeChain node.
-        
+
         Returns:
             True if connected successfully
         """
         if self._connected:
             return True
-        
+
         if self.mock_mode:
             self._connected = True
             return True
-        
+
         try:
             self.substrate = SubstrateInterface(url=self.websocket_url)
             self._connected = True
             logger.info(f"Connected to BelizeChain Payroll pallet at {self.websocket_url}")
             return True
-        
+
         except Exception as e:
             logger.error(f"Failed to connect to BelizeChain: {e}")
             return False
-    
+
     async def disconnect(self) -> None:
         """Disconnect from BelizeChain."""
         if self.substrate:
             self.substrate.close()
             self._connected = False
-    
+
     async def submit_payroll(
         self,
         entries: List[PayrollEntry],
@@ -284,41 +294,41 @@ class PayrollConnector:
     ) -> PayrollSubmission:
         """
         Submit payroll with ZK-proof.
-        
+
         Args:
             entries: List of payroll entries
             payment_period: Payment period (YYYY-MM)
             employer_name: Employer name (optional)
-        
+
         Returns:
             PayrollSubmission with proof
-        
+
         Raises:
             ValueError: If validation fails
             RuntimeError: If submission fails
         """
         if not self._connected:
             raise RuntimeError("Not connected to blockchain")
-        
+
         if not self.keypair:
             raise RuntimeError("No keypair configured")
-        
+
         # Generate submission ID
         submission_id = hashlib.sha256(
             f"{self.keypair.ss58_address}{payment_period}{datetime.now(timezone.utc).timestamp()}".encode()
         ).hexdigest()[:16]
-        
+
         # Calculate totals
         total_gross = sum(e.gross_salary for e in entries)
         total_tax = sum(e.tax_withholding for e in entries)
         total_net = sum(e.net_salary for e in entries)
-        
+
         # Generate Merkle root
         merkle_root = self._compute_merkle_root(entries)
-        
+
         # Generate ZK proof
         zk_proof = self._generate_zk_proof(entries, merkle_root)
-        
+
         submission = PayrollSubmission(
             submission_id=submission_id,
             employer_id=self.keypair.ss58_address,
@@ -332,12 +342,12 @@ class PayrollConnector:
             zk_proof=zk_proof,
             merkle_root=merkle_root,
         )
-        
+
         # Validate submission
         errors = submission.validate()
         if errors:
             raise ValueError(f"Payroll validation failed: {errors}")
-        
+
         # Submit to blockchain
         if not self.mock_mode:
             try:
@@ -354,59 +364,59 @@ class PayrollConnector:
                         "zk_proof": zk_proof,
                     },
                 )
-                
+
                 extrinsic = self.substrate.create_signed_extrinsic(
                     call=call,
                     keypair=self.keypair,
                 )
-                
+
                 receipt = self.substrate.submit_extrinsic(
                     extrinsic,
                     wait_for_inclusion=True,
                 )
-                
+
                 if receipt.is_success:
                     submission.status = PayrollStatus.VERIFIED
                     logger.info(f"Payroll {submission_id} submitted successfully")
                 else:
                     submission.status = PayrollStatus.FAILED
                     raise RuntimeError(f"Payroll submission failed: {receipt.error_message}")
-            
+
             except SubstrateRequestException as e:
                 logger.error(f"Blockchain error: {e}")
                 submission.status = PayrollStatus.FAILED
                 raise RuntimeError(f"Blockchain submission failed: {e}")
-        
+
         else:
             # Mock mode - just mark as verified
             submission.status = PayrollStatus.VERIFIED
             logger.info(f"[MOCK] Payroll {submission_id} submitted")
-        
+
         return submission
-    
+
     async def verify_payroll(
         self,
         submission_id: str,
     ) -> bool:
         """
         Verify a payroll submission as a validator.
-        
+
         Args:
             submission_id: Submission ID to verify
-        
+
         Returns:
             True if verification successful
         """
         if not self._connected:
             raise RuntimeError("Not connected to blockchain")
-        
+
         if not self.keypair:
             raise RuntimeError("No keypair configured for verification")
-        
+
         if self.mock_mode:
             logger.info(f"[MOCK] Verified payroll {submission_id}")
             return True
-        
+
         try:
             # Query submission from blockchain
             submission_data = self.substrate.query(
@@ -414,11 +424,11 @@ class PayrollConnector:
                 storage_function="PayrollSubmissions",
                 params=[submission_id],
             )
-            
+
             if not submission_data:
                 logger.error(f"Payroll submission {submission_id} not found")
                 return False
-            
+
             # Verify ZK proof
             proof = PayrollProof(
                 proof_type="zk-snark",
@@ -430,39 +440,39 @@ class PayrollConnector:
                 ],
                 commitment=submission_data["merkle_root"],
             )
-            
+
             if not proof.verify():
                 logger.error(f"ZK proof verification failed for {submission_id}")
                 return False
-            
+
             # Submit verification
             call = self.substrate.compose_call(
                 call_module="Payroll",
                 call_function="verify_payroll",
                 call_params={"submission_id": submission_id},
             )
-            
+
             extrinsic = self.substrate.create_signed_extrinsic(
                 call=call,
                 keypair=self.keypair,
             )
-            
+
             receipt = self.substrate.submit_extrinsic(
                 extrinsic,
                 wait_for_inclusion=True,
             )
-            
+
             if receipt.is_success:
                 logger.info(f"Payroll {submission_id} verified successfully")
                 return True
             else:
                 logger.error(f"Verification submission failed: {receipt.error_message}")
                 return False
-        
+
         except Exception as e:
             logger.error(f"Payroll verification error: {e}")
             return False
-    
+
     async def get_employee_paystub(
         self,
         employee_id: str,
@@ -470,17 +480,17 @@ class PayrollConnector:
     ) -> Optional[EmployeePaystub]:
         """
         Get paystub for an employee (requires employee's keypair).
-        
+
         Args:
             employee_id: Employee BelizeID account
             payment_period: Payment period (YYYY-MM)
-        
+
         Returns:
             EmployeePaystub or None if not found
         """
         if not self._connected:
             raise RuntimeError("Not connected to blockchain")
-        
+
         if self.mock_mode:
             # Mock paystub
             return EmployeePaystub(
@@ -495,7 +505,7 @@ class PayrollConnector:
                 employer_name="Mock Employer",
                 payment_status="paid",
             )
-        
+
         try:
             # Query encrypted paystub
             paystub_data = self.substrate.query(
@@ -503,11 +513,11 @@ class PayrollConnector:
                 storage_function="EmployeePaystubs",
                 params=[employee_id, payment_period],
             )
-            
+
             if not paystub_data:
                 logger.info(f"No paystub found for {employee_id} in {payment_period}")
                 return None
-            
+
             # Decrypt paystub (employee can decrypt with their private key)
             return EmployeePaystub(
                 employee_id=employee_id,
@@ -521,27 +531,27 @@ class PayrollConnector:
                 employer_name=paystub_data["employer_name"],
                 payment_status=paystub_data["status"],
             )
-        
+
         except Exception as e:
             logger.error(f"Failed to get paystub: {e}")
             return None
-    
+
     async def get_payroll_stats(
         self,
         payment_period: str,
     ) -> Dict[str, Any]:
         """
         Get aggregated payroll statistics (government view).
-        
+
         Args:
             payment_period: Payment period (YYYY-MM)
-        
+
         Returns:
             Dictionary with stats
         """
         if not self._connected:
             raise RuntimeError("Not connected to blockchain")
-        
+
         if self.mock_mode:
             return {
                 "payment_period": payment_period,
@@ -552,41 +562,45 @@ class PayrollConnector:
                 "government_employees": 2000,
                 "private_employees": 3000,
             }
-        
+
         try:
             stats = self.substrate.query(
                 module="Payroll",
                 storage_function="PeriodStats",
                 params=[payment_period],
             )
-            
+
             return stats or {}
-        
+
         except Exception as e:
             logger.error(f"Failed to get payroll stats: {e}")
             return {}
-    
+
     # -------------------------------------------------------------------------
     # Internal Methods
     # -------------------------------------------------------------------------
-    
+
     def _compute_merkle_root(self, entries: List[PayrollEntry]) -> str:
         """
         Compute Merkle root of payroll entries.
-        
+
         Args:
             entries: List of payroll entries
-        
+
         Returns:
             Hex-encoded Merkle root
         """
-        # Hash each entry
+        # Hash each entry (use HMAC with a domain separator to prevent data leakage)
         leaves = []
         for entry in entries:
-            entry_data = f"{entry.employee_id}{entry.gross_salary}{entry.net_salary}"
-            leaf_hash = hashlib.sha256(entry_data.encode()).digest()
+            # Hash individual fields before combining to prevent plaintext exposure
+            leaf_hash = hashlib.sha256(
+                hashlib.sha256(entry.employee_id.encode()).digest()
+                + hashlib.sha256(str(entry.gross_salary).encode()).digest()
+                + hashlib.sha256(str(entry.net_salary).encode()).digest()
+            ).digest()
             leaves.append(leaf_hash)
-        
+
         # Build Merkle tree
         while len(leaves) > 1:
             new_level = []
@@ -595,14 +609,14 @@ class PayrollConnector:
                     combined = leaves[i] + leaves[i + 1]
                 else:
                     combined = leaves[i] + leaves[i]
-                
+
                 parent_hash = hashlib.sha256(combined).digest()
                 new_level.append(parent_hash)
-            
+
             leaves = new_level
-        
+
         return leaves[0].hex() if leaves else ""
-    
+
     def _generate_zk_proof(
         self,
         entries: List[PayrollEntry],
@@ -610,24 +624,36 @@ class PayrollConnector:
     ) -> str:
         """
         Generate zero-knowledge proof for payroll submission.
-        
+
         In production, this would use a proper ZK-SNARK library.
         For now, it generates a commitment-based proof.
-        
+
         Args:
             entries: List of payroll entries
             merkle_root: Merkle root of entries
-        
+
         Returns:
             Hex-encoded ZK proof
         """
-        # TODO: Implement actual ZK-SNARK proof generation
-        # This could use libraries like:
-        # - py-ecc (for elliptic curve cryptography)
+        # PLACEHOLDER: NOT a real ZK-SNARK proof.
+        # In production, use a proper library:
+        # - py-ecc (elliptic curve cryptography)
         # - circom/snarkjs (via subprocess)
         # - bellman (Rust bindings)
-        
-        # For now, generate deterministic commitment
+        import os
+        import warnings
+        if os.environ.get('NAWAL_ENV', '').lower() == 'production':
+            raise NotImplementedError(
+                "ZK proof generation is not implemented for production. "
+                "Integrate a proper ZK-SNARK library before deploying."
+            )
+        warnings.warn(
+            "Using PLACEHOLDER ZK proof generation — not cryptographically secure. "
+            "Do NOT use in production.",
+            stacklevel=2,
+        )
+
+        # Generate deterministic commitment (development only)
         proof_data = {
             "merkle_root": merkle_root,
             "entry_count": len(entries),
@@ -635,12 +661,12 @@ class PayrollConnector:
             "total_net": sum(e.net_salary for e in entries),
             "timestamp": datetime.now(timezone.utc).timestamp(),
         }
-        
+
         proof_json = json.dumps(proof_data, sort_keys=True)
         proof_hash = hashlib.sha256(proof_json.encode()).hexdigest()
-        
+
         return proof_hash
-    
+
     def calculate_tax_withholding(
         self,
         gross_salary: int,
@@ -648,30 +674,31 @@ class PayrollConnector:
     ) -> int:
         """
         Calculate tax withholding based on Belize tax brackets.
-        
-        Belize Progressive Income Tax (2026):
-        - 0 - 26,000 BZD: 0%
-        - 26,001 - 27,000 BZD: 20%
-        - Above 27,000 BZD: 25%
-        
+
+        Belize Income Tax Act (2026):
+        - 0 – 26,000 BZD (standard deduction): 0%
+        - Above 26,000 BZD: 25%
+
+        Reference: Belize Income and Business Tax Act, Chapter 55.
+
         Args:
             gross_salary: Annual gross salary in Planck
-            tax_brackets: Custom tax brackets (optional)
-        
+            tax_brackets: Custom tax brackets (optional, overrides default)
+
         Returns:
             Tax withholding in Planck
         """
         # Default Belize tax brackets (in DALLA, 1 DALLA = 100,000,000 Planck)
+        # Two-bracket system per the Income Tax Act
         if tax_brackets is None:
             tax_brackets = [
                 {"threshold": 0, "rate": 0.0},
-                {"threshold": 2600000000000, "rate": 0.20},  # 26,000 DALLA
-                {"threshold": 2700000000000, "rate": 0.25},  # 27,000 DALLA
+                {"threshold": 2600000000000, "rate": 0.25},  # 26,000 DALLA
             ]
-        
+
         tax = 0
         remaining = gross_salary
-        
+
         for i, bracket in enumerate(tax_brackets):
             if i == len(tax_brackets) - 1:
                 # Last bracket - tax all remaining
@@ -688,5 +715,5 @@ class PayrollConnector:
                     amount_in_bracket = gross_salary - bracket["threshold"]
                     tax += int(amount_in_bracket * bracket["rate"])
                     break
-        
+
         return tax

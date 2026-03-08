@@ -2,7 +2,7 @@
 Mesh Network Connector for Nawal AI Validators
 
 Implements decentralized P2P mesh networking for validator communication,
-enabling direct model sharing, gossip protocol for FL rounds, and 
+enabling direct model sharing, gossip protocol for FL rounds, and
 Byzantine-resistant distributed consensus.
 
 Integrates with BelizeChain's validator registry to discover peers
@@ -27,6 +27,7 @@ import asyncio
 import hashlib
 import json
 from dataclasses import dataclass, field
+from collections import OrderedDict
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set
@@ -67,7 +68,7 @@ class MessageType(Enum):
 @dataclass
 class PeerInfo:
     """Information about a mesh network peer."""
-    
+
     peer_id: str  # Public key hash
     account_id: str  # BelizeChain account (SS58)
     multiaddr: str  # Network address (e.g., /ip4/1.2.3.4/tcp/9090)
@@ -77,7 +78,7 @@ class PeerInfo:
     last_seen: float = 0.0  # Unix timestamp
     is_validator: bool = False
     capabilities: List[str] = field(default_factory=list)
-    
+
     def is_alive(self, timeout: float = 300.0) -> bool:
         """Check if peer is alive based on last heartbeat."""
         now = datetime.now(timezone.utc).timestamp()
@@ -87,7 +88,7 @@ class PeerInfo:
 @dataclass
 class MeshMessage:
     """Message in the mesh network."""
-    
+
     message_id: str
     message_type: MessageType
     sender_id: str
@@ -95,7 +96,7 @@ class MeshMessage:
     payload: Dict[str, Any]
     signature: Optional[str] = None
     ttl: int = 5  # Time-to-live for gossip
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
@@ -107,7 +108,7 @@ class MeshMessage:
             "signature": self.signature,
             "ttl": self.ttl,
         }
-    
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> MeshMessage:
         """Create from dictionary."""
@@ -125,7 +126,7 @@ class MeshMessage:
 @dataclass
 class FLRoundAnnouncement:
     """Federated learning round announcement."""
-    
+
     round_id: str
     coordinator_id: str
     dataset_name: str
@@ -145,20 +146,20 @@ class FLRoundAnnouncement:
 class MeshNetworkClient:
     """
     P2P mesh network client for Nawal AI validators.
-    
+
     Enables decentralized communication between validators without
     relying on a central server. Uses gossip protocol for message
     propagation and peer discovery.
-    
+
     Usage:
         mesh = MeshNetworkClient(
             peer_id="validator1",
             listen_port=9090,
             blockchain_rpc="ws://localhost:9944",
         )
-        
+
         await mesh.start()
-        
+
         # Announce FL round
         await mesh.announce_fl_round(
             round_id="round_001",
@@ -166,14 +167,14 @@ class MeshNetworkClient:
             target_participants=10,
             deadline=3600,
         )
-        
+
         # Listen for messages
         async for message in mesh.receive_messages():
             if message.message_type == MessageType.FL_ROUND_START:
                 # Handle round start
                 pass
     """
-    
+
     def __init__(
         self,
         peer_id: str,
@@ -183,7 +184,7 @@ class MeshNetworkClient:
     ):
         """
         Initialize mesh network client.
-        
+
         Args:
             peer_id: Unique peer identifier
             listen_port: Port to listen for incoming connections
@@ -193,7 +194,7 @@ class MeshNetworkClient:
         self.peer_id = peer_id
         self.listen_port = listen_port
         self.blockchain_rpc = blockchain_rpc
-        
+
         # Cryptography
         if private_key is None:
             private_key = ed25519.Ed25519PrivateKey.generate()
@@ -203,44 +204,50 @@ class MeshNetworkClient:
             encoding=serialization.Encoding.Raw,
             format=serialization.PublicFormat.Raw,
         ).hex()
-        
+
         # Peer management
         self.peers: Dict[str, PeerInfo] = {}
-        self.seen_messages: Set[str] = set()  # For gossip deduplication
+        self.seen_messages: OrderedDict[str, float] = OrderedDict()  # msg_id -> timestamp for LRU
+        self._seen_messages_max = 10000
         self.message_handlers: Dict[MessageType, List[Callable]] = {}
-        
+
+        # Rate limiting: per-IP message counters
+        self._rate_limits: Dict[str, List[float]] = {}  # ip -> list of timestamps
+        self._rate_limit_max = 100  # max messages per window
+        self._rate_limit_window = 60.0  # seconds
+
         # Networking
         self.app: Optional[web.Application] = None
         self.runner: Optional[web.AppRunner] = None
         self.site: Optional[web.TCPSite] = None
         self._running = False
         self._message_queue: asyncio.Queue = asyncio.Queue()
-        
+
         # Blockchain connection
         self.substrate: Optional[SubstrateInterface] = None
-        
+
         logger.info(
             f"Initialized mesh network client {peer_id} "
             f"on port {listen_port} with pubkey {self.public_key_hex[:16]}..."
         )
-    
+
     async def start(self) -> None:
         """Start the mesh network client."""
         if self._running:
             logger.warning("Mesh network already running")
             return
-        
+
         # Start HTTP server for incoming messages
         self.app = web.Application()
         self.app.router.add_post("/message", self._handle_incoming_message)
         self.app.router.add_get("/peers", self._handle_peers_request)
         self.app.router.add_get("/health", self._handle_health)
-        
+
         self.runner = web.AppRunner(self.app)
         await self.runner.setup()
-        self.site = web.TCPSite(self.runner, "0.0.0.0", self.listen_port)
+        self.site = web.TCPSite(self.runner, "127.0.0.1", self.listen_port)
         await self.site.start()
-        
+
         # Connect to blockchain for peer discovery
         if SUBSTRATE_AVAILABLE:
             try:
@@ -248,32 +255,32 @@ class MeshNetworkClient:
                 logger.info(f"Connected to BelizeChain at {self.blockchain_rpc}")
             except Exception as e:
                 logger.error(f"Failed to connect to blockchain: {e}")
-        
+
         self._running = True
-        
+
         # Start background tasks
         asyncio.create_task(self._heartbeat_loop())
         asyncio.create_task(self._peer_discovery_loop())
         asyncio.create_task(self._cleanup_loop())
-        
+
         logger.info(f"Mesh network started on port {self.listen_port}")
-    
+
     async def stop(self) -> None:
         """Stop the mesh network client."""
         if not self._running:
             return
-        
+
         self._running = False
-        
+
         if self.site:
             await self.site.stop()
         if self.runner:
             await self.runner.cleanup()
         if self.substrate:
             self.substrate.close()
-        
+
         logger.info("Mesh network stopped")
-    
+
     def register_handler(
         self,
         message_type: MessageType,
@@ -281,7 +288,7 @@ class MeshNetworkClient:
     ) -> None:
         """
         Register a message handler for specific message type.
-        
+
         Args:
             message_type: Type of message to handle
             handler: Async callback function
@@ -289,7 +296,7 @@ class MeshNetworkClient:
         if message_type not in self.message_handlers:
             self.message_handlers[message_type] = []
         self.message_handlers[message_type].append(handler)
-    
+
     async def announce_fl_round(
         self,
         round_id: str,
@@ -302,7 +309,7 @@ class MeshNetworkClient:
     ) -> None:
         """
         Announce a new FL round to the mesh network.
-        
+
         Args:
             round_id: Unique round identifier
             dataset_name: Dataset to train on
@@ -323,14 +330,14 @@ class MeshNetworkClient:
             "reward_pool": reward_pool,
             "model_hash": model_hash,
         }
-        
+
         await self._broadcast_message(
             message_type=MessageType.FL_ROUND_START,
             payload=announcement,
         )
-        
+
         logger.info(f"Announced FL round {round_id} to mesh network")
-    
+
     async def send_model_delta(
         self,
         recipient_id: str,
@@ -340,52 +347,52 @@ class MeshNetworkClient:
     ) -> bool:
         """
         Send model delta to a specific peer.
-        
+
         Args:
             recipient_id: Target peer ID
             round_id: FL round ID
             model_cid: IPFS CID of model delta
             quality_score: Model quality score
-        
+
         Returns:
             True if sent successfully
         """
         if recipient_id not in self.peers:
             logger.error(f"Peer {recipient_id} not found")
             return False
-        
+
         payload = {
             "round_id": round_id,
             "model_cid": model_cid,
             "quality_score": quality_score,
         }
-        
+
         return await self._send_to_peer(
             peer_id=recipient_id,
             message_type=MessageType.MODEL_DELTA_TRANSFER,
             payload=payload,
         )
-    
+
     async def discover_peers(self) -> List[PeerInfo]:
         """
         Discover peers from blockchain validator registry.
-        
+
         Returns:
             List of discovered peers
         """
         if not self.substrate:
             logger.warning("Blockchain not connected, cannot discover peers")
             return []
-        
+
         try:
             # Query validator list from Staking pallet
             validators = self.substrate.query(
                 module="Staking",
                 storage_function="Validators",
             )
-            
+
             discovered = []
-            
+
             if validators:
                 for validator_account in validators:
                     # Get validator metadata
@@ -394,7 +401,7 @@ class MeshNetworkClient:
                         storage_function="ValidatorMetadata",
                         params=[validator_account],
                     )
-                    
+
                     if metadata and "network_address" in metadata:
                         peer = PeerInfo(
                             peer_id=hashlib.sha256(validator_account.encode()).hexdigest()[:16],
@@ -405,21 +412,21 @@ class MeshNetworkClient:
                             last_seen=datetime.now(timezone.utc).timestamp(),
                             is_validator=True,
                         )
-                        
+
                         self.peers[peer.peer_id] = peer
                         discovered.append(peer)
-            
+
             logger.info(f"Discovered {len(discovered)} peers from blockchain")
             return discovered
-        
+
         except Exception as e:
             logger.error(f"Peer discovery failed: {e}")
             return []
-    
+
     # -------------------------------------------------------------------------
     # Internal Methods
     # -------------------------------------------------------------------------
-    
+
     async def _broadcast_message(
         self,
         message_type: MessageType,
@@ -428,22 +435,24 @@ class MeshNetworkClient:
     ) -> None:
         """Broadcast message to all known peers via gossip."""
         message = self._create_message(message_type, payload, ttl)
-        
-        # Mark as seen
-        self.seen_messages.add(message.message_id)
-        
+
+        # Mark as seen (LRU OrderedDict)
+        self.seen_messages[message.message_id] = datetime.now(timezone.utc).timestamp()
+        if len(self.seen_messages) > self._seen_messages_max:
+            self.seen_messages.popitem(last=False)
+
         # Send to all peers
         tasks = [
             self._send_to_peer_raw(peer.multiaddr, message)
             for peer in self.peers.values()
             if peer.is_alive()
         ]
-        
+
         results = await asyncio.gather(*tasks, return_exceptions=True)
         success_count = sum(1 for r in results if r is True)
-        
+
         logger.debug(f"Broadcast {message_type.value} to {success_count}/{len(tasks)} peers")
-    
+
     async def _send_to_peer(
         self,
         peer_id: str,
@@ -453,12 +462,12 @@ class MeshNetworkClient:
         """Send message to specific peer."""
         if peer_id not in self.peers:
             return False
-        
+
         peer = self.peers[peer_id]
         message = self._create_message(message_type, payload)
-        
+
         return await self._send_to_peer_raw(peer.multiaddr, message)
-    
+
     async def _send_to_peer_raw(
         self,
         multiaddr: str,
@@ -475,7 +484,7 @@ class MeshNetworkClient:
             else:
                 logger.error(f"Invalid multiaddr format: {multiaddr}")
                 return False
-            
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(
                     url,
@@ -483,11 +492,54 @@ class MeshNetworkClient:
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as response:
                     return response.status == 200
-        
+
         except Exception as e:
             logger.debug(f"Failed to send to {multiaddr}: {e}")
             return False
-    
+
+    def _verify_message_signature(self, message: MeshMessage) -> bool:
+        """Verify Ed25519 signature on an incoming mesh message.
+
+        Looks up the sender's public key from known peers and verifies
+        the signature over the message body (excluding the signature field).
+
+        Returns:
+            True if signature is valid, False otherwise.
+        """
+        if not message.signature:
+            return False
+
+        # Look up sender's public key
+        peer = self.peers.get(message.sender_id)
+        if peer is None or not peer.public_key:
+            logger.debug(
+                f"Cannot verify message from unknown peer {message.sender_id}"
+            )
+            return False
+
+        try:
+            pub_key_bytes = bytes.fromhex(peer.public_key)
+            pub_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_key_bytes)
+
+            # Reconstruct the message dict WITHOUT the signature (same as signing)
+            verify_msg = MeshMessage(
+                message_id=message.message_id,
+                message_type=message.message_type,
+                sender_id=message.sender_id,
+                timestamp=message.timestamp,
+                payload=message.payload,
+                ttl=message.ttl,
+                signature=None,
+            )
+            message_bytes = json.dumps(verify_msg.to_dict()).encode()
+            sig_bytes = bytes.fromhex(message.signature)
+
+            pub_key.verify(sig_bytes, message_bytes)
+            return True
+        except Exception as e:
+            logger.debug(f"Signature verification failed for {message.message_id}: {e}")
+            return False
+
     def _create_message(
         self,
         message_type: MessageType,
@@ -498,7 +550,7 @@ class MeshNetworkClient:
         message_id = hashlib.sha256(
             f"{self.peer_id}{datetime.now(timezone.utc).timestamp()}{json.dumps(payload)}".encode()
         ).hexdigest()
-        
+
         message = MeshMessage(
             message_id=message_id,
             message_type=message_type,
@@ -507,62 +559,81 @@ class MeshNetworkClient:
             payload=payload,
             ttl=ttl,
         )
-        
+
         # Sign the message
         message_bytes = json.dumps(message.to_dict()).encode()
         signature = self.private_key.sign(message_bytes)
         message.signature = signature.hex()
-        
+
         return message
-    
+
     async def _handle_incoming_message(self, request: web.Request) -> web.Response:
         """Handle incoming message from peer."""
         try:
+            # Rate limiting per remote IP
+            remote_ip = request.remote or "unknown"
+            now = datetime.now(timezone.utc).timestamp()
+            timestamps = self._rate_limits.setdefault(remote_ip, [])
+            # Purge old entries outside the window
+            timestamps[:] = [t for t in timestamps if now - t < self._rate_limit_window]
+            if len(timestamps) >= self._rate_limit_max:
+                logger.warning(f"Rate limit exceeded for {remote_ip}")
+                return web.Response(status=429, text="rate limited")
+            timestamps.append(now)
+
             data = await request.json()
             message = MeshMessage.from_dict(data)
-            
-            # Deduplication
+
+            # Deduplication via LRU OrderedDict
             if message.message_id in self.seen_messages:
                 return web.Response(status=200, text="duplicate")
-            
-            self.seen_messages.add(message.message_id)
-            
+
+            # Verify Ed25519 signature
+            if not self._verify_message_signature(message):
+                logger.warning(
+                    f"Rejected message {message.message_id} from {message.sender_id}: "
+                    "invalid or missing signature"
+                )
+                return web.Response(status=403, text="invalid signature")
+
+            self.seen_messages[message.message_id] = now
+
             # Update peer info
             if message.sender_id in self.peers:
                 self.peers[message.sender_id].last_seen = datetime.now(timezone.utc).timestamp()
-            
+
             # Call registered handlers
             if message.message_type in self.message_handlers:
                 for handler in self.message_handlers[message.message_type]:
                     asyncio.create_task(handler(message))
-            
+
             # Queue for processing
             await self._message_queue.put(message)
-            
+
             # Gossip forwarding (if TTL > 0)
             if message.ttl > 0:
                 message.ttl -= 1
                 asyncio.create_task(self._gossip_forward(message))
-            
+
             return web.Response(status=200, text="ok")
-        
+
         except Exception as e:
             logger.error(f"Failed to handle incoming message: {e}")
             return web.Response(status=400, text=str(e))
-    
+
     async def _gossip_forward(self, message: MeshMessage) -> None:
         """Forward message to random subset of peers (gossip protocol)."""
         import random
-        
+
         alive_peers = [p for p in self.peers.values() if p.is_alive() and p.peer_id != message.sender_id]
-        
+
         # Forward to ~50% of peers
         forward_count = max(1, len(alive_peers) // 2)
         forward_peers = random.sample(alive_peers, min(forward_count, len(alive_peers)))
-        
+
         for peer in forward_peers:
             await self._send_to_peer_raw(peer.multiaddr, message)
-    
+
     async def _handle_peers_request(self, request: web.Request) -> web.Response:
         """Handle peer list request."""
         peers_data = [
@@ -576,7 +647,7 @@ class MeshNetworkClient:
             for peer in self.peers.values()
         ]
         return web.json_response(peers_data)
-    
+
     async def _handle_health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
         return web.json_response({
@@ -585,43 +656,45 @@ class MeshNetworkClient:
             "peers_count": len(self.peers),
             "running": self._running,
         })
-    
+
     async def _heartbeat_loop(self) -> None:
         """Send periodic heartbeats to peers."""
         while self._running:
             await asyncio.sleep(60)
-            
+
             await self._broadcast_message(
                 message_type=MessageType.HEARTBEAT,
                 payload={"timestamp": datetime.now(timezone.utc).timestamp()},
                 ttl=1,
             )
-    
+
     async def _peer_discovery_loop(self) -> None:
         """Periodically discover new peers from blockchain."""
         while self._running:
             await asyncio.sleep(300)  # Every 5 minutes
             await self.discover_peers()
-    
+
     async def _cleanup_loop(self) -> None:
         """Clean up dead peers and old messages."""
         while self._running:
             await asyncio.sleep(600)  # Every 10 minutes
-            
+
             # Remove dead peers
             dead_peers = [
                 peer_id for peer_id, peer in self.peers.items()
                 if not peer.is_alive(timeout=600)
             ]
-            
+
             for peer_id in dead_peers:
                 del self.peers[peer_id]
                 logger.debug(f"Removed dead peer {peer_id}")
-            
-            # Limit seen messages cache
-            if len(self.seen_messages) > 10000:
-                self.seen_messages.clear()
-    
+
+            # LRU eviction of oldest seen messages (keep newest half)
+            if len(self.seen_messages) > self._seen_messages_max:
+                evict_count = len(self.seen_messages) - (self._seen_messages_max // 2)
+                for _ in range(evict_count):
+                    self.seen_messages.popitem(last=False)
+
     async def receive_messages(self):
         """Async generator for receiving messages."""
         while self._running:

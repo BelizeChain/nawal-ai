@@ -11,12 +11,12 @@ from .engine import HybridNawalEngine
 from .confidence import ConfidenceScorer
 from .router import IntelligentRouter
 from .teacher import DeepSeekTeacher
-from .distillation import KnowledgeDistillationTrainer
+from .sovereignty_metrics import SovereigntyMetrics
 
 __all__ = [
     "HybridNawalEngine",
     "ConfidenceScorer",
     "IntelligentRouter",
     "DeepSeekTeacher",
-    "KnowledgeDistillationTrainer",
+    "SovereigntyMetrics",
 ]

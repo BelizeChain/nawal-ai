@@ -41,14 +41,14 @@ class ValidatorStatus(Enum):
 class FitnessScore:
     """
     Proof of Useful Work fitness score.
-    
+
     Components:
     - Quality: Model improvement (0-100)
     - Timeliness: Submission timing (0-100)
     - Honesty: Privacy compliance (0-100)
-    
+
     Final score = 0.4*Q + 0.3*T + 0.3*H
-    
+
     Attributes:
         quality: Model quality score (0-100)
         timeliness: Timeliness score (0-100)
@@ -62,17 +62,17 @@ class FitnessScore:
     honesty: float
     round: int
     timestamp: Optional[datetime] = None
-    
+
     def __post_init__(self):
         if self.timestamp is None:
             self.timestamp = datetime.now()
-        
+
         # Validate scores
         for score_name in ['quality', 'timeliness', 'honesty']:
             score = getattr(self, score_name)
             if not 0 <= score <= 100:
                 raise ValueError(f"{score_name} must be 0-100, got {score}")
-    
+
     @property
     def total(self) -> float:
         """Calculate weighted total score."""
@@ -81,7 +81,7 @@ class FitnessScore:
             0.3 * self.timeliness +
             0.3 * self.honesty
         )
-    
+
     def to_dict(self) -> Dict:
         """Convert to dictionary for chain submission."""
         return {
@@ -96,7 +96,7 @@ class FitnessScore:
 class ValidatorInfo:
     """
     BelizeChain validator information.
-    
+
     Attributes:
         address: Validator SS58 address
         stake: Total staked amount (DALLA)
@@ -121,7 +121,7 @@ class ValidatorInfo:
 class StakeInfo:
     """
     Validator stake information.
-    
+
     Attributes:
         total: Total staked amount
         own: Validator's own stake
@@ -133,7 +133,7 @@ class StakeInfo:
     own: int
     delegated: int
     min_required: int
-    
+
     @property
     def is_sufficient(self) -> bool:
         """Check if stake is sufficient."""
@@ -143,18 +143,18 @@ class StakeInfo:
 class StakingInterface:
     """
     Interface to BelizeChain staking pallet.
-    
+
     Provides high-level operations for:
     - Submitting PoUW fitness scores
     - Querying validator information
     - Managing stake
     - Tracking rewards
-    
+
     Usage:
         # Initialize
         client = SubstrateClient(ChainConfig.local())
         staking = StakingInterface(client)
-        
+
         # Submit fitness score
         score = FitnessScore(
             quality=95.0,
@@ -162,24 +162,24 @@ class StakingInterface:
             honesty=100.0,
             round=42,
         )
-        
+
         keypair = client.create_keypair(uri="//Alice")
         receipt = staking.submit_fitness(keypair, score)
-        
+
         # Query validator info
         info = staking.get_validator_info(keypair.ss58_address)
     """
-    
+
     def __init__(self, client: SubstrateClient):
         """
         Initialize StakingInterface.
-        
+
         Args:
             client: Substrate client instance
         """
         self.client = client
         logger.info("StakingInterface initialized")
-    
+
     def submit_fitness(
         self,
         keypair,
@@ -188,12 +188,12 @@ class StakingInterface:
     ) -> ExtrinsicReceipt:
         """
         Submit fitness score to staking pallet.
-        
+
         Args:
             keypair: Validator keypair
             score: Fitness score to submit
             wait_for_finalization: Wait for block finalization
-        
+
         Returns:
             Extrinsic receipt
         """
@@ -202,7 +202,7 @@ class StakingInterface:
             f"total={score.total:.2f} "
             f"(Q={score.quality:.1f}, T={score.timeliness:.1f}, H={score.honesty:.1f})"
         )
-        
+
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
             call_module="Staking",
@@ -211,7 +211,7 @@ class StakingInterface:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success(
                 f"Fitness score submitted successfully "
@@ -219,16 +219,16 @@ class StakingInterface:
             )
         else:
             logger.error(f"Fitness submission failed: {receipt.error}")
-        
+
         return receipt
-    
+
     def get_validator_info(self, address: str) -> Optional[ValidatorInfo]:
         """
         Get validator information.
-        
+
         Args:
             address: Validator SS58 address
-        
+
         Returns:
             Validator info or None if not found
         """
@@ -239,11 +239,11 @@ class StakingInterface:
                 storage_function="Validators",
                 params=[address],
             )
-            
+
             if validator_data is None:
                 logger.warning(f"Validator not found: {address}")
                 return None
-            
+
             # Parse validator data
             info = ValidatorInfo(
                 address=address,
@@ -254,21 +254,21 @@ class StakingInterface:
                 rounds_participated=validator_data.get('rounds_participated', 0),
                 reputation=validator_data.get('reputation', 100.0),
             )
-            
+
             logger.debug(f"Retrieved validator info: {address}")
             return info
-            
+
         except Exception as e:
             logger.error(f"Failed to get validator info: {e}")
             return None
-    
+
     def get_stake_info(self, address: str) -> Optional[StakeInfo]:
         """
         Get validator stake information.
-        
+
         Args:
             address: Validator SS58 address
-        
+
         Returns:
             Stake info or None if not found
         """
@@ -279,31 +279,31 @@ class StakingInterface:
                 storage_function="Ledger",
                 params=[address],
             )
-            
+
             if stake_data is None:
                 return None
-            
+
             # Get minimum required stake
             min_stake = self.get_minimum_stake()
-            
+
             info = StakeInfo(
                 total=stake_data.get('total', 0),
                 own=stake_data.get('own', 0),
                 delegated=stake_data.get('delegated', 0),
                 min_required=min_stake,
             )
-            
+
             logger.debug(
                 f"Stake info: total={info.total}, "
                 f"sufficient={info.is_sufficient}"
             )
-            
+
             return info
-            
+
         except Exception as e:
             logger.error(f"Failed to get stake info: {e}")
             return None
-    
+
     def bond(
         self,
         keypair,
@@ -312,17 +312,17 @@ class StakingInterface:
     ) -> ExtrinsicReceipt:
         """
         Bond tokens for staking.
-        
+
         Args:
             keypair: Controller keypair
             amount: Amount to bond (in plancks)
             wait_for_finalization: Wait for finalization
-        
+
         Returns:
             Extrinsic receipt
         """
         logger.info(f"Bonding {amount} DALLA for staking")
-        
+
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
             call_module="Staking",
@@ -333,14 +333,14 @@ class StakingInterface:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success(f"Bonded {amount} DALLA successfully")
         else:
             logger.error(f"Bond failed: {receipt.error}")
-        
+
         return receipt
-    
+
     def unbond(
         self,
         keypair,
@@ -349,17 +349,17 @@ class StakingInterface:
     ) -> ExtrinsicReceipt:
         """
         Unbond tokens from staking.
-        
+
         Args:
             keypair: Controller keypair
             amount: Amount to unbond
             wait_for_finalization: Wait for finalization
-        
+
         Returns:
             Extrinsic receipt
         """
         logger.info(f"Unbonding {amount} DALLA")
-        
+
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
             call_module="Staking",
@@ -370,14 +370,14 @@ class StakingInterface:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success(f"Unbonded {amount} DALLA successfully")
         else:
             logger.error(f"Unbond failed: {receipt.error}")
-        
+
         return receipt
-    
+
     def validate(
         self,
         keypair,
@@ -386,17 +386,17 @@ class StakingInterface:
     ) -> ExtrinsicReceipt:
         """
         Declare intention to validate.
-        
+
         Args:
             keypair: Validator keypair
             commission: Commission rate (0-100%)
             wait_for_finalization: Wait for finalization
-        
+
         Returns:
             Extrinsic receipt
         """
         logger.info(f"Declaring validator with commission={commission}%")
-        
+
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
             call_module="Staking",
@@ -407,18 +407,18 @@ class StakingInterface:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success("Validator declaration successful")
         else:
             logger.error(f"Validation declaration failed: {receipt.error}")
-        
+
         return receipt
-    
+
     def get_minimum_stake(self) -> int:
         """
         Get minimum required stake for validators.
-        
+
         Returns:
             Minimum stake in plancks
         """
@@ -431,11 +431,11 @@ class StakingInterface:
         except Exception as e:
             logger.warning(f"Failed to get minimum stake: {e}, using default")
             return 1_000_000_000_000  # Default: 1000 DALLA
-    
+
     def get_current_era(self) -> int:
         """
         Get current era number.
-        
+
         Returns:
             Era number
         """
@@ -448,7 +448,7 @@ class StakingInterface:
         except Exception as e:
             logger.error(f"Failed to get current era: {e}")
             return 0
-    
+
     def get_validator_rewards(
         self,
         address: str,
@@ -456,17 +456,17 @@ class StakingInterface:
     ) -> int:
         """
         Get validator rewards for an era.
-        
+
         Args:
             address: Validator address
             era: Era number (None = current)
-        
+
         Returns:
             Reward amount
         """
         if era is None:
             era = self.get_current_era()
-        
+
         try:
             rewards = self.client.query_storage(
                 module="Staking",
@@ -477,11 +477,11 @@ class StakingInterface:
         except Exception as e:
             logger.error(f"Failed to get rewards: {e}")
             return 0
-    
+
     def get_active_validators(self) -> List[str]:
         """
         Get list of active validator addresses.
-        
+
         Returns:
             List of validator SS58 addresses
         """
@@ -494,7 +494,7 @@ class StakingInterface:
         except Exception as e:
             logger.error(f"Failed to get active validators: {e}")
             return []
-    
+
     def calculate_fitness_score(
         self,
         initial_loss: float,
@@ -505,14 +505,14 @@ class StakingInterface:
     ) -> FitnessScore:
         """
         Calculate PoUW fitness score from training results.
-        
+
         Args:
             initial_loss: Loss before training
             final_loss: Loss after training
             submission_time: When score was submitted
             deadline: Submission deadline
             privacy_compliant: Whether privacy requirements met
-        
+
         Returns:
             Fitness score
         """
@@ -522,19 +522,20 @@ class StakingInterface:
             quality = min(100.0, max(0.0, improvement * 100))
         else:
             quality = 0.0
-        
+
         # Timeliness: Time before deadline (0-100)
         time_diff = (deadline - submission_time).total_seconds()
         deadline_window = 3600  # 1 hour window
-        
+
         if time_diff >= 0:
             timeliness = min(100.0, (time_diff / deadline_window) * 100)
         else:
             timeliness = 0.0  # Late submission
-        
-        # Honesty: Privacy compliance (0 or 100)
-        honesty = 100.0 if privacy_compliant else 0.0
-        
+
+        # Honesty: Privacy compliance score (continuous 0-100)
+        # Base score for compliance; non-compliance results in 0
+        honesty = 85.0 if privacy_compliant else 0.0
+
         return FitnessScore(
             quality=quality,
             timeliness=timeliness,

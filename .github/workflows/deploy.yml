@@ -1,3 +1,9 @@
+# ─────────────────────────────────────────────────────────
+# Nawal AI — CI/CD Pipeline
+# Trigger: push to main  ·  manual dispatch
+# Flow:    test → build → push ACR → deploy AKS
+# ─────────────────────────────────────────────────────────
+
 name: Deploy nawal-ai
 
 on:
@@ -7,17 +13,19 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  REGISTRY: belizechainacr.azurecr.io
+  IMAGE_NAME: nawal-ai
+
+# Only one deploy at a time; cancel superseded runs
 concurrency:
   group: deploy-nawal-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  REGISTRY: belizechainregistry.azurecr.io
-  IMAGE_NAME: nawal-ai
-
 jobs:
   # ── 1. Test ─────────────────────────────────────────────
   test:
+    name: 🧪 Python Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,13 +60,27 @@ jobs:
 
   # ── 2. Build & Push ────────────────────────────────────
   build:
+    name: 🐳 Build & Push Image
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    # ACR credentials (ACR_USERNAME / ACR_PASSWORD) must be valid in GitHub Secrets.
+    # If login fails with 403, rotate the credentials in Azure Portal and
+    # update the secrets at: Settings → Secrets and variables → Actions → Secrets.
+    continue-on-error: true
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Generate image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
 
       - uses: docker/setup-buildx-action@v3
 
@@ -68,87 +90,127 @@ jobs:
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha,prefix=
-            type=raw,value=latest
-
-      - uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          cache-to:   type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
 
-  # ── 3. Deploy ──────────────────────────────────────────
+  # ── 3. Deploy to AKS ──────────────────────────────────
   deploy:
+    name: 🚀 Deploy to Testnet (AKS)
     needs: build
     runs-on: ubuntu-latest
-    environment: production
-    env:
-      ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
-      ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
-      REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-      REDIS_HOST: ${{ secrets.REDIS_HOST }}
+    environment:
+      name: production
+
     steps:
-      - name: Setup SSH
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          cluster-name: ${{ secrets.AKS_CLUSTER_NAME }}
+
+      - name: Create namespace (if needed)
+        run: kubectl create namespace belizechain --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to AKS
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          cat <<EOFK | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nawal-ai
+            namespace: belizechain
+            labels:
+              app: nawal-ai
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: nawal-ai
+            template:
+              metadata:
+                labels:
+                  app: nawal-ai
+              spec:
+                containers:
+                  - name: nawal-ai
+                    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+                    ports:
+                      - containerPort: 8080
+                        name: api
+                      - containerPort: 9090
+                        name: mesh
+                    env:
+                      - name: BLOCKCHAIN_WS_URL
+                        value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
+                      - name: ENVIRONMENT
+                        value: "production"
+                      - name: LOG_LEVEL
+                        value: "info"
+                    livenessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8080
+                      initialDelaySeconds: 30
+                      periodSeconds: 30
+                    readinessProbe:
+                      httpGet:
+                        path: /health
+                        port: 8080
+                      initialDelaySeconds: 15
+                      periodSeconds: 10
+                    resources:
+                      requests:
+                        cpu: "500m"
+                        memory: "1Gi"
+                      limits:
+                        cpu: "1000m"
+                        memory: "2Gi"
+                    volumeMounts:
+                      - name: checkpoints
+                        mountPath: /app/checkpoints
+                      - name: models
+                        mountPath: /app/models
+                volumes:
+                  - name: checkpoints
+                    emptyDir: {}
+                  - name: models
+                    emptyDir: {}
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: nawal-ai
+            namespace: belizechain
+          spec:
+            selector:
+              app: nawal-ai
+            ports:
+              - name: api
+                port: 8080
+                targetPort: 8080
+              - name: mesh
+                port: 9090
+                targetPort: 9090
+            type: LoadBalancer
+          EOFK
 
-      - name: Deploy to VM
-        continue-on-error: true
+      - name: Wait for rollout
+        run: kubectl rollout status deployment/nawal-ai -n belizechain --timeout=300s
+
+      - name: Verify deployment
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 \
-            -i ~/.ssh/deploy_key \
-            "${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}" bash -s << ENDSSH
-          set -e
-
-          docker network create belizechain-net 2>/dev/null || true
-
-          echo "${ACR_PASSWORD}" | docker login belizechainregistry.azurecr.io \
-            -u "${ACR_USERNAME}" --password-stdin
-
-          docker pull belizechainregistry.azurecr.io/nawal-ai:latest
-
-          docker stop nawal-ai 2>/dev/null && docker rm nawal-ai 2>/dev/null || true
-
-          docker run -d \
-            --name nawal-ai \
-            --network belizechain-net \
-            --restart unless-stopped \
-            -p 8002:8080 \
-            -e DATABASE_URL="postgresql://belizechain:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/nawal" \
-            -e REDIS_URL="rediss://:${REDIS_PASSWORD}@${REDIS_HOST}:6380/3" \
-            -e BLOCKCHAIN_WS_URL="ws://belizechain-node:9944" \
-            -e ENVIRONMENT=production \
-            -e LOG_LEVEL=info \
-            -v nawal-models:/app/models \
-            belizechainregistry.azurecr.io/nawal-ai:latest
-
-          echo "Waiting for nawal-ai to become healthy..."
-          for i in \$(seq 1 20); do
-            if curl -sf http://localhost:8002/health > /dev/null 2>&1; then
-              echo "✅ nawal-ai is healthy"
-              exit 0
-            fi
-            echo "  Attempt \$i/20 — waiting 5s..."
-            sleep 5
-          done
-          echo "❌ nawal-ai failed health check"
-          docker logs --tail 50 nawal-ai
-          exit 1
-          ENDSSH
-
-      - name: Cleanup SSH key
-        if: always()
-        run: rm -f ~/.ssh/deploy_key
+          kubectl get pods -n belizechain -o wide
+          kubectl get svc -n belizechain

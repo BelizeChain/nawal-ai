@@ -3,37 +3,109 @@ Production-grade inference API for Nawal BelizeChain LLM
 FastAPI REST/gRPC endpoint for serving trained models
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Header
-from fastapi.responses import StreamingResponse
+import os
+import time
+from collections import defaultdict
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, AsyncIterator
 import torch
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 from nawal.client.model import BelizeChainLLM
-from nawal.security.differential_privacy import DPInferenceGuard
+from nawal.security.dp_inference import DPInferenceGuard
 from nawal.blockchain.identity_verifier import BelizeIDVerifier
-from nawal.monitoring.metrics_collector import MetricsCollector
+from nawal.monitoring.metrics_collector import InferenceMetricsCollector
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# =============================================================================
+# Application Lifespan (replaces deprecated @app.on_event)
+# =============================================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: load model on startup, cleanup on shutdown."""
+    logger.info("Loading BelizeChain LLM model...")
+    try:
+        model = BelizeChainLLM.from_checkpoint(
+            checkpoint_path="checkpoints/final_checkpoint.pt",
+            device="cuda" if torch.cuda.is_available() else "cpu"
+        )
+        model.eval()
+        logger.info(f"Model loaded successfully ({model.num_parameters():,} parameters)")
+    except Exception as e:
+        logger.error(f"Failed to load model: {e}")
+        model = None
+
+    app.state.model = model
+    app.state.dp_guard = DPInferenceGuard(epsilon=2.0)
+    yield
+    # Shutdown cleanup
+    app.state.model = None
+    app.state.dp_guard = None
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Nawal Inference API",
     description="Privacy-preserving LLM inference for BelizeChain",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
-# Global model instance (loaded on startup)
-global_model: Optional[BelizeChainLLM] = None
-dp_guard = DPInferenceGuard(epsilon=2.0)  # ε=2.0 for inference (looser than training)
 belizeid_verifier = BelizeIDVerifier()
-metrics = MetricsCollector()
+metrics = InferenceMetricsCollector()
+
+
+# =============================================================================
+# Rate Limiting
+# =============================================================================
+
+class _RateLimiter:
+    """Simple in-memory sliding-window rate limiter."""
+
+    def __init__(self, max_requests: int = 30, window_seconds: int = 60):
+        self.max_requests = max_requests
+        self.window = window_seconds
+        self._hits: Dict[str, List[float]] = defaultdict(list)
+
+    def is_allowed(self, key: str) -> bool:
+        now = time.monotonic()
+        hits = self._hits[key]
+        self._hits[key] = [t for t in hits if now - t < self.window]
+        if len(self._hits[key]) >= self.max_requests:
+            return False
+        self._hits[key].append(now)
+        return True
+
+
+_rate_limiter = _RateLimiter(
+    max_requests=int(os.getenv("NAWAL_INFERENCE_RATE_LIMIT", "30")),
+    window_seconds=int(os.getenv("NAWAL_INFERENCE_RATE_WINDOW", "60")),
+)
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    """Enforce per-IP rate limiting on inference endpoints."""
+    if request.url.path in ("/health", "/model/info"):
+        return await call_next(request)
+    client_ip = request.client.host if request.client else "unknown"
+    if not _rate_limiter.is_allowed(client_ip):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Rate limit exceeded. Try again later."},
+        )
+    return await call_next(request)
 
 
 class InferenceRequest(BaseModel):
@@ -75,49 +147,32 @@ async def verify_belizeid(belizeid: Optional[str] = Header(None)) -> Optional[st
     return None
 
 
-@app.on_event("startup")
-async def load_model():
-    """Load trained model on server startup"""
-    global global_model
-    
-    logger.info("Loading BelizeChain LLM model...")
-    try:
-        global_model = BelizeChainLLM.from_checkpoint(
-            checkpoint_path="checkpoints/final_checkpoint.pt",
-            device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-        global_model.eval()  # Set to evaluation mode
-        logger.info(f"✅ Model loaded successfully ({global_model.num_parameters():,} parameters)")
-    except Exception as e:
-        logger.error(f"❌ Failed to load model: {e}")
-        raise
-
-
 @app.get("/health")
-async def health_check():
+async def health_check(request: Request):
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "model_loaded": global_model is not None,
-        "timestamp": datetime.utcnow().isoformat()
+        "model_loaded": request.app.state.model is not None,
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
 @app.get("/model/info", response_model=ModelInfo)
-async def get_model_info():
+async def get_model_info(request: Request):
     """Get model metadata and statistics"""
-    if global_model is None:
+    model = request.app.state.model
+    if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    
+
     return ModelInfo(
         model_name="BelizeChainLLM",
-        version=global_model.version,
-        parameters=global_model.num_parameters(),
-        training_rounds=global_model.training_rounds,
-        last_updated=global_model.last_updated.isoformat(),
+        version=model.version,
+        parameters=model.num_parameters(),
+        training_rounds=model.training_rounds,
+        last_updated=model.last_updated.isoformat(),
         privacy_budget={
-            "epsilon": global_model.privacy_epsilon,
-            "delta": global_model.privacy_delta
+            "epsilon": model.privacy_epsilon,
+            "delta": model.privacy_delta
         }
     )
 
@@ -125,27 +180,29 @@ async def get_model_info():
 @app.post("/infer", response_model=InferenceResponse)
 async def generate_text(
     request: InferenceRequest,
+    http_request: Request,
     belizeid: Optional[str] = Depends(verify_belizeid)
 ):
     """Generate text from prompt (non-streaming)"""
-    if global_model is None:
+    model = http_request.app.state.model
+    if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    
-    start_time = datetime.utcnow()
-    
+
+    start_time = datetime.now(timezone.utc)
+
     try:
         # Apply differential privacy noise to input embeddings
-        with dp_guard.inference_context():
+        with http_request.app.state.dp_guard.inference_context():
             output = await asyncio.to_thread(
-                global_model.generate,
+                model.generate,
                 prompt=request.prompt,
                 max_tokens=request.max_tokens,
                 temperature=request.temperature,
                 top_p=request.top_p
             )
-        
-        inference_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        
+
+        inference_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+
         # Log metrics
         await metrics.log_inference(
             user_id=belizeid or "anonymous",
@@ -153,33 +210,35 @@ async def generate_text(
             output_length=len(output),
             inference_time=inference_time
         )
-        
+
         return InferenceResponse(
             text=output,
-            tokens_generated=len(output.split()),
+            tokens_generated=len(output.split()),  # DESIGN NOTE: swap for tokenizer.encode(output) when tokenizer is available
             inference_time_ms=inference_time,
-            model_version=global_model.version,
-            timestamp=datetime.utcnow().isoformat()
+            model_version=model.version,
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
-    
+
     except Exception as e:
         logger.error(f"Inference error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Inference failed. Check server logs.")
 
 
 @app.post("/infer/stream")
 async def generate_text_stream(
     request: InferenceRequest,
+    http_request: Request,
     belizeid: Optional[str] = Depends(verify_belizeid)
 ):
     """Generate text with streaming response"""
-    if global_model is None:
+    model = http_request.app.state.model
+    if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    
+
     async def token_generator() -> AsyncIterator[str]:
         """Stream tokens as they're generated"""
         try:
-            for token in global_model.generate_stream(
+            for token in model.generate_stream(
                 prompt=request.prompt,
                 max_tokens=request.max_tokens,
                 temperature=request.temperature,
@@ -189,8 +248,8 @@ async def generate_text_stream(
                 await asyncio.sleep(0.01)  # Small delay for streaming
         except Exception as e:
             logger.error(f"Streaming error: {e}")
-            yield json.dumps({"error": str(e)}) + "\n"
-    
+            yield json.dumps({"error": "Streaming failed"}) + "\n"
+
     return StreamingResponse(
         token_generator(),
         media_type="application/x-ndjson"
@@ -200,23 +259,25 @@ async def generate_text_stream(
 @app.post("/batch/infer")
 async def batch_inference(
     requests: List[InferenceRequest],
+    http_request: Request,
     belizeid: Optional[str] = Depends(verify_belizeid)
 ):
     """Process multiple inference requests in batch"""
-    if global_model is None:
+    model = http_request.app.state.model
+    if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
-    
+
     if len(requests) > 32:
         raise HTTPException(status_code=400, detail="Batch size exceeds limit (32)")
-    
+
     results = []
     for req in requests:
         try:
-            response = await generate_text(req, belizeid)
+            response = await generate_text(req, http_request, belizeid)
             results.append({"status": "success", "data": response})
         except Exception as e:
             results.append({"status": "error", "error": str(e)})
-    
+
     return {"results": results, "total": len(requests)}
 
 

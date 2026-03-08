@@ -12,7 +12,7 @@ Python: 3.13+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 from loguru import logger
 
 
@@ -45,11 +45,11 @@ MAX_BONUS_STAKE_DALLA = 10000  # Stake amount for maximum bonus
 @dataclass
 class FitnessScores:
     """Component fitness scores for PoUW."""
-    
+
     quality: float  # 0-100: Model accuracy/improvement
     timeliness: float  # 0-100: Training speed/efficiency
     honesty: float  # 0-100: Privacy compliance/Byzantine resistance
-    
+
     def calculate_overall(self) -> float:
         """Calculate weighted overall fitness score."""
         return (
@@ -57,7 +57,7 @@ class FitnessScores:
             TIMELINESS_WEIGHT * self.timeliness +
             HONESTY_WEIGHT * self.honesty
         )
-    
+
     def validate(self) -> list[str]:
         """Validate fitness scores."""
         errors = []
@@ -74,25 +74,25 @@ class FitnessScores:
 @dataclass
 class RewardCalculation:
     """Detailed reward calculation breakdown."""
-    
+
     participant_id: str
     round_number: int
-    
+
     # Fitness components
     fitness_scores: FitnessScores
     overall_fitness: float
-    
+
     # Stake info
     stake_amount_dalla: float
     stake_multiplier: float
-    
+
     # Reward calculation
     base_reward_dalla: float
     fitness_multiplier: float
     stake_bonus_dalla: float
     total_reward_dalla: float
     total_reward_planck: int
-    
+
     def __str__(self) -> str:
         return (
             f"Reward for {self.participant_id} (Round {self.round_number}):\n"
@@ -117,16 +117,16 @@ class RewardCalculation:
 class RewardCalculator:
     """
     Calculate training rewards based on PoUW fitness scores.
-    
+
     Formula:
         reward = base_reward * (fitness / 100) * stake_multiplier
-    
+
     Where:
         - base_reward = 10 DALLA per round
         - fitness = weighted score (Quality 40%, Timeliness 30%, Honesty 30%)
         - stake_multiplier = 1.0-2.0x based on staked amount
     """
-    
+
     def __init__(
         self,
         base_reward_dalla: float = BASE_REWARD_DALLA,
@@ -135,7 +135,7 @@ class RewardCalculator:
     ):
         """
         Initialize reward calculator.
-        
+
         Args:
             base_reward_dalla: Base reward per training round
             min_stake_dalla: Minimum stake requirement
@@ -144,40 +144,40 @@ class RewardCalculator:
         self.base_reward_dalla = base_reward_dalla
         self.min_stake_dalla = min_stake_dalla
         self.max_bonus_stake_dalla = max_bonus_stake_dalla
-        
+
         logger.info(
             "Initialized RewardCalculator",
             base_reward=base_reward_dalla,
             min_stake=min_stake_dalla,
             max_bonus_stake=max_bonus_stake_dalla,
         )
-    
+
     def calculate_stake_multiplier(self, stake_amount_dalla: float) -> float:
         """
         Calculate stake multiplier (1.0-2.0x).
-        
+
         Args:
             stake_amount_dalla: Staked amount in DALLA
-        
+
         Returns:
             Stake multiplier between 1.0 and 2.0
         """
         if stake_amount_dalla < self.min_stake_dalla:
             return 0.0  # Below minimum stake
-        
+
         if stake_amount_dalla >= self.max_bonus_stake_dalla:
             return MAX_STAKE_MULTIPLIER  # Maximum bonus
-        
+
         # Linear interpolation between min and max
         stake_ratio = (
             (stake_amount_dalla - self.min_stake_dalla) /
             (self.max_bonus_stake_dalla - self.min_stake_dalla)
         )
-        
+
         return MIN_STAKE_MULTIPLIER + stake_ratio * (
             MAX_STAKE_MULTIPLIER - MIN_STAKE_MULTIPLIER
         )
-    
+
     def calculate_reward(
         self,
         participant_id: str,
@@ -187,13 +187,13 @@ class RewardCalculator:
     ) -> RewardCalculation:
         """
         Calculate reward for training contribution.
-        
+
         Args:
             participant_id: Validator account ID
             round_number: Training round number
             fitness_scores: PoUW fitness scores
             stake_amount_planck: Staked amount in Planck
-        
+
         Returns:
             RewardCalculation with detailed breakdown
         """
@@ -201,21 +201,21 @@ class RewardCalculator:
         errors = fitness_scores.validate()
         if errors:
             raise ValueError(f"Invalid fitness scores: {errors}")
-        
+
         # Convert stake to DALLA
         stake_amount_dalla = stake_amount_planck / PLANCK_PER_DALLA
-        
+
         # Calculate components
         overall_fitness = fitness_scores.calculate_overall()
         fitness_multiplier = overall_fitness / 100.0
         stake_multiplier = self.calculate_stake_multiplier(stake_amount_dalla)
-        
+
         # Calculate rewards
         base_reward_dalla = self.base_reward_dalla
         stake_bonus_dalla = base_reward_dalla * (stake_multiplier - 1.0)
         total_reward_dalla = base_reward_dalla * fitness_multiplier * stake_multiplier
         total_reward_planck = int(total_reward_dalla * PLANCK_PER_DALLA)
-        
+
         calculation = RewardCalculation(
             participant_id=participant_id,
             round_number=round_number,
@@ -229,7 +229,7 @@ class RewardCalculator:
             total_reward_dalla=total_reward_dalla,
             total_reward_planck=total_reward_planck,
         )
-        
+
         logger.debug(
             "Calculated reward",
             participant=participant_id,
@@ -237,9 +237,9 @@ class RewardCalculator:
             fitness=f"{overall_fitness:.2f}",
             reward_dalla=f"{total_reward_dalla:.2f}",
         )
-        
+
         return calculation
-    
+
     def estimate_monthly_rewards(
         self,
         rounds_per_day: int,
@@ -248,12 +248,12 @@ class RewardCalculator:
     ) -> float:
         """
         Estimate monthly rewards for validator.
-        
+
         Args:
             rounds_per_day: Expected training rounds per day
             avg_fitness: Expected average fitness score (0-100)
             stake_amount_dalla: Staked amount in DALLA
-        
+
         Returns:
             Estimated monthly rewards in DALLA
         """
@@ -263,17 +263,17 @@ class RewardCalculator:
             timeliness=avg_fitness,
             honesty=avg_fitness,
         )
-        
+
         calculation = self.calculate_reward(
             participant_id="estimator",
             round_number=0,
             fitness_scores=fitness_scores,
             stake_amount_planck=int(stake_amount_dalla * PLANCK_PER_DALLA),
         )
-        
+
         # Monthly estimate (30 days)
         monthly_rewards = calculation.total_reward_dalla * rounds_per_day * 30
-        
+
         logger.info(
             "Monthly reward estimate",
             rounds_per_day=rounds_per_day,
@@ -281,7 +281,7 @@ class RewardCalculator:
             stake_dalla=stake_amount_dalla,
             monthly_dalla=f"{monthly_rewards:.2f}",
         )
-        
+
         return monthly_rewards
 
 
@@ -293,68 +293,73 @@ class RewardCalculator:
 class RewardDistributor:
     """
     Distribute rewards to training participants.
-    
+
     Coordinates with StakingConnector to process reward claims.
     """
-    
+
     def __init__(
         self,
         calculator: RewardCalculator | None = None,
     ):
         """
         Initialize reward distributor.
-        
+
         Args:
             calculator: RewardCalculator instance (creates default if None)
         """
         self.calculator = calculator or RewardCalculator()
         self.pending_rewards: dict[str, list[RewardCalculation]] = {}
         self.distributed_rewards: dict[str, int] = {}  # participant_id -> total_planck
-        
+
+        logger.warning(
+            "RewardDistributor using in-memory storage — pending rewards "
+            "will be LOST on process restart. Consider implementing persistent "
+            "storage (database or checkpoint file) for production use."
+        )
         logger.info("Initialized RewardDistributor")
-    
+
     def add_pending_reward(self, calculation: RewardCalculation) -> None:
         """
         Add pending reward for participant.
-        
+
         Args:
             calculation: Reward calculation to queue
         """
         participant_id = calculation.participant_id
-        
+
         if participant_id not in self.pending_rewards:
             self.pending_rewards[participant_id] = []
-        
+
         self.pending_rewards[participant_id].append(calculation)
-        
+
         logger.debug(
             "Added pending reward",
             participant=participant_id,
             round=calculation.round_number,
             amount_dalla=f"{calculation.total_reward_dalla:.2f}",
         )
-    
+
     def get_pending_rewards(self, participant_id: str) -> list[RewardCalculation]:
         """Get all pending rewards for participant."""
         return self.pending_rewards.get(participant_id, [])
-    
+
     def get_total_pending(self, participant_id: str) -> int:
         """
         Get total pending rewards in Planck.
-        
+
         Args:
             participant_id: Validator account ID
-        
+
         Returns:
             Total pending rewards in Planck
         """
         rewards = self.get_pending_rewards(participant_id)
         return sum(r.total_reward_planck for r in rewards)
-    
+
     def mark_distributed(self, participant_id: str, amount_planck: int) -> None:
         """
         Mark rewards as distributed.
-        
+
         Args:
             participant_id: Validator account ID
             amount_planck: Amount distributed in Planck
@@ -362,28 +367,28 @@ class RewardDistributor:
         # Clear pending rewards
         if participant_id in self.pending_rewards:
             del self.pending_rewards[participant_id]
-        
+
         # Update distributed total
         if participant_id not in self.distributed_rewards:
             self.distributed_rewards[participant_id] = 0
-        
+
         self.distributed_rewards[participant_id] += amount_planck
-        
+
         logger.info(
             "Marked rewards as distributed",
             participant=participant_id,
             amount_dalla=f"{amount_planck / PLANCK_PER_DALLA:.2f}",
             total_dalla=f"{self.distributed_rewards[participant_id] / PLANCK_PER_DALLA:.2f}",
         )
-    
+
     def get_total_distributed(self, participant_id: str) -> int:
         """Get total distributed rewards in Planck."""
         return self.distributed_rewards.get(participant_id, 0)
-    
-    def get_statistics(self) -> dict[str, any]:
+
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get reward distribution statistics.
-        
+
         Returns:
             Statistics dictionary
         """
@@ -391,9 +396,9 @@ class RewardDistributor:
             self.get_total_pending(pid)
             for pid in self.pending_rewards.keys()
         )
-        
+
         total_distributed = sum(self.distributed_rewards.values())
-        
+
         return {
             "participants_with_pending": len(self.pending_rewards),
             "total_pending_planck": total_pending,

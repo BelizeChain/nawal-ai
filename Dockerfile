@@ -1,5 +1,5 @@
 # Nawal Federated Learning Server Dockerfile
-FROM python:3.11-slim
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,6 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 # Install PyTorch CPU first to avoid resolution conflicts
@@ -19,14 +18,37 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt || \
     pip install --no-cache-dir --no-deps -r requirements.txt
 
-# Copy all application code
+# --- Production stage ---
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install only runtime dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed Python packages from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Create non-root user
+RUN groupadd -r nawal && useradd -r -g nawal -d /app -s /sbin/nologin nawal
+
+# Copy application code (rely on .dockerignore to exclude secrets/dev files)
 COPY . .
 
 # Set PYTHONPATH so flat-layout modules are importable
 ENV PYTHONPATH=/app
 
-# Create directories for models and logs
-RUN mkdir -p /app/models /app/logs /app/data
+# Create directories for models and logs with correct ownership
+RUN mkdir -p /app/models /app/logs /app/data && \
+    chown -R nawal:nawal /app
+
+# Switch to non-root user
+USER nawal
 
 # Expose FL server port
 EXPOSE 8080
@@ -36,6 +58,7 @@ ENV PYTHONUNBUFFERED=1
 ENV FL_SERVER_ADDRESS=0.0.0.0:8080
 ENV NAWAL_API_HOST=0.0.0.0
 ENV NAWAL_API_PORT=8080
+ENV NAWAL_ENV=production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

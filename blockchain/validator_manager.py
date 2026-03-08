@@ -16,12 +16,14 @@ License: MIT
 
 from typing import Dict, Optional, List
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+import hashlib
 
 from loguru import logger
 
 from .substrate_client import SubstrateClient, ExtrinsicReceipt
+from .staking_interface import StakingInterface
 
 
 class KYCStatus(Enum):
@@ -44,7 +46,7 @@ class ValidatorTier(Enum):
 class ValidatorIdentity:
     """
     Validator identity information.
-    
+
     Attributes:
         address: Validator SS58 address
         name: Display name
@@ -67,17 +69,27 @@ class ValidatorIdentity:
     kyc_status: KYCStatus = KYCStatus.PENDING
     kyc_verified_at: Optional[datetime] = None
     tier: ValidatorTier = ValidatorTier.BRONZE
-    
+
     def to_dict(self) -> Dict:
-        """Convert to dictionary for chain storage."""
+        """Convert to dictionary for chain storage.
+
+        PII fields (email, legal_name, tax_id) are SHA-256 hashed
+        before serialization to prevent plaintext exposure on-chain.
+        """
+        def _hash_pii(value: str) -> str:
+            """One-way hash PII using SHA-256."""
+            if not value:
+                return ''
+            return hashlib.sha256(value.encode('utf-8')).hexdigest()
+
         return {
             'address': self.address,
             'name': self.name,
-            'email': self.email,
+            'email_hash': _hash_pii(self.email),
             'website': self.website or '',
-            'legal_name': self.legal_name or '',
+            'legal_name_hash': _hash_pii(self.legal_name or ''),
             'jurisdiction': self.jurisdiction,
-            'tax_id': self.tax_id or '',
+            'tax_id_hash': _hash_pii(self.tax_id or ''),
             'kyc_status': self.kyc_status.value,
             'kyc_verified_at': int(self.kyc_verified_at.timestamp()) if self.kyc_verified_at else 0,
             'tier': self.tier.value,
@@ -87,17 +99,17 @@ class ValidatorIdentity:
 class ValidatorManager:
     """
     Validator identity and compliance manager.
-    
+
     Manages:
     - Validator registration
     - Identity verification
     - KYC/AML compliance
     - Reputation tracking
     - Tier management
-    
+
     Usage:
         manager = ValidatorManager(client)
-        
+
         # Register validator identity
         identity = ValidatorIdentity(
             address=keypair.ss58_address,
@@ -106,23 +118,23 @@ class ValidatorManager:
             legal_name="Alice Validator Services Ltd.",
             tax_id="BZ123456789",
         )
-        
+
         receipt = manager.register_identity(keypair, identity)
-        
+
         # Check compliance
         is_compliant = manager.check_compliance(keypair.ss58_address)
     """
-    
+
     def __init__(self, client: SubstrateClient):
         """
         Initialize ValidatorManager.
-        
+
         Args:
             client: Substrate client
         """
         self.client = client
         logger.info("ValidatorManager initialized")
-    
+
     def register_identity(
         self,
         keypair,
@@ -131,12 +143,12 @@ class ValidatorManager:
     ) -> ExtrinsicReceipt:
         """
         Register validator identity on-chain.
-        
+
         Args:
             keypair: Validator keypair
             identity: Identity information
             wait_for_finalization: Wait for finalization
-        
+
         Returns:
             Extrinsic receipt
         """
@@ -144,7 +156,7 @@ class ValidatorManager:
             f"Registering validator identity: {identity.name} "
             f"({identity.address})"
         )
-        
+
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
             call_module="Identity",
@@ -153,21 +165,21 @@ class ValidatorManager:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success("Validator identity registered")
         else:
             logger.error(f"Identity registration failed: {receipt.error}")
-        
+
         return receipt
-    
+
     def get_identity(self, address: str) -> Optional[ValidatorIdentity]:
         """
         Get validator identity from chain.
-        
+
         Args:
             address: Validator SS58 address
-        
+
         Returns:
             Validator identity or None
         """
@@ -177,11 +189,11 @@ class ValidatorManager:
                 storage_function="IdentityOf",
                 params=[address],
             )
-            
+
             if data is None:
                 logger.warning(f"Identity not found: {address}")
                 return None
-            
+
             identity = ValidatorIdentity(
                 address=address,
                 name=data['name'],
@@ -191,16 +203,16 @@ class ValidatorManager:
                 jurisdiction=data.get('jurisdiction', 'BZ'),
                 tax_id=data.get('tax_id'),
                 kyc_status=KYCStatus(data.get('kyc_status', 'pending')),
-                kyc_verified_at=datetime.fromtimestamp(data['kyc_verified_at']) if data.get('kyc_verified_at') else None,
+                kyc_verified_at=datetime.fromtimestamp(data['kyc_verified_at'], tz=timezone.utc) if data.get('kyc_verified_at') else None,
                 tier=ValidatorTier(data.get('tier', 'bronze')),
             )
-            
+
             return identity
-            
+
         except Exception as e:
             logger.error(f"Failed to get identity: {e}")
             return None
-    
+
     def submit_kyc(
         self,
         keypair,
@@ -209,17 +221,17 @@ class ValidatorManager:
     ) -> ExtrinsicReceipt:
         """
         Submit KYC documents for verification.
-        
+
         Args:
             keypair: Validator keypair
             documents: Document hashes (e.g., {'passport': 'hash', 'proof_of_address': 'hash'})
             wait_for_finalization: Wait for finalization
-        
+
         Returns:
             Extrinsic receipt
         """
         logger.info(f"Submitting KYC documents for {keypair.ss58_address}")
-        
+
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
             call_module="Identity",
@@ -230,27 +242,27 @@ class ValidatorManager:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success("KYC documents submitted")
         else:
             logger.error(f"KYC submission failed: {receipt.error}")
-        
+
         return receipt
-    
+
     def check_compliance(self, address: str) -> bool:
         """
         Check if validator is compliant.
-        
+
         Requirements:
         - Valid identity registered
         - KYC verified
         - Sufficient stake
         - Not jailed
-        
+
         Args:
             address: Validator address
-        
+
         Returns:
             True if compliant, False otherwise
         """
@@ -259,28 +271,27 @@ class ValidatorManager:
         if identity is None:
             logger.warning(f"No identity registered: {address}")
             return False
-        
+
         # Check KYC status
         if identity.kyc_status != KYCStatus.VERIFIED:
             logger.warning(f"KYC not verified: {address} (status={identity.kyc_status.value})")
             return False
-        
+
         # Check stake
         try:
-            from .staking_interface import StakingInterface
             staking = StakingInterface(self.client)
             stake_info = staking.get_stake_info(address)
-            
+
             if stake_info is None or not stake_info.is_sufficient:
                 logger.warning(f"Insufficient stake: {address}")
                 return False
         except Exception as e:
             logger.error(f"Failed to check stake: {e}")
             return False
-        
+
         logger.debug(f"Validator compliant: {address}")
         return True
-    
+
     def calculate_tier(
         self,
         stake: int,
@@ -289,17 +300,17 @@ class ValidatorManager:
     ) -> ValidatorTier:
         """
         Calculate validator tier based on stake and reputation.
-        
+
         Args:
             stake: Current stake amount
             reputation: Reputation score (0-100)
             min_stake: Minimum required stake
-        
+
         Returns:
             Validator tier
         """
         stake_ratio = stake / min_stake
-        
+
         if stake_ratio >= 10 and reputation >= 95:
             return ValidatorTier.PLATINUM
         elif stake_ratio >= 5 and reputation >= 90:
@@ -308,7 +319,7 @@ class ValidatorManager:
             return ValidatorTier.SILVER
         else:
             return ValidatorTier.BRONZE
-    
+
     def update_tier(
         self,
         keypair,
@@ -317,17 +328,17 @@ class ValidatorManager:
     ) -> ExtrinsicReceipt:
         """
         Update validator tier (governance-controlled).
-        
+
         Args:
             keypair: Governance keypair
             new_tier: New tier to assign
             wait_for_finalization: Wait for finalization
-        
+
         Returns:
             Extrinsic receipt
         """
         logger.info(f"Updating validator tier to {new_tier.value}")
-        
+
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
             call_module="Identity",
@@ -338,27 +349,27 @@ class ValidatorManager:
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
         )
-        
+
         if receipt.success:
             logger.success(f"Tier updated to {new_tier.value}")
         else:
             logger.error(f"Tier update failed: {receipt.error}")
-        
+
         return receipt
-    
+
     def get_reputation_score(self, address: str) -> float:
         """
         Get validator reputation score.
-        
+
         Based on:
         - Fitness score consistency
         - Uptime
         - Slashing history
         - Community feedback
-        
+
         Args:
             address: Validator address
-        
+
         Returns:
             Reputation score (0-100)
         """
@@ -372,11 +383,11 @@ class ValidatorManager:
         except Exception as e:
             logger.error(f"Failed to get reputation: {e}")
             return 0.0
-    
+
     def get_all_validators(self) -> List[ValidatorIdentity]:
         """
         Get all registered validators.
-        
+
         Returns:
             List of validator identities
         """
@@ -386,7 +397,7 @@ class ValidatorManager:
                 module="Identity",
                 storage_function="IdentityOf",
             )
-            
+
             identities = []
             for address, data in validators:
                 try:
@@ -405,18 +416,18 @@ class ValidatorManager:
                 except Exception as e:
                     logger.warning(f"Failed to parse identity for {address}: {e}")
                     continue
-            
+
             logger.debug(f"Retrieved {len(identities)} validator identities")
             return identities
-            
+
         except Exception as e:
             logger.error(f"Failed to get all validators: {e}")
             return []
-    
+
     def get_compliant_validators(self) -> List[str]:
         """
         Get list of compliant validator addresses.
-        
+
         Returns:
             List of compliant validator addresses
         """
@@ -425,6 +436,6 @@ class ValidatorManager:
             v.address for v in all_validators
             if self.check_compliance(v.address)
         ]
-        
+
         logger.info(f"Found {len(compliant)}/{len(all_validators)} compliant validators")
         return compliant

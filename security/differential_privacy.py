@@ -25,14 +25,20 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn as nn
 from loguru import logger
+
+
+class PrivacyBudgetExhaustedError(RuntimeError):
+    """Raised when the differential privacy budget has been fully consumed."""
+    pass
 
 
 @dataclass
 class PrivacyBudget:
     """
     Privacy budget for differential privacy.
-    
+
     Attributes:
         epsilon (float): Privacy loss parameter (lower = more private)
         delta (float): Failure probability (typically 1/n²)
@@ -43,15 +49,15 @@ class PrivacyBudget:
     delta: float = 1e-5
     spent_epsilon: float = 0.0
     steps: int = 0
-    
+
     def is_exhausted(self) -> bool:
         """Check if privacy budget is exhausted."""
         return self.spent_epsilon >= self.epsilon
-    
+
     def remaining(self) -> float:
         """Get remaining privacy budget."""
         return max(0.0, self.epsilon - self.spent_epsilon)
-    
+
     def to_dict(self) -> Dict:
         """Convert to dictionary."""
         return {
@@ -67,28 +73,28 @@ class PrivacyBudget:
 class DifferentialPrivacy:
     """
     Differential Privacy implementation for federated learning.
-    
+
     Implements DP-SGD with:
     - Per-example gradient clipping (bounded sensitivity)
     - Gaussian noise addition (privacy guarantee)
     - Privacy budget tracking (ε-δ accounting)
-    
+
     Usage:
         dp = DifferentialPrivacy(epsilon=1.0, delta=1e-5, clip_norm=1.0)
-        
+
         # During training
         for batch in dataloader:
             loss = model(batch)
             loss.backward()
-            
+
             # Apply DP before optimizer step
             dp.clip_gradients(model)
             dp.add_noise(model)
-            
+
             optimizer.step()
             dp.update_privacy_budget()
     """
-    
+
     def __init__(
         self,
         epsilon: float = 1.0,
@@ -100,7 +106,7 @@ class DifferentialPrivacy:
     ):
         """
         Initialize DifferentialPrivacy.
-        
+
         Args:
             epsilon: Privacy loss parameter (lower = more private)
             delta: Failure probability (typically 1/n²)
@@ -112,7 +118,7 @@ class DifferentialPrivacy:
         self.budget = PrivacyBudget(epsilon=epsilon, delta=delta)
         self.clip_norm = clip_norm
         self.sampling_rate = sampling_rate
-        
+
         # Auto-compute noise multiplier if not provided
         if noise_multiplier is None and target_steps is not None:
             self.noise_multiplier = self._compute_noise_multiplier(
@@ -123,12 +129,12 @@ class DifferentialPrivacy:
         else:
             # Default noise multiplier
             self.noise_multiplier = 1.0
-        
+
         logger.info(
             f"DifferentialPrivacy initialized: ε={epsilon}, δ={delta}, "
             f"clip_norm={clip_norm}, noise_multiplier={self.noise_multiplier:.3f}"
         )
-    
+
     def _compute_noise_multiplier(
         self,
         epsilon: float,
@@ -138,10 +144,10 @@ class DifferentialPrivacy:
     ) -> float:
         """
         Compute noise multiplier for target privacy budget.
-        
+
         Uses analytical Gaussian mechanism formula:
         σ = sqrt(2 * ln(1.25/δ)) * sensitivity / ε
-        
+
         For composition over T steps with sampling q:
         σ_total = σ / sqrt(T * q)
         """
@@ -149,122 +155,129 @@ class DifferentialPrivacy:
         # For precise computation, use privacy accountant
         sensitivity = self.clip_norm
         base_noise = sensitivity * math.sqrt(2 * math.log(1.25 / delta)) / epsilon
-        
+
         # Adjust for composition
         if steps > 0:
             composition_factor = math.sqrt(steps * sampling_rate)
             noise_multiplier = base_noise / composition_factor
         else:
             noise_multiplier = base_noise
-        
+
         return max(noise_multiplier, 0.1)  # Minimum noise for safety
-    
+
     def clip_gradients(self, model: nn.Module) -> float:
         """
-        Clip per-example gradients to bounded L2 norm.
-        
-        This ensures bounded sensitivity for differential privacy.
-        
+        Clip gradients to bounded L2 norm across the entire model.
+
+        Computes the global L2 norm across all parameters and clips
+        uniformly, ensuring bounded sensitivity for differential privacy.
+
         Args:
             model: PyTorch model with computed gradients
-        
+
         Returns:
-            Average gradient norm before clipping
+            Global gradient norm before clipping
         """
-        total_norm = 0.0
-        param_count = 0
-        
-        for param in model.parameters():
-            if param.grad is not None:
-                param_norm = param.grad.data.norm(2).item()
-                total_norm += param_norm
-                param_count += 1
-                
-                # Clip gradient
-                clip_coef = self.clip_norm / (param_norm + 1e-6)
-                if clip_coef < 1:
-                    param.grad.data.mul_(clip_coef)
-        
-        avg_norm = total_norm / max(param_count, 1)
-        return avg_norm
-    
+        # Collect all gradient tensors
+        grads = [
+            param.grad.data
+            for param in model.parameters()
+            if param.grad is not None
+        ]
+
+        if not grads:
+            return 0.0
+
+        # Compute global L2 norm across all parameters
+        total_norm = math.sqrt(
+            sum(g.detach().norm(2).item() ** 2 for g in grads)
+        )
+
+        # Clip uniformly: scale all gradients by the same factor
+        clip_coef = self.clip_norm / (total_norm + 1e-6)
+        if clip_coef < 1:
+            for g in grads:
+                g.mul_(clip_coef)
+
+        return total_norm
+
     def add_noise(self, model: nn.Module) -> None:
         """
         Add calibrated Gaussian noise to gradients.
-        
+
         Noise scale: σ = noise_multiplier * clip_norm
-        
+
         Args:
             model: PyTorch model with clipped gradients
         """
         noise_scale = self.noise_multiplier * self.clip_norm
-        
+
         for param in model.parameters():
             if param.grad is not None:
                 noise = torch.randn_like(param.grad) * noise_scale
                 param.grad.data.add_(noise)
-    
+
     def update_privacy_budget(self, steps: int = 1) -> None:
         """
         Update privacy budget after training steps.
-        
+
         Uses simplified privacy accounting (conservative estimate).
         For precise accounting, use privacy accountant library.
-        
+
         Args:
             steps: Number of steps taken
         """
         self.budget.steps += steps
-        
+
         # Simplified privacy accounting (conservative)
         # Real implementation should use RDP or moments accountant
         epsilon_per_step = self._compute_epsilon_per_step()
         self.budget.spent_epsilon += epsilon_per_step * steps
-        
+
         if self.budget.is_exhausted():
-            logger.warning(
+            raise PrivacyBudgetExhaustedError(
                 f"Privacy budget exhausted! ε={self.budget.spent_epsilon:.3f} "
-                f"(limit: {self.budget.epsilon})"
+                f"(limit: {self.budget.epsilon}). Training must stop to preserve privacy guarantees."
             )
-    
+
     def _compute_epsilon_per_step(self) -> float:
         """
         Compute epsilon spent per training step.
-        
+
         Simplified formula (conservative):
         ε_step ≈ q * ε / sqrt(T)
-        
+
         where q = sampling_rate, T = total_steps
         """
         if self.budget.steps == 0:
             return 0.0
-        
+
         # Conservative estimate
         epsilon_per_step = (
-            self.sampling_rate * 
-            self.budget.epsilon / 
+            self.sampling_rate *
+            self.budget.epsilon /
             math.sqrt(max(self.budget.steps, 1))
         )
-        
+
         return epsilon_per_step
-    
+
     def get_privacy_spent(self) -> Tuple[float, float]:
         """
         Get privacy spent (ε, δ).
-        
+
         Returns:
             Tuple of (epsilon_spent, delta)
         """
         return (self.budget.spent_epsilon, self.budget.delta)
-    
+
     def get_privacy_remaining(self) -> float:
         """Get remaining privacy budget."""
         return self.budget.remaining()
-    
+
     def can_continue_training(self) -> bool:
         """Check if training can continue under privacy budget."""
         return not self.budget.is_exhausted()
-    
+
     def to_dict(self) -> Dict:
         """Convert to dictionary."""
         return {
@@ -278,16 +291,16 @@ class DifferentialPrivacy:
 class PrivacyAccountant:
     """
     Advanced privacy accounting using Rényi Differential Privacy (RDP).
-    
+
     Provides tighter privacy bounds than basic composition.
-    
+
     Note: This is a simplified implementation.
     For production, use libraries like:
     - Opacus (Facebook)
     - TensorFlow Privacy
     - Privacy Accounting Library
     """
-    
+
     def __init__(
         self,
         epsilon: float,
@@ -297,7 +310,7 @@ class PrivacyAccountant:
     ):
         """
         Initialize PrivacyAccountant.
-        
+
         Args:
             epsilon: Target privacy parameter
             delta: Failure probability
@@ -307,15 +320,15 @@ class PrivacyAccountant:
         self.epsilon = epsilon
         self.delta = delta
         self.sampling_rate = sampling_rate
-        
+
         if orders is None:
             self.orders = [1.5, 2, 3, 5, 10, 20, 50, 100]
         else:
             self.orders = orders
-        
+
         # RDP values for each order
         self.rdp = {order: 0.0 for order in self.orders}
-    
+
     def accumulate_privacy_spending(
         self,
         noise_multiplier: float,
@@ -323,7 +336,7 @@ class PrivacyAccountant:
     ) -> None:
         """
         Accumulate privacy spending using RDP.
-        
+
         Args:
             noise_multiplier: Noise scale used in DP-SGD
             steps: Number of steps taken
@@ -331,28 +344,28 @@ class PrivacyAccountant:
         for order in self.orders:
             # RDP formula for Gaussian mechanism
             rdp_step = (
-                self.sampling_rate**2 * 
-                order / 
+                self.sampling_rate**2 *
+                order /
                 (2 * noise_multiplier**2)
             )
             self.rdp[order] += rdp_step * steps
-    
+
     def get_privacy_spent(self) -> Tuple[float, float]:
         """
         Convert RDP to (ε, δ) using optimal order.
-        
+
         Returns:
             Tuple of (epsilon, delta)
         """
         min_epsilon = float('inf')
-        
+
         for order in self.orders:
             # Convert RDP to (ε, δ)
             epsilon = self.rdp[order] + math.log(1 / self.delta) / (order - 1)
             min_epsilon = min(min_epsilon, epsilon)
-        
+
         return (min_epsilon, self.delta)
-    
+
     def to_dict(self) -> Dict:
         """Convert to dictionary."""
         epsilon_spent, _ = self.get_privacy_spent()
@@ -365,6 +378,41 @@ class PrivacyAccountant:
         }
 
 
+class DPOptimizer:
+    """
+    Wraps optimizer + DP to enforce correct clip → noise → step sequence.
+
+    Prevents misuse of separate clip/noise/step calls that can silently
+    break privacy guarantees.
+
+    For production, migrate to Opacus: https://github.com/pytorch/opacus
+    """
+
+    def __init__(
+        self,
+        optimizer: torch.optim.Optimizer,
+        dp: DifferentialPrivacy,
+    ):
+        self.optimizer = optimizer
+        self.dp = dp
+
+    def zero_grad(self) -> None:
+        """Clear gradients."""
+        self.optimizer.zero_grad()
+
+    def step(self, model: nn.Module) -> None:
+        """Clip gradients, add noise, and update weights (in correct order)."""
+        self.dp.clip_gradients(model)
+        self.dp.add_noise(model)
+        self.optimizer.step()
+        self.dp.update_privacy_budget()
+
+    @property
+    def privacy_spent(self) -> Dict:
+        """Return current privacy expenditure."""
+        return self.dp.get_privacy_spent()
+
+
 # Convenience function for Opacus integration
 def create_dp_optimizer(
     optimizer: torch.optim.Optimizer,
@@ -373,12 +421,13 @@ def create_dp_optimizer(
     delta: float = 1e-5,
     clip_norm: float = 1.0,
     noise_multiplier: Optional[float] = None,
-) -> Tuple[torch.optim.Optimizer, DifferentialPrivacy]:
+) -> DPOptimizer:
     """
     Create DP-enabled optimizer (simplified wrapper).
-    
-    For production, use Opacus: https://github.com/pytorch/opacus
-    
+
+    Returns a DPOptimizer that enforces the correct clip → noise → step
+    sequence. For production, use Opacus: https://github.com/pytorch/opacus
+
     Args:
         optimizer: Base PyTorch optimizer
         model: Model to protect
@@ -386,13 +435,14 @@ def create_dp_optimizer(
         delta: Failure probability
         clip_norm: Gradient clipping norm
         noise_multiplier: Noise scale (if None, auto-computed)
-    
+
     Returns:
-        Tuple of (optimizer, dp_handler)
-    
+        DPOptimizer wrapping the optimizer with DP enforcement
+
     Usage:
         optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-        dp_optimizer, dp = create_dp_optimizer(optimizer, model, epsilon=1.0)
+        dp_opt = create_dp_optimizer(optimizer, model, epsilon=1.0)
+        dp_opt.step(model)  # clips, adds noise, steps in correct order
     """
     dp = DifferentialPrivacy(
         epsilon=epsilon,
@@ -400,9 +450,7 @@ def create_dp_optimizer(
         clip_norm=clip_norm,
         noise_multiplier=noise_multiplier,
     )
-    
-    # Note: This is a simplified wrapper
-    # For real DP-SGD, use Opacus or implement per-sample gradients
-    logger.info("Created DP optimizer (simplified). Consider using Opacus for production.")
-    
-    return optimizer, dp
+
+    logger.info("Created DPOptimizer (simplified). Consider using Opacus for production.")
+
+    return DPOptimizer(optimizer, dp)
