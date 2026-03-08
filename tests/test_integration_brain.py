@@ -24,7 +24,7 @@ from pathlib import Path
 # Shared types                                                                  #
 # ─────────────────────────────────────────────────────────────────────────── #
 
-from nawal.types import WorldState, GenerationResult, FeedbackSignal
+from nawal_types import WorldState, GenerationResult, FeedbackSignal
 
 
 # ─────────────────────────────────────────────────────────────────────────── #

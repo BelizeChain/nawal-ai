@@ -1,12 +1,12 @@
 """
-nawal/types.py — Canonical shared data types for the Nawal Brain Architecture.
+nawal_types.py — Canonical shared data types for the Nawal Brain Architecture.
 
 These types flow between subsystems (Perception → Cortex → Memory →
 Control → Action → Maintenance) and give every layer a common language.
 
 Usage::
 
-    from nawal.types import WorldState, GenerationResult, FeedbackSignal
+    from nawal_types import WorldState, GenerationResult, FeedbackSignal
 
     ws = WorldState(text="Hello", modalities=["text"])
 """
