@@ -15,7 +15,7 @@ on:
 
 env:
   REGISTRY: belizechainacr.azurecr.io
-  IMAGE_NAME: nawal-ai
+  IMAGE_NAME: nawal
 
 # Only one deploy at a time; cancel superseded runs
 concurrency:
@@ -151,10 +151,8 @@ jobs:
                     ports:
                       - containerPort: 8080
                         name: api
-                      - containerPort: 9090
-                        name: mesh
                     env:
-                      - name: BLOCKCHAIN_WS_URL
+                      - name: BLOCKCHAIN_RPC
                         value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
                       - name: ENVIRONMENT
                         value: "production"
@@ -174,11 +172,11 @@ jobs:
                       periodSeconds: 10
                     resources:
                       requests:
+                        cpu: "100m"
+                        memory: "256Mi"
+                      limits:
                         cpu: "500m"
                         memory: "1Gi"
-                      limits:
-                        cpu: "1000m"
-                        memory: "2Gi"
                     volumeMounts:
                       - name: checkpoints
                         mountPath: /app/checkpoints
@@ -202,9 +200,6 @@ jobs:
               - name: api
                 port: 8080
                 targetPort: 8080
-              - name: mesh
-                port: 9090
-                targetPort: 9090
             type: LoadBalancer
           EOFK
 

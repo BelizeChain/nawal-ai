@@ -289,21 +289,22 @@ app.add_middleware(
 # API Key Authentication Middleware
 # =============================================================================
 
-async def verify_api_key(request: Request) -> None:
+async def verify_api_key(request: Request, call_next) -> JSONResponse:
     """Verify API key when authentication is enabled."""
-    # Skip auth for health check
+    # Skip auth for health check and docs
     if request.url.path in ("/health", "/docs", "/openapi.json", "/redoc"):
-        return
+        return await call_next(request)
 
     if not app_state.config or not app_state.config.enable_auth:
-        return
+        return await call_next(request)
 
     api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
     if not api_key or api_key != app_state.config.api_key:
-        raise HTTPException(
+        return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
+            content={"detail": "Invalid or missing API key"},
         )
+    return await call_next(request)
 
 
 app.middleware("http")(verify_api_key)

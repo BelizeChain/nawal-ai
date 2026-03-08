@@ -10,15 +10,22 @@ RUN apt-get update && \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv for fast, backtrack-free dependency resolution
+RUN pip install --no-cache-dir uv
+
 # Install PyTorch CPU first to avoid resolution conflicts
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN uv pip install --no-cache --system torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # Copy and install remaining requirements
 # Strip flwr[simulation] → flwr (drops Ray ~2 GB) and wandb for production.
 # Dev installs that inflate build time but aren't needed at runtime.
 COPY requirements.txt ./
-RUN sed 's/flwr\[simulation\]/flwr/g; /^wandb/d' requirements.txt > /tmp/prod-req.txt && \
-    pip install --no-cache-dir --prefer-binary -r /tmp/prod-req.txt
+RUN sed \
+      -e 's/flwr\[simulation\]/flwr/g' \
+      -e 's/cryptography>=42.0.4,<43.0.0/cryptography>=44.0.0/g' \
+      -e '/^wandb/d' \
+      requirements.txt > /tmp/prod-req.txt && \
+    uv pip install --no-cache --system -r /tmp/prod-req.txt
 
 # --- Production stage ---
 FROM python:3.11-slim

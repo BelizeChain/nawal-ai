@@ -37,6 +37,7 @@ pydantic-settings>=2.5.0
 # Logging & observability
 structlog>=24.4.0
 rich>=13.9.0
+loguru>=0.7.0
 
 # Serialization
 msgpack>=1.1.0
