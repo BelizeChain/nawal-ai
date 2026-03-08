@@ -64,6 +64,7 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # ACR credentials (ACR_USERNAME / ACR_PASSWORD) must be valid in GitHub Secrets.
     # If login fails with 403, rotate the credentials in Azure Portal and
     # update the secrets at: Settings → Secrets and variables → Actions → Secrets.

@@ -14,9 +14,11 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # Copy and install remaining requirements
+# Strip flwr[simulation] → flwr (drops Ray ~2 GB) and wandb for production.
+# Dev installs that inflate build time but aren't needed at runtime.
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt || \
-    pip install --no-cache-dir --no-deps -r requirements.txt
+RUN sed 's/flwr\[simulation\]/flwr/g; /^wandb/d' requirements.txt > /tmp/prod-req.txt && \
+    pip install --no-cache-dir --prefer-binary -r /tmp/prod-req.txt
 
 # --- Production stage ---
 FROM python:3.11-slim
