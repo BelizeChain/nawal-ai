@@ -52,16 +52,17 @@ jobs:
 
   # ── 2. Build & Push ────────────────────────────────────
   build:
-    name: 🐳 Build & Push Image
+    name: 🐳 Build & Push Image (${{ matrix.compute }})
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
+    strategy:
+      matrix:
+        compute: [cpu, gpu]
     # ACR credentials (ACR_USERNAME / ACR_PASSWORD) must be valid in GitHub Secrets.
     # If login fails with 403, rotate the credentials in Azure Portal and
     # update the secrets at: Settings → Secrets and variables → Actions → Secrets.
-    outputs:
-      image_sha: ${{ steps.meta.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -71,7 +72,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=sha,prefix=
+            type=sha,prefix=,suffix=-${{ matrix.compute }}
 
       - uses: docker/setup-buildx-action@v3
 
@@ -86,6 +87,7 @@ jobs:
           context: .
           push: true
           no-cache: true
+          build-args: COMPUTE=${{ matrix.compute }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
@@ -114,6 +116,10 @@ jobs:
       - name: Create namespace (if needed)
         run: kubectl create namespace belizechain --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Compute image tag
+        id: img
+        run: echo "tag=${GITHUB_SHA::7}-cpu" >> "$GITHUB_OUTPUT"
+
       - name: Deploy to AKS
         run: |
           cat <<EOFK | kubectl apply -f -
@@ -138,7 +144,7 @@ jobs:
               spec:
                 containers:
                   - name: nawal-ai
-                    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_sha }}
+                    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.img.outputs.tag }}
                     ports:
                       - containerPort: 8080
                         name: api

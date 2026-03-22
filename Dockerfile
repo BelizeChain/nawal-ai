@@ -1,6 +1,30 @@
 # Nawal Federated Learning Server Dockerfile
-# Single-stage build to minimize peak memory usage during build
-FROM python:3.11.11-slim
+# Supports CPU and GPU builds via COMPUTE build arg.
+#   docker build --build-arg COMPUTE=cpu -t nawal:cpu .
+#   docker build --build-arg COMPUTE=gpu -t nawal:gpu .
+
+ARG COMPUTE=cpu
+
+# GPU: NVIDIA CUDA 12.4 + Python 3.11 runtime (includes cuDNN)
+# CPU: slim Python (no CUDA overhead)
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS base-gpu
+FROM python:3.11.11-slim                          AS base-cpu
+FROM base-${COMPUTE}                              AS base
+
+# GPU images don't ship Python — install 3.11 from deadsnakes PPA
+ARG COMPUTE
+RUN if [ "$COMPUTE" = "gpu" ]; then \
+      apt-get update && \
+      apt-get install -y --no-install-recommends software-properties-common gpg-agent && \
+      add-apt-repository -y ppa:deadsnakes/ppa && \
+      apt-get update && \
+      apt-get install -y --no-install-recommends \
+        python3.11 python3.11-venv python3.11-dev python3.11-distutils && \
+      update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
+      update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+      curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
 
 WORKDIR /app
 
@@ -15,10 +39,17 @@ RUN apt-get update && \
 # Install uv for fast dependency resolution
 RUN pip install --no-cache-dir uv
 
-# Install PyTorch CPU first (largest dep — isolated layer for caching)
-RUN uv pip install --no-cache --system \
-    torch torchvision \
-    --index-url https://download.pytorch.org/whl/cpu
+# Install PyTorch — GPU gets CUDA 12.4 variant, CPU gets lightweight wheel
+ARG COMPUTE
+RUN if [ "$COMPUTE" = "gpu" ]; then \
+      uv pip install --no-cache --system \
+        torch torchvision \
+        --index-url https://download.pytorch.org/whl/cu124; \
+    else \
+      uv pip install --no-cache --system \
+        torch torchvision \
+        --index-url https://download.pytorch.org/whl/cpu; \
+    fi
 
 # Copy and install remaining requirements
 # Strip flwr[simulation] → flwr (drops Ray ~2 GB) and wandb for production.

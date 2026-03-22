@@ -51,12 +51,14 @@
 ```bash
 pip install -r requirements.txt          # Install dependencies
 python api_server.py                     # Run API server
-docker build -t belizechainacr.azurecr.io/nawal .  # Docker image
+docker build --build-arg COMPUTE=cpu -t nawal:cpu .  # CPU image
+docker build --build-arg COMPUTE=gpu -t nawal:gpu .  # GPU image (CUDA 12.4)
 pytest                                   # Run tests
 ```
 
 ## Constraints
-- **CPU-only**: No GPU on AKS Free tier — ML models must use CPU inference
-- **Shared node**: All services share 2 vCPU / 8GB RAM
+- **Dual build**: CPU image for AKS Free tier, GPU image (CUDA 12.4) for GPU-equipped nodes
+- **AKS Free tier**: CPU-only, 2 vCPU / 8GB RAM shared node — deploys CPU image
+- **GPU nodes**: Use `nawal:<sha>-gpu` tag when deploying to GPU infrastructure
 - **Cost ceiling**: ~$75/mo total for ALL services
 - **Privacy**: Federated learning data must never leave node boundaries
