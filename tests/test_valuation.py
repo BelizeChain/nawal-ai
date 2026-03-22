@@ -4,6 +4,7 @@ Tests for the Phase 2 valuation subsystem:
   - BasicSafetyFilter
   - ValuationLayer
 """
+
 from __future__ import annotations
 
 import pytest
@@ -12,10 +13,10 @@ from valuation.interfaces import DriveSignal
 from valuation.reward import DriveBasedRewardModel
 from valuation.safety import BasicSafetyFilter, ValuationLayer
 
-
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def safe_candidates():
@@ -38,6 +39,7 @@ def mixed_candidates():
 # ============================================================================
 # DriveBasedRewardModel
 # ============================================================================
+
 
 class TestDriveBasedRewardModel:
     def test_score_returns_list_of_floats(self, safe_candidates):
@@ -110,9 +112,11 @@ class TestDriveBasedRewardModel:
 
     def test_custom_evaluator_called(self):
         called = []
+
         def my_eval(candidate, context):
             called.append(candidate)
             return 1.0
+
         model = DriveBasedRewardModel(drives=[("custom", 1.0, my_eval)])
         model.score([{"text": "x"}, {"text": "y"}])
         assert len(called) == 2
@@ -128,6 +132,7 @@ class TestDriveBasedRewardModel:
 # ============================================================================
 # BasicSafetyFilter
 # ============================================================================
+
 
 class TestBasicSafetyFilter:
     def test_safe_text_is_safe(self):
@@ -184,6 +189,7 @@ class TestBasicSafetyFilter:
     def test_extra_check_integration(self):
         def no_numbers(text):
             import re
+
             if re.search(r"\d", text):
                 return False, "contains digits"
             return True, "ok"
@@ -197,6 +203,7 @@ class TestBasicSafetyFilter:
 # ============================================================================
 # ValuationLayer
 # ============================================================================
+
 
 class TestValuationLayer:
     def test_filter_safe_removes_unsafe(self, mixed_candidates):
@@ -265,5 +272,6 @@ class TestValuationLayer:
         vl = ValuationLayer()
         from valuation.reward import DriveBasedRewardModel
         from valuation.safety import BasicSafetyFilter
+
         assert isinstance(vl.reward_model, DriveBasedRewardModel)
         assert isinstance(vl.safety_filter, BasicSafetyFilter)

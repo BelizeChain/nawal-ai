@@ -41,10 +41,10 @@ from nawal.server.aggregator import (
 )
 from training.distillation import KnowledgeDistillationLoss
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_updates(n: int, dim: int = 10) -> list[dict[str, torch.Tensor]]:
     """Create n random client updates for testing."""
@@ -60,12 +60,14 @@ def _simple_model(dim: int = 10) -> nn.Module:
 # C7.1 — Flower Server Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestC71FlowerServerConfig:
     """C7.1: Verify no plaintext gRPC in production code paths."""
 
     def test_no_plaintext_server_address_in_client_train(self):
         """client/train.py should not hard-code a plaintext address for prod."""
         import importlib
+
         # The module exists and is importable
         spec = importlib.util.find_spec("client.train")
         assert spec is not None, "client.train module must exist"
@@ -84,6 +86,7 @@ class TestC71FlowerServerConfig:
 # ═══════════════════════════════════════════════════════════════════════════
 # C7.2 — Krum Aggregation (Blanchard et al. 2017)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestC72KrumAggregation:
     """C7.2: Verify Krum formula and convergence guard."""
@@ -164,6 +167,7 @@ class TestC72KrumAggregation:
 # C7.3 — DP-SGD Integration
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestC73DPSGDIntegration:
     """C7.3: Verify DPOptimizer is wired into training when privacy_epsilon set."""
 
@@ -189,9 +193,13 @@ class TestC73DPSGDIntegration:
     def test_dp_optimizer_respects_clip_norm(self):
         """After DPOptimizer.step(), gradient norms should be <= clip_norm."""
         model = _simple_model()
-        optimizer = torch.optim.SGD(model.parameters(), lr=0.0)  # lr=0 to isolate clipping
+        optimizer = torch.optim.SGD(
+            model.parameters(), lr=0.0
+        )  # lr=0 to isolate clipping
         clip_norm = 0.5
-        dp = DifferentialPrivacy(epsilon=100.0, clip_norm=clip_norm, noise_multiplier=0.0)
+        dp = DifferentialPrivacy(
+            epsilon=100.0, clip_norm=clip_norm, noise_multiplier=0.0
+        )
         dp_opt = DPOptimizer(optimizer, dp)
 
         # Create large gradient
@@ -220,15 +228,18 @@ class TestC73DPSGDIntegration:
         loss = model(x).sum()
         loss.backward()
 
-        grads_before = {n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None}
+        grads_before = {
+            n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None
+        }
         dp.clip_gradients(model)
         dp.add_noise(model)
-        grads_after = {n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None}
+        grads_after = {
+            n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None
+        }
 
         # At least one gradient should differ (noise injected)
         any_changed = any(
-            not torch.equal(grads_before[n], grads_after[n])
-            for n in grads_before
+            not torch.equal(grads_before[n], grads_after[n]) for n in grads_before
         )
         assert any_changed, "DP noise must alter gradients"
 
@@ -267,6 +278,7 @@ class TestC73DPSGDIntegration:
 
         # Verify the import is present
         from client.genome_trainer import create_dp_optimizer as imported_fn
+
         assert imported_fn is create_dp_optimizer
 
     def test_genome_trainer_skips_dp_when_epsilon_none(self):
@@ -330,6 +342,7 @@ class TestC73DPSGDIntegration:
 # C7.4 — Client Update Serialisation
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestC74Serialisation:
     """C7.4: Verify no pickle in FL update path, NaN/Inf checks."""
 
@@ -345,9 +358,9 @@ class TestC74Serialisation:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        assert alias.name != "pickle", (
-                            "client/train.py must not import pickle for FL updates"
-                        )
+                        assert (
+                            alias.name != "pickle"
+                        ), "client/train.py must not import pickle for FL updates"
 
     def test_model_update_uses_tensors_not_pickle(self):
         """ModelUpdate stores torch.Tensor weights, not pickled blobs."""
@@ -382,8 +395,12 @@ class TestC74Serialisation:
             max_sequence_length=128,
             vocab_size=1000,
             encoder_layers=[
-                ArchitectureLayer(layer_type=LayerType.LINEAR, hidden_size=64,
-                                  input_size=64, output_size=64),
+                ArchitectureLayer(
+                    layer_type=LayerType.LINEAR,
+                    hidden_size=64,
+                    input_size=64,
+                    output_size=64,
+                ),
             ],
             decoder_layers=[],
         )
@@ -418,8 +435,12 @@ class TestC74Serialisation:
             max_sequence_length=128,
             vocab_size=1000,
             encoder_layers=[
-                ArchitectureLayer(layer_type=LayerType.LINEAR, hidden_size=64,
-                                  input_size=64, output_size=64),
+                ArchitectureLayer(
+                    layer_type=LayerType.LINEAR,
+                    hidden_size=64,
+                    input_size=64,
+                    output_size=64,
+                ),
             ],
             decoder_layers=[],
         )
@@ -436,6 +457,7 @@ class TestC74Serialisation:
 # ═══════════════════════════════════════════════════════════════════════════
 # C7.5 — Client Selection Fairness
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestC75ClientSelectionFairness:
     """C7.5: Fair client selection with minimum participation guarantee."""
@@ -493,9 +515,9 @@ class TestC75ClientSelectionFairness:
         counts = [agg.participation_counts[i] for i in range(total_clients)]
         disparity = max(counts) - min(counts)
         # With fair scheduling, disparity should be at most ~2 (due to tie-breaking randomness)
-        assert disparity <= 3, (
-            f"Participation disparity should be small, got {disparity}. Counts: {counts}"
-        )
+        assert (
+            disparity <= 3
+        ), f"Participation disparity should be small, got {disparity}. Counts: {counts}"
 
     def test_select_clients_caps_at_total(self):
         """Cannot select more clients than available."""
@@ -507,6 +529,7 @@ class TestC75ClientSelectionFairness:
 # ═══════════════════════════════════════════════════════════════════════════
 # C7.6 — Knowledge Distillation Module
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestC76Distillation:
     """C7.6: Verify distillation loss formula (Hinton et al. 2015)."""
@@ -551,9 +574,9 @@ class TestC76Distillation:
         # than at T=1 (T²=16 factor). They won't be exactly 16x because
         # the KL divergence also changes with temperature, but the T=4
         # loss should be noticeably larger.
-        assert loss_T4 > loss_T1 * 0.5, (
-            f"T² scaling should amplify soft loss. T=4 loss: {loss_T4}, T=1 loss: {loss_T1}"
-        )
+        assert (
+            loss_T4 > loss_T1 * 0.5
+        ), f"T² scaling should amplify soft loss. T=4 loss: {loss_T4}, T=1 loss: {loss_T1}"
 
     def test_distillation_loss_forward_runs(self):
         """Forward pass should produce a scalar loss without error."""
@@ -599,7 +622,7 @@ class TestC76Distillation:
         kl = nn.KLDivLoss(reduction="batchmean")
         s_soft = F.log_softmax(student.view(-1, vocab) / T, dim=-1)
         t_soft = F.softmax(teacher.view(-1, vocab) / T, dim=-1)
-        expected = kl(s_soft, t_soft) * (T ** 2)
+        expected = kl(s_soft, t_soft) * (T**2)
 
         assert abs(total.item() - expected.item()) < 1e-4
 

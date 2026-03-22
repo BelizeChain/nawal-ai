@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DeepSeekConfig:
     """Configuration for DeepSeek teacher model"""
+
     model_name: str = "deepseek-ai/deepseek-coder-33b-instruct"
     max_tokens: int = 2048
     temperature: float = 0.7
@@ -104,11 +105,12 @@ class DeepSeekTeacher:
         # Load with quantization if specified
         if self.config.quantization == "bitsandbytes":
             from transformers import BitsAndBytesConfig
+
             quantization_config = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_compute_dtype=torch.float16,
                 bnb_4bit_use_double_quant=True,
-                bnb_4bit_quant_type="nf4"
+                bnb_4bit_quant_type="nf4",
             )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.config.model_name,
@@ -161,10 +163,18 @@ class DeepSeekTeacher:
         temperature = temperature or self.config.temperature
 
         # Generate with vLLM if available
-        if hasattr(self.model, 'generate') and hasattr(self.model, '__module__') and 'vllm' in self.model.__module__:
-            response = self._generate_vllm(prompt, max_tokens, temperature, return_logits)
+        if (
+            hasattr(self.model, "generate")
+            and hasattr(self.model, "__module__")
+            and "vllm" in self.model.__module__
+        ):
+            response = self._generate_vllm(
+                prompt, max_tokens, temperature, return_logits
+            )
         else:
-            response = self._generate_transformers(prompt, max_tokens, temperature, return_logits)
+            response = self._generate_transformers(
+                prompt, max_tokens, temperature, return_logits
+            )
 
         # Cache response with LRU eviction
         response["cached"] = False
@@ -176,11 +186,7 @@ class DeepSeekTeacher:
         return response
 
     def _generate_vllm(
-        self,
-        prompt: str,
-        max_tokens: int,
-        temperature: float,
-        return_logits: bool
+        self, prompt: str, max_tokens: int, temperature: float, return_logits: bool
     ) -> Dict:
         """Generate using vLLM engine"""
         from vllm import SamplingParams
@@ -189,7 +195,9 @@ class DeepSeekTeacher:
             temperature=temperature,
             top_p=self.config.top_p,
             max_tokens=max_tokens,
-            logprobs=5 if return_logits else None,  # Return top-5 logprobs for distillation
+            logprobs=(
+                5 if return_logits else None
+            ),  # Return top-5 logprobs for distillation
         )
 
         outputs = self.model.generate([prompt], sampling_params)
@@ -207,11 +215,7 @@ class DeepSeekTeacher:
         return result
 
     def _generate_transformers(
-        self,
-        prompt: str,
-        max_tokens: int,
-        temperature: float,
-        return_logits: bool
+        self, prompt: str, max_tokens: int, temperature: float, return_logits: bool
     ) -> Dict:
         """Generate using HuggingFace transformers"""
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
@@ -227,8 +231,10 @@ class DeepSeekTeacher:
                 return_dict_in_generate=True,
             )
 
-        generated_ids = outputs.sequences[:, inputs.input_ids.size(1):]
-        generated_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
+        generated_ids = outputs.sequences[:, inputs.input_ids.size(1) :]
+        generated_text = self.tokenizer.decode(
+            generated_ids[0], skip_special_tokens=True
+        )
 
         result = {
             "text": generated_text,
@@ -236,16 +242,14 @@ class DeepSeekTeacher:
 
         if return_logits:
             # Stack scores from all generation steps
-            result["logits"] = torch.stack(outputs.scores, dim=1)  # [batch, seq_len, vocab]
+            result["logits"] = torch.stack(
+                outputs.scores, dim=1
+            )  # [batch, seq_len, vocab]
             result["tokens"] = generated_ids
 
         return result
 
-    def get_soft_targets(
-        self,
-        prompt: str,
-        temperature: float = 2.0
-    ) -> torch.Tensor:
+    def get_soft_targets(self, prompt: str, temperature: float = 2.0) -> torch.Tensor:
         """
         Get soft targets for knowledge distillation
 

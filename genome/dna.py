@@ -44,8 +44,8 @@ class LayerGene:
             "conv2d": LayerType.CONV2D,
             "conv1d": LayerType.CONV1D,
             "relu": LayerType.RELU,
-            "sigmoid": LayerType.SILU,       # no SIGMOID in LayerType; closest alternative
-            "softmax": LayerType.LINEAR,     # no SOFTMAX in LayerType; fallback
+            "sigmoid": LayerType.SILU,  # no SIGMOID in LayerType; closest alternative
+            "softmax": LayerType.LINEAR,  # no SOFTMAX in LayerType; fallback
             "gelu": LayerType.GELU,
             "tanh": LayerType.TANH,
             "dropout": LayerType.DROPOUT,
@@ -185,7 +185,11 @@ class DNA:
         """Convert to new Genome format."""
         if self._genome is None:
             # Convert LayerGenes to ArchitectureLayers
-            layers = [gene.to_architecture_layer() for gene in self.layer_genes if gene.enabled]
+            layers = [
+                gene.to_architecture_layer()
+                for gene in self.layer_genes
+                if gene.enabled
+            ]
 
             self._genome = Genome(
                 genome_id=f"dna_{id(self)}",
@@ -284,6 +288,7 @@ class DNA:
             A new DNA instance with copied genes
         """
         import copy
+
         cloned = DNA(
             input_size=self.input_size,
             output_size=self.output_size,
@@ -316,7 +321,9 @@ class DNA:
             DNA instance restored from dictionary
         """
         layer_genes = [LayerGene.from_dict(g) for g in data.get("layer_genes", [])]
-        connection_genes = [ConnectionGene.from_dict(g) for g in data.get("connection_genes", [])]
+        connection_genes = [
+            ConnectionGene.from_dict(g) for g in data.get("connection_genes", [])
+        ]
 
         return cls(
             input_size=data["input_size"],

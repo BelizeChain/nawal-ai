@@ -18,9 +18,9 @@ from .oracle_pipeline import (
 )
 
 __all__ = [
-    'OracleDataFetcher',
-    'DataPreprocessor',
-    'ModelInferenceRunner',
-    'ResultSubmitter',
-    'OraclePipeline',
+    "OracleDataFetcher",
+    "DataPreprocessor",
+    "ModelInferenceRunner",
+    "ResultSubmitter",
+    "OraclePipeline",
 ]

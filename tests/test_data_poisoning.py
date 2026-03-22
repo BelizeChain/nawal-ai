@@ -79,14 +79,17 @@ async def test_bimodal_loss_distribution_low_score(training_config, simple_genom
     trainer.set_genome(simple_genome)
 
     # Simulate bimodal losses (clean + poisoned)
-    bimodal_losses = (
-        [1.5 + torch.randn(1).item() * 0.1 for _ in range(25)] +  # Clean data (low loss)
-        [4.5 + torch.randn(1).item() * 0.1 for _ in range(25)]    # Poisoned data (high loss)
-    )
+    bimodal_losses = [
+        1.5 + torch.randn(1).item() * 0.1 for _ in range(25)
+    ] + [  # Clean data (low loss)
+        4.5 + torch.randn(1).item() * 0.1 for _ in range(25)
+    ]  # Poisoned data (high loss)
 
     score = trainer._check_loss_distribution(bimodal_losses)
 
-    assert score <= 70.0, f"Bimodal losses should score <=70 (poisoning), got {score:.2f}"
+    assert (
+        score <= 70.0
+    ), f"Bimodal losses should score <=70 (poisoning), got {score:.2f}"
 
 
 @pytest.mark.asyncio
@@ -110,10 +113,9 @@ async def test_outlier_losses_detected(training_config, simple_genome):
     trainer.set_genome(simple_genome)
 
     # Simulate mostly clean with outliers (poisoned samples)
-    outlier_losses = (
-        [2.0 + torch.randn(1).item() * 0.1 for _ in range(40)] +  # Clean
-        [10.0 + torch.randn(1).item() * 0.5 for _ in range(10)]   # Poisoned outliers
-    )
+    outlier_losses = [2.0 + torch.randn(1).item() * 0.1 for _ in range(40)] + [  # Clean
+        10.0 + torch.randn(1).item() * 0.5 for _ in range(10)
+    ]  # Poisoned outliers
 
     score = trainer._check_loss_distribution(outlier_losses)
 
@@ -219,12 +221,17 @@ async def test_anomalous_feature_distribution_low_score(training_config, simple_
     trainer.set_genome(simple_genome)
 
     # Establish normal activation history
-    base_activations = {"layer1": torch.randn(4, 32) * 0.5, "layer2": torch.randn(4, 64) * 0.5}
+    base_activations = {
+        "layer1": torch.randn(4, 32) * 0.5,
+        "layer2": torch.randn(4, 64) * 0.5,
+    }
     for _ in range(8):
-        trainer._store_activations({
-            "layer1": base_activations["layer1"] + torch.randn(4, 32) * 0.1,
-            "layer2": base_activations["layer2"] + torch.randn(4, 64) * 0.1,
-        })
+        trainer._store_activations(
+            {
+                "layer1": base_activations["layer1"] + torch.randn(4, 32) * 0.1,
+                "layer2": base_activations["layer2"] + torch.randn(4, 64) * 0.1,
+            }
+        )
 
     # Check with anomalous activations (poisoned model)
     anomalous_acts = {
@@ -244,9 +251,11 @@ async def test_dead_neurons_detected(training_config, simple_genome):
 
     # Establish normal activation history
     for _ in range(8):
-        trainer._store_activations({
-            "layer1": torch.randn(4, 32) * 0.5,
-        })
+        trainer._store_activations(
+            {
+                "layer1": torch.randn(4, 32) * 0.5,
+            }
+        )
 
     # Check with many dead neurons (poisoned)
     dead_acts = torch.randn(4, 32) * 0.5
@@ -277,7 +286,9 @@ async def test_normal_activation_patterns_high_score(training_config, simple_gen
     score = trainer._check_activation_patterns(normal_acts)
 
     # Random data can randomly trigger outlier detection - just verify it doesn't crash
-    assert score >= 0.0, f"Normal activations should not crash (score >=0), got {score:.2f}"
+    assert (
+        score >= 0.0
+    ), f"Normal activations should not crash (score >=0), got {score:.2f}"
 
 
 @pytest.mark.asyncio
@@ -316,7 +327,9 @@ async def test_extreme_outlier_activations_detected(training_config, simple_geno
 
 
 @pytest.mark.asyncio
-async def test_integrated_poisoning_detection_clean_data(training_config, simple_genome):
+async def test_integrated_poisoning_detection_clean_data(
+    training_config, simple_genome
+):
     """Full poisoning detection with clean data should score high."""
     torch.manual_seed(42)
     trainer = GenomeTrainer(training_config)
@@ -338,7 +351,9 @@ async def test_integrated_poisoning_detection_clean_data(training_config, simple
 
 
 @pytest.mark.asyncio
-async def test_integrated_poisoning_detection_poisoned_data(training_config, simple_genome):
+async def test_integrated_poisoning_detection_poisoned_data(
+    training_config, simple_genome
+):
     """Full poisoning detection with poisoned data should score low."""
     trainer = GenomeTrainer(training_config)
     trainer.set_genome(simple_genome)
@@ -350,10 +365,9 @@ async def test_integrated_poisoning_detection_poisoned_data(training_config, sim
 
     # Poisoned data indicators
     # 1. Bimodal losses
-    poisoned_losses = (
-        [1.5 + torch.randn(1).item() * 0.1 for _ in range(25)] +
-        [4.5 + torch.randn(1).item() * 0.1 for _ in range(25)]
-    )
+    poisoned_losses = [1.5 + torch.randn(1).item() * 0.1 for _ in range(25)] + [
+        4.5 + torch.randn(1).item() * 0.1 for _ in range(25)
+    ]
     # 2. Divergent predictions
     poisoned_preds = torch.randn(10, 10) * 5.0
     # 3. Anomalous activations with backdoor pattern
@@ -397,11 +411,15 @@ async def test_poisoning_detection_cold_start(training_config, simple_genome):
     )
 
     # With no history, should give benefit of doubt but may be conservative
-    assert score >= 50.0, f"Cold start should score >=50 (limited checks), got {score:.2f}"
+    assert (
+        score >= 50.0
+    ), f"Cold start should score >=50 (limited checks), got {score:.2f}"
 
 
 @pytest.mark.asyncio
-async def test_honesty_score_integrates_poisoning_detection(training_config, simple_genome):
+async def test_honesty_score_integrates_poisoning_detection(
+    training_config, simple_genome
+):
     """Honesty score should integrate data poisoning detection."""
     trainer = GenomeTrainer(training_config)
     trainer.set_genome(simple_genome)
@@ -414,10 +432,9 @@ async def test_honesty_score_integrates_poisoning_detection(training_config, sim
     baseline_honesty = trainer._calculate_honesty_score()
 
     # Calculate honesty WITH poisoning indicators
-    poisoned_losses = (
-        [1.5 + torch.randn(1).item() * 0.1 for _ in range(25)] +
-        [4.5 + torch.randn(1).item() * 0.1 for _ in range(25)]
-    )
+    poisoned_losses = [1.5 + torch.randn(1).item() * 0.1 for _ in range(25)] + [
+        4.5 + torch.randn(1).item() * 0.1 for _ in range(25)
+    ]
     poisoned_preds = torch.randn(10, 10) * 5.0
 
     honesty_score = trainer._calculate_honesty_score(
@@ -427,8 +444,12 @@ async def test_honesty_score_integrates_poisoning_detection(training_config, sim
 
     # Should be similar or lower (not necessarily much lower as poisoning detection is one component)
     # Just verify it doesn't crash and produces reasonable scores
-    assert 0.0 <= honesty_score <= 100.0, f"Honesty score should be 0-100, got {honesty_score:.2f}"
-    assert 0.0 <= baseline_honesty <= 100.0, f"Baseline should be 0-100, got {baseline_honesty:.2f}"
+    assert (
+        0.0 <= honesty_score <= 100.0
+    ), f"Honesty score should be 0-100, got {honesty_score:.2f}"
+    assert (
+        0.0 <= baseline_honesty <= 100.0
+    ), f"Baseline should be 0-100, got {baseline_honesty:.2f}"
 
 
 # =============================================================================
@@ -446,9 +467,9 @@ async def test_prediction_storage_limits(training_config, simple_genome):
     for _ in range(50):
         trainer._store_predictions(torch.randn(10, 10))
 
-    assert len(trainer.prediction_history) == 30, (
-        f"Should keep last 30 predictions, got {len(trainer.prediction_history)}"
-    )
+    assert (
+        len(trainer.prediction_history) == 30
+    ), f"Should keep last 30 predictions, got {len(trainer.prediction_history)}"
 
 
 @pytest.mark.asyncio
@@ -461,9 +482,9 @@ async def test_activation_storage_limits(training_config, simple_genome):
     for _ in range(35):
         trainer._store_activations({"layer1": torch.randn(4, 32)})
 
-    assert len(trainer.activation_patterns) == 20, (
-        f"Should keep last 20 activation patterns, got {len(trainer.activation_patterns)}"
-    )
+    assert (
+        len(trainer.activation_patterns) == 20
+    ), f"Should keep last 20 activation patterns, got {len(trainer.activation_patterns)}"
 
 
 @pytest.mark.asyncio
@@ -476,6 +497,6 @@ async def test_loss_storage_limits(training_config, simple_genome):
     for _ in range(3):
         trainer._detect_data_poisoning(losses=[2.0] * 30)
 
-    assert len(trainer.loss_history) <= 50, (
-        f"Should keep last 50 losses, got {len(trainer.loss_history)}"
-    )
+    assert (
+        len(trainer.loss_history) <= 50
+    ), f"Should keep last 50 losses, got {len(trainer.loss_history)}"

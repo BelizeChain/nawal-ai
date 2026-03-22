@@ -34,6 +34,7 @@ Usage::
     print(conf.method)      # "weighted_aggregate"
     print(conf.explanation) # "plan:0.85 critic:0.90 consistency:0.75 verbal:0.50"
 """
+
 from __future__ import annotations
 
 import re
@@ -44,18 +45,17 @@ from loguru import logger
 
 from metacognition.interfaces import ConfidenceScore
 
-
 # --------------------------------------------------------------------------- #
 # Default signal weights                                                       #
 # --------------------------------------------------------------------------- #
 
 _DEFAULT_WEIGHTS: Dict[str, float] = {
-    "plan_score":     1.5,
-    "critic_score":   1.5,
-    "consistency":    1.2,
-    "memory":         1.0,
-    "safety":         1.0,
-    "verbal":         0.8,
+    "plan_score": 1.5,
+    "critic_score": 1.5,
+    "consistency": 1.2,
+    "memory": 1.0,
+    "safety": 1.0,
+    "verbal": 0.8,
 }
 
 # Hedging phrases that reduce verbal confidence
@@ -82,6 +82,7 @@ _CERTAIN_RE = [re.compile(p, re.IGNORECASE) for p in _CERTAIN_PATTERNS]
 # --------------------------------------------------------------------------- #
 # ConfidenceCalibrator                                                         #
 # --------------------------------------------------------------------------- #
+
 
 class ConfidenceCalibrator:
     """
@@ -118,7 +119,7 @@ class ConfidenceCalibrator:
 
         Returns ConfidenceScore with method="weighted_aggregate".
         """
-        parts: List[Tuple[str, float, float]] = []   # (name, value, weight)
+        parts: List[Tuple[str, float, float]] = []  # (name, value, weight)
 
         for name, weight in self._weights.items():
             val = self._extract_signal(name, signals)
@@ -167,9 +168,7 @@ class ConfidenceCalibrator:
     # Signal extraction                                                    #
     # ------------------------------------------------------------------ #
 
-    def _extract_signal(
-        self, name: str, signals: Dict[str, Any]
-    ) -> Optional[float]:
+    def _extract_signal(self, name: str, signals: Dict[str, Any]) -> Optional[float]:
         """Find the value for *name* in *signals*, apply type conversion."""
         raw = signals.get(name)
         if raw is None:
@@ -188,7 +187,9 @@ class ConfidenceCalibrator:
         try:
             return float(raw)
         except (TypeError, ValueError):
-            logger.debug(f"ConfidenceCalibrator: cannot convert signal {name!r}={raw!r}")
+            logger.debug(
+                f"ConfidenceCalibrator: cannot convert signal {name!r}={raw!r}"
+            )
             return None
 
     def _verbal_certainty(self, text: str) -> float:
@@ -197,8 +198,8 @@ class ConfidenceCalibrator:
         Starts at 0.75 (neutral), nudged down by hedges, up by certainties.
         """
         score = 0.75
-        hedges    = sum(1 for pat in _HEDGE_RE    if pat.search(text))
-        certains  = sum(1 for pat in _CERTAIN_RE  if pat.search(text))
-        score -= hedges   * 0.08
+        hedges = sum(1 for pat in _HEDGE_RE if pat.search(text))
+        certains = sum(1 for pat in _CERTAIN_RE if pat.search(text))
+        score -= hedges * 0.08
         score += certains * 0.05
         return round(max(0.1, min(1.0, score)), 4)

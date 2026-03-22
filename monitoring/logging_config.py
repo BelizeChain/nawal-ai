@@ -14,10 +14,12 @@ from typing import Optional
 # Optional loguru library
 try:
     from loguru import logger
+
     LOGURU_AVAILABLE = True
 except ImportError:
     LOGURU_AVAILABLE = False
     import logging
+
     logger = logging.getLogger("nawal")
 
 
@@ -44,6 +46,7 @@ def configure_logging(
                    True when ``NAWAL_ENV=production``, else False.
     """
     import os
+
     if log_level is None:
         log_level = os.getenv("NAWAL_LOG_LEVEL", "INFO")
     if serialize is None:
@@ -154,8 +157,14 @@ def log_training_start(epochs: int, batch_size: int, learning_rate: float):
         )
 
 
-def log_training_epoch(epoch: int, train_loss: float, train_acc: float,
-                      val_loss: float, val_acc: float, epoch_time: float):
+def log_training_epoch(
+    epoch: int,
+    train_loss: float,
+    train_acc: float,
+    val_loss: float,
+    val_acc: float,
+    epoch_time: float,
+):
     """Log training epoch results."""
     with LogContext(phase="training", epoch=epoch):
         logger.info(
@@ -185,8 +194,9 @@ def log_evolution_start(generations: int, population_size: int):
         )
 
 
-def log_evolution_generation(generation: int, best_fitness: float,
-                            avg_fitness: float, generation_time: float):
+def log_evolution_generation(
+    generation: int, best_fitness: float, avg_fitness: float, generation_time: float
+):
     """Log evolution generation results."""
     with LogContext(phase="evolution", generation=generation):
         logger.info(
@@ -196,8 +206,9 @@ def log_evolution_generation(generation: int, best_fitness: float,
         )
 
 
-def log_evolution_complete(best_fitness: float, total_generations: int,
-                          total_time: float):
+def log_evolution_complete(
+    best_fitness: float, total_generations: int, total_time: float
+):
     """Log evolution completion."""
     with LogContext(phase="evolution"):
         logger.success(
@@ -211,13 +222,10 @@ def log_evolution_complete(best_fitness: float, total_generations: int,
 def log_federated_round_start(round_num: int, num_clients: int):
     """Log federated round start."""
     with LogContext(phase="federated", round=round_num):
-        logger.info(
-            f"Starting federated round {round_num} with {num_clients} clients"
-        )
+        logger.info(f"Starting federated round {round_num} with {num_clients} clients")
 
 
-def log_federated_round_complete(round_num: int, accuracy: float,
-                                 round_time: float):
+def log_federated_round_complete(round_num: int, accuracy: float, round_time: float):
     """Log federated round completion."""
     with LogContext(phase="federated", round=round_num):
         logger.info(
@@ -226,9 +234,12 @@ def log_federated_round_complete(round_num: int, accuracy: float,
         )
 
 
-def log_blockchain_transaction(tx_type: str, success: bool,
-                               block_number: Optional[int] = None,
-                               tx_time: Optional[float] = None):
+def log_blockchain_transaction(
+    tx_type: str,
+    success: bool,
+    block_number: Optional[int] = None,
+    tx_time: Optional[float] = None,
+):
     """Log blockchain transaction."""
     with LogContext(phase="blockchain", tx_type=tx_type):
         status = "success" if success else "failed"
@@ -257,13 +268,12 @@ def log_genome_stored(genome_id: str, fitness: float, generation: int):
 def log_validator_registered(address: str, name: str):
     """Log validator registration."""
     with LogContext(phase="blockchain", operation="validator_register"):
-        logger.info(
-            f"Validator registered: address={address[:16]}..., name={name}"
-        )
+        logger.info(f"Validator registered: address={address[:16]}..., name={name}")
 
 
-def log_fitness_submitted(quality: float, timeliness: float, honesty: float,
-                         total: float):
+def log_fitness_submitted(
+    quality: float, timeliness: float, honesty: float, total: float
+):
     """Log fitness score submission."""
     with LogContext(phase="blockchain", operation="fitness_submit"):
         logger.info(

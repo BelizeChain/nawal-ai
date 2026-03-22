@@ -19,10 +19,10 @@ import torch.nn as nn
 from nawal.model_builder import ModelBuilder
 from nawal.genome.dna import DNA, LayerGene
 
-
 # ============================================================================
 # Model Builder Tests
 # ============================================================================
+
 
 class TestModelBuilder:
     """Test ModelBuilder functionality."""
@@ -205,16 +205,24 @@ class TestModelBuilder:
         builder = ModelBuilder()
 
         transformers = [
-            ("transformerencoder", {
-                "d_model": 64,
-                "nhead": 8,
-                "num_layers": 2,
-            }, nn.TransformerEncoder),
-            ("transformerdecoder", {
-                "d_model": 64,
-                "nhead": 8,
-                "num_layers": 2,
-            }, nn.TransformerDecoder),
+            (
+                "transformerencoder",
+                {
+                    "d_model": 64,
+                    "nhead": 8,
+                    "num_layers": 2,
+                },
+                nn.TransformerEncoder,
+            ),
+            (
+                "transformerdecoder",
+                {
+                    "d_model": 64,
+                    "nhead": 8,
+                    "num_layers": 2,
+                },
+                nn.TransformerDecoder,
+            ),
         ]
 
         for trans_name, params, trans_class in transformers:
@@ -283,6 +291,7 @@ class TestModelBuilder:
 # Complex Model Tests
 # ============================================================================
 
+
 class TestComplexModels:
     """Test building complex multi-layer models."""
 
@@ -316,14 +325,26 @@ class TestComplexModels:
 
         dna = DNA(input_size=(3, 32, 32), output_size=10)
         dna.layer_genes = [
-            LayerGene(1, "conv2d", {"in_channels": 3, "out_channels": 32, "kernel_size": 3, "padding": 1}, True),
+            LayerGene(
+                1,
+                "conv2d",
+                {"in_channels": 3, "out_channels": 32, "kernel_size": 3, "padding": 1},
+                True,
+            ),
             LayerGene(2, "relu", {}, True),
             LayerGene(3, "maxpool2d", {"kernel_size": 2}, True),
-            LayerGene(4, "conv2d", {"in_channels": 32, "out_channels": 64, "kernel_size": 3, "padding": 1}, True),
+            LayerGene(
+                4,
+                "conv2d",
+                {"in_channels": 32, "out_channels": 64, "kernel_size": 3, "padding": 1},
+                True,
+            ),
             LayerGene(5, "relu", {}, True),
             LayerGene(6, "maxpool2d", {"kernel_size": 2}, True),
             LayerGene(7, "flatten", {}, True),
-            LayerGene(8, "linear", {"in_features": 64 * 8 * 8, "out_features": 128}, True),
+            LayerGene(
+                8, "linear", {"in_features": 64 * 8 * 8, "out_features": 128}, True
+            ),
             LayerGene(9, "relu", {}, True),
             LayerGene(10, "linear", {"in_features": 128, "out_features": 10}, True),
         ]
@@ -345,6 +366,7 @@ class TestComplexModels:
 # ============================================================================
 # Error Handling Tests
 # ============================================================================
+
 
 class TestModelBuilderErrors:
     """Test error handling in model builder."""
@@ -388,6 +410,7 @@ class TestModelBuilderErrors:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 class TestModelBuilderIntegration:
     """Integration tests for model builder."""

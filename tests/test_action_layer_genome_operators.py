@@ -21,6 +21,7 @@ Covers:
   - maintenance/output_filter.py  ImportError fallback, hallucination, add_pattern
   - hybrid/engine.py        auto_load_teacher, lazy load, update_threshold, factory
 """
+
 from __future__ import annotations
 
 import math
@@ -51,7 +52,9 @@ class _DummyExtraTool(AbstractTool):
     )
 
     def run(self, **kwargs):
-        return ToolResult(tool_name="extra_dummy", status=ToolStatus.SUCCESS, output={"ok": True})
+        return ToolResult(
+            tool_name="extra_dummy", status=ToolStatus.SUCCESS, output={"ok": True}
+        )
 
 
 class TestActionLayerExtraTools:
@@ -77,7 +80,9 @@ from nawal.action import ToolRegistry
 
 
 class _UnsafeTool(AbstractTool):
-    spec = ToolSpec(name="unsafe_tool", description="Unsafe", category="test", safe=False)
+    spec = ToolSpec(
+        name="unsafe_tool", description="Unsafe", category="test", safe=False
+    )
 
     def run(self, **kwargs):
         return ToolResult(tool_name="unsafe_tool", status=ToolStatus.SUCCESS)
@@ -104,7 +109,9 @@ class TestToolRegistryScreenerBlocking:
         registry = ToolRegistry(safety_screener=screener)
 
         class _SafeTool(AbstractTool):
-            spec = ToolSpec(name="safe_one", description="Safe", category="test", safe=True)
+            spec = ToolSpec(
+                name="safe_one", description="Safe", category="test", safe=True
+            )
 
             def run(self, **kwargs):
                 return ToolResult(tool_name="safe_one", status=ToolStatus.SUCCESS)
@@ -261,7 +268,9 @@ from security.differential_privacy import DifferentialPrivacy, PrivacyBudget
 class TestDifferentialPrivacyGaps:
     def test_compute_noise_multiplier_with_steps(self):
         dp = DifferentialPrivacy(epsilon=1.0, delta=1e-5, clip_norm=1.0)
-        nm = dp._compute_noise_multiplier(epsilon=1.0, delta=1e-5, steps=100, sampling_rate=0.01)
+        nm = dp._compute_noise_multiplier(
+            epsilon=1.0, delta=1e-5, steps=100, sampling_rate=0.01
+        )
         assert nm > 0
         assert isinstance(nm, float)
 
@@ -541,7 +550,13 @@ class TestOutputFilterGaps:
         of = OutputFilter(hallucination_hints=True)
         result = of.filter("prompt", "As an AI language model, I cannot do that.")
         # Hallucination hint is LOW level — still safe but flagged
-        assert any("hallucination" in f.lower() or "ai_model" in f.lower() for f in result.flags) or result.is_safe
+        assert (
+            any(
+                "hallucination" in f.lower() or "ai_model" in f.lower()
+                for f in result.flags
+            )
+            or result.is_safe
+        )
 
     def test_add_pattern_runtime(self):
         of = OutputFilter()
@@ -799,7 +814,10 @@ class TestExecutorGaps:
         plan = Plan(
             plan_id="p4",
             goal_id="g1",
-            steps=[{"tool": "noop", "args": {}}, {"tool": "log", "args": {"message": "hi"}}],
+            steps=[
+                {"tool": "noop", "args": {}},
+                {"tool": "log", "args": {"message": "hi"}},
+            ],
             score=1.0,
         )
         result = exe.execute(plan, dry_run=True)
@@ -817,7 +835,12 @@ class TestExecutorGaps:
         exe = ToolExecutor()
         for name in ("respond", "reason", "validate", "search", "execute"):
             assert name in exe.available_tools()
-            plan = Plan(plan_id=f"stub_{name}", goal_id="g1", steps=[{"tool": name, "args": {"msg": "test"}}], score=1.0)
+            plan = Plan(
+                plan_id=f"stub_{name}",
+                goal_id="g1",
+                steps=[{"tool": name, "args": {"msg": "test"}}],
+                score=1.0,
+            )
             result = exe.execute(plan)
             assert result["status"] == "success"
 
@@ -838,6 +861,7 @@ class TestValuationSafetyGaps:
 
     def test_extra_checks_failing(self):
         """Extra check functions that return False should block candidate."""
+
         def always_fail(text):
             return False, "always fails"
 

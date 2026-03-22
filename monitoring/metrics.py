@@ -20,6 +20,7 @@ from pathlib import Path
 # Optional GPU monitoring
 try:
     import pynvml
+
     pynvml.nvmlInit()
     GPU_AVAILABLE = True
 except (ImportError, Exception):
@@ -109,9 +110,13 @@ class MetricsCollector:
         self._batch_start: Optional[float] = None
         self._round_start: Optional[float] = None
 
-    def record(self, metric_type: MetricType, value: float,
-               labels: Optional[Dict[str, str]] = None,
-               metadata: Optional[Dict[str, Any]] = None) -> None:
+    def record(
+        self,
+        metric_type: MetricType,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         Record a metric value.
 
@@ -140,15 +145,22 @@ class MetricsCollector:
 
             # Trim buffer if needed
             if len(self.metrics) > self.buffer_size:
-                self.metrics = self.metrics[-self.buffer_size:]
+                self.metrics = self.metrics[-self.buffer_size :]
 
             # Trim history
             if len(self.history[metric_type.value]) > 1000:
-                self.history[metric_type.value] = self.history[metric_type.value][-1000:]
+                self.history[metric_type.value] = self.history[metric_type.value][
+                    -1000:
+                ]
 
-    def record_training_epoch(self, epoch: int, train_loss: float,
-                             train_acc: float, val_loss: float,
-                             val_acc: float) -> None:
+    def record_training_epoch(
+        self,
+        epoch: int,
+        train_loss: float,
+        train_acc: float,
+        val_loss: float,
+        val_acc: float,
+    ) -> None:
         """
         Record training epoch metrics.
 
@@ -187,8 +199,13 @@ class MetricsCollector:
             self.record(MetricType.BATCH_TIME, batch_time)
             self._batch_start = None
 
-    def record_fitness(self, generation: int, best: float,
-                      average: float, individual: Optional[float] = None) -> None:
+    def record_fitness(
+        self,
+        generation: int,
+        best: float,
+        average: float,
+        individual: Optional[float] = None,
+    ) -> None:
         """
         Record evolutionary fitness metrics.
 
@@ -210,9 +227,13 @@ class MetricsCollector:
         """Mark the start of a federated learning round."""
         self._round_start = time.time()
 
-    def record_federated_round(self, round_num: int, num_clients: int,
-                              aggregation_time: float,
-                              communication_cost: float) -> None:
+    def record_federated_round(
+        self,
+        round_num: int,
+        num_clients: int,
+        aggregation_time: float,
+        communication_cost: float,
+    ) -> None:
         """
         Record federated learning round metrics.
 
@@ -234,10 +255,13 @@ class MetricsCollector:
             self.record(MetricType.ROUND_TIME, round_time, labels)
             self._round_start = None
 
-    def record_blockchain_transaction(self, success: bool,
-                                     tx_time: float,
-                                     block_number: Optional[int] = None,
-                                     finalization_time: Optional[float] = None) -> None:
+    def record_blockchain_transaction(
+        self,
+        success: bool,
+        tx_time: float,
+        block_number: Optional[int] = None,
+        finalization_time: Optional[float] = None,
+    ) -> None:
         """
         Record blockchain transaction metrics.
 
@@ -274,7 +298,7 @@ class MetricsCollector:
         self.record(MetricType.MEMORY_USAGE, memory.percent)
 
         # Disk usage
-        disk = psutil.disk_usage('/')
+        disk = psutil.disk_usage("/")
         self.record(MetricType.DISK_USAGE, disk.percent)
 
         # Network I/O
@@ -291,19 +315,20 @@ class MetricsCollector:
 
                     # GPU utilization
                     util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                    self.record(MetricType.GPU_USAGE, float(util.gpu),
-                              {"device": str(i)})
+                    self.record(
+                        MetricType.GPU_USAGE, float(util.gpu), {"device": str(i)}
+                    )
 
                     # GPU memory
                     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
                     mem_percent = (mem_info.used / mem_info.total) * 100
-                    self.record(MetricType.GPU_MEMORY, mem_percent,
-                              {"device": str(i)})
+                    self.record(MetricType.GPU_MEMORY, mem_percent, {"device": str(i)})
             except Exception:
                 pass  # GPU metrics not available
 
-    def get_metrics(self, metric_type: Optional[MetricType] = None,
-                   since: Optional[datetime] = None) -> List[Metric]:
+    def get_metrics(
+        self, metric_type: Optional[MetricType] = None, since: Optional[datetime] = None
+    ) -> List[Metric]:
         """
         Get collected metrics.
 
@@ -337,8 +362,7 @@ class MetricsCollector:
         metrics = self.get_metrics(metric_type)
         return metrics[-1] if metrics else None
 
-    def get_average(self, metric_type: MetricType,
-                   window: int = 10) -> Optional[float]:
+    def get_average(self, metric_type: MetricType, window: int = 10) -> Optional[float]:
         """
         Get average metric value over window.
 
@@ -372,8 +396,12 @@ class MetricsCollector:
         }
 
         # Add latest values for key metrics
-        for metric_type in [MetricType.TRAINING_LOSS, MetricType.FITNESS_SCORE,
-                           MetricType.CPU_USAGE, MetricType.MEMORY_USAGE]:
+        for metric_type in [
+            MetricType.TRAINING_LOSS,
+            MetricType.FITNESS_SCORE,
+            MetricType.CPU_USAGE,
+            MetricType.MEMORY_USAGE,
+        ]:
             latest = self.get_latest(metric_type)
             if latest:
                 summary[f"latest_{metric_type.value}"] = latest.value
@@ -394,18 +422,20 @@ class MetricsCollector:
         """
         import csv
 
-        with open(filepath, 'w', newline='') as f:
+        with open(filepath, "w", newline="") as f:
             writer = csv.writer(f)
 
             # Header
-            writer.writerow(['timestamp', 'name', 'value', 'labels', 'metadata'])
+            writer.writerow(["timestamp", "name", "value", "labels", "metadata"])
 
             # Data
             for metric in self.metrics:
-                writer.writerow([
-                    metric.timestamp.isoformat(),
-                    metric.name,
-                    metric.value,
-                    str(metric.labels),
-                    str(metric.metadata),
-                ])
+                writer.writerow(
+                    [
+                        metric.timestamp.isoformat(),
+                        metric.name,
+                        metric.value,
+                        str(metric.labels),
+                        str(metric.metadata),
+                    ]
+                )

@@ -33,6 +33,7 @@ class LayerType(str, Enum):
     - Activation: ReLU, GELU, SiLU, Swish
     - Regularization: Dropout, LayerNorm, BatchNorm
     """
+
     # Embedding & Input
     EMBEDDING = "embedding"
     POSITIONAL_ENCODING = "positional_encoding"
@@ -54,8 +55,8 @@ class LayerType(str, Enum):
 
     # Modern Architectures (2024-2025)
     MIXTURE_OF_EXPERTS = "moe"  # MoE for scalability
-    STATE_SPACE_MODEL = "ssm"   # Mamba/S4 for long sequences
-    ROTARY_EMBEDDING = "rope"   # RoPE for better position encoding
+    STATE_SPACE_MODEL = "ssm"  # Mamba/S4 for long sequences
+    ROTARY_EMBEDDING = "rope"  # RoPE for better position encoding
     FLASH_ATTENTION = "flash_attention"  # Efficient attention
 
     # Activation Functions
@@ -83,10 +84,9 @@ class ArchitectureLayer(BaseModel):
 
     Uses Pydantic v2 for validation and serialization.
     """
+
     model_config = ConfigDict(
-        frozen=False,
-        validate_assignment=True,
-        arbitrary_types_allowed=True
+        frozen=False, validate_assignment=True, arbitrary_types_allowed=True
     )
 
     layer_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -121,7 +121,7 @@ class ArchitectureLayer(BaseModel):
         return self.model_dump(exclude_none=True)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'ArchitectureLayer':
+    def from_dict(cls, data: dict[str, Any]) -> "ArchitectureLayer":
         """Create layer from dictionary"""
         return cls(**data)
 
@@ -132,16 +132,21 @@ class Hyperparameters(BaseModel):
 
     Includes modern optimization techniques and strategies.
     """
+
     model_config = ConfigDict(frozen=False, validate_assignment=True)
 
     # Optimization
     learning_rate: float = Field(default=1e-4, gt=0, le=1.0)
-    optimizer: Literal["adam", "adamw", "sgd", "lion", "sophia"] = "adamw"  # Lion, Sophia are 2024-2025 optimizers
+    optimizer: Literal["adam", "adamw", "sgd", "lion", "sophia"] = (
+        "adamw"  # Lion, Sophia are 2024-2025 optimizers
+    )
     weight_decay: float = Field(default=0.01, ge=0)
     gradient_clip_norm: float = Field(default=1.0, gt=0)
 
     # Learning rate schedule
-    lr_scheduler: Literal["cosine", "linear", "polynomial", "constant", "warmup_stable_decay"] = "cosine"
+    lr_scheduler: Literal[
+        "cosine", "linear", "polynomial", "constant", "warmup_stable_decay"
+    ] = "cosine"
     warmup_steps: int = Field(default=1000, ge=0)
 
     # Training configuration
@@ -178,10 +183,9 @@ class Genome(BaseModel):
 
     This is the "DNA" of the AI that evolves over time through genetic algorithms.
     """
+
     model_config = ConfigDict(
-        frozen=False,
-        validate_assignment=True,
-        arbitrary_types_allowed=True
+        frozen=False, validate_assignment=True, arbitrary_types_allowed=True
     )
 
     # Identity
@@ -222,11 +226,14 @@ class Genome(BaseModel):
     @property
     def genome_hash(self) -> str:
         """Generate deterministic hash of genome architecture"""
-        content = json.dumps({
-            "encoder": [layer.to_dict() for layer in self.encoder_layers],
-            "decoder": [layer.to_dict() for layer in self.decoder_layers],
-            "hyperparameters": self.hyperparameters.to_dict()
-        }, sort_keys=True)
+        content = json.dumps(
+            {
+                "encoder": [layer.to_dict() for layer in self.encoder_layers],
+                "decoder": [layer.to_dict() for layer in self.decoder_layers],
+                "hyperparameters": self.hyperparameters.to_dict(),
+            },
+            sort_keys=True,
+        )
         return hashlib.sha256(content.encode()).hexdigest()
 
     @property
@@ -257,7 +264,9 @@ class Genome(BaseModel):
     @property
     def output_normalization(self) -> str:
         """Get output normalization type"""
-        return LayerType.LAYER_NORM.value  # Return string value for NormalizationFactory
+        return (
+            LayerType.LAYER_NORM.value
+        )  # Return string value for NormalizationFactory
 
     @property
     def tie_word_embeddings(self) -> bool:
@@ -284,10 +293,7 @@ class Genome(BaseModel):
         self.fitness_score = value
 
     def calculate_fitness(
-        self,
-        quality: float,
-        timeliness: float,
-        honesty: float
+        self, quality: float, timeliness: float, honesty: float
     ) -> float:
         """
         Calculate overall fitness score aligned with PoUW consensus.
@@ -306,11 +312,7 @@ class Genome(BaseModel):
         self.timeliness_score = timeliness
         self.honesty_score = honesty
 
-        self.fitness_score = (
-            0.40 * quality +
-            0.30 * timeliness +
-            0.30 * honesty
-        )
+        self.fitness_score = 0.40 * quality + 0.30 * timeliness + 0.30 * honesty
 
         return self.fitness_score
 
@@ -326,38 +328,38 @@ class Genome(BaseModel):
         return json.dumps(data, default=str)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> 'Genome':
+    def from_dict(cls, data: dict[str, Any]) -> "Genome":
         """Create genome from dictionary"""
         # Convert layer dictionaries to ArchitectureLayer objects
-        if 'encoder_layers' in data:
-            data['encoder_layers'] = [
+        if "encoder_layers" in data:
+            data["encoder_layers"] = [
                 ArchitectureLayer.from_dict(layer) if isinstance(layer, dict) else layer
-                for layer in data['encoder_layers']
+                for layer in data["encoder_layers"]
             ]
 
-        if 'decoder_layers' in data:
-            data['decoder_layers'] = [
+        if "decoder_layers" in data:
+            data["decoder_layers"] = [
                 ArchitectureLayer.from_dict(layer) if isinstance(layer, dict) else layer
-                for layer in data['decoder_layers']
+                for layer in data["decoder_layers"]
             ]
 
         # Convert hyperparameters dictionary
-        if 'hyperparameters' in data and isinstance(data['hyperparameters'], dict):
-            data['hyperparameters'] = Hyperparameters(**data['hyperparameters'])
+        if "hyperparameters" in data and isinstance(data["hyperparameters"], dict):
+            data["hyperparameters"] = Hyperparameters(**data["hyperparameters"])
 
         return cls(**data)
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'Genome':
+    def from_json(cls, json_str: str) -> "Genome":
         """Create genome from JSON string"""
         data = json.loads(json_str)
         return cls.from_dict(data)
 
-    def clone(self) -> 'Genome':
+    def clone(self) -> "Genome":
         """Create a deep copy of the genome"""
         data = self.to_dict()
-        data['genome_id'] = f"nawal_{uuid.uuid4().hex[:12]}"  # New ID
-        data['parent_genomes'] = [self.genome_id]  # Track lineage
+        data["genome_id"] = f"nawal_{uuid.uuid4().hex[:12]}"  # New ID
+        data["parent_genomes"] = [self.genome_id]  # Track lineage
         return self.from_dict(data)
 
 
@@ -387,12 +389,12 @@ class GenomeEncoder:
                     layer_type=LayerType.EMBEDDING,
                     input_size=50000,  # Vocab size
                     output_size=768,
-                    parameters={"padding_idx": 0}
+                    parameters={"padding_idx": 0},
                 ),
                 ArchitectureLayer(
                     layer_type=LayerType.POSITIONAL_ENCODING,
                     hidden_size=768,
-                    parameters={"max_seq_len": 2048}
+                    parameters={"max_seq_len": 2048},
                 ),
                 ArchitectureLayer(
                     layer_type=LayerType.TRANSFORMER_ENCODER,
@@ -402,18 +404,15 @@ class GenomeEncoder:
                     dropout_rate=0.1,
                     parameters={
                         "use_flash_attention": True,
-                        "use_rope": True  # Rotary Position Embedding
-                    }
+                        "use_rope": True,  # Rotary Position Embedding
+                    },
                 ),
                 ArchitectureLayer(
                     layer_type=LayerType.MIXTURE_OF_EXPERTS,
                     hidden_size=768,
                     num_experts=8,
                     expert_capacity=64,
-                    parameters={
-                        "top_k": 2,  # Top-2 routing
-                        "load_balancing": True
-                    }
+                    parameters={"top_k": 2, "load_balancing": True},  # Top-2 routing
                 ),
             ],
             decoder_layers=[
@@ -423,13 +422,9 @@ class GenomeEncoder:
                     output_size=512,
                 ),
                 ArchitectureLayer(
-                    layer_type=LayerType.GELU,
-                    parameters={"approximate": "tanh"}
+                    layer_type=LayerType.GELU, parameters={"approximate": "tanh"}
                 ),
-                ArchitectureLayer(
-                    layer_type=LayerType.DROPOUT,
-                    dropout_rate=0.1
-                ),
+                ArchitectureLayer(layer_type=LayerType.DROPOUT, dropout_rate=0.1),
                 ArchitectureLayer(
                     layer_type=LayerType.LINEAR,
                     input_size=512,
@@ -443,8 +438,8 @@ class GenomeEncoder:
                 use_mixed_precision=True,
                 precision="bf16",
                 use_flash_attention=True,
-                compile_model=True
-            )
+                compile_model=True,
+            ),
         )
 
         return genome
@@ -468,12 +463,12 @@ class GenomeEncoder:
                     # Rough estimate: 4 * hidden_size^2 per layer
                     hidden = layer.hidden_size or 768
                     num_layers = layer.num_layers or 1
-                    params = 4 * (hidden ** 2) * num_layers
+                    params = 4 * (hidden**2) * num_layers
                 case LayerType.MIXTURE_OF_EXPERTS:
                     # MoE: num_experts * expert_size
                     hidden = layer.hidden_size or 768
                     num_experts = layer.num_experts or 8
-                    params = num_experts * (hidden ** 2)
+                    params = num_experts * (hidden**2)
                 case _:
                     params = 0
 
@@ -481,7 +476,7 @@ class GenomeEncoder:
 
         # Convert to MB (assuming fp32 = 4 bytes, bf16 = 2 bytes)
         bytes_per_param = 2 if genome.hyperparameters.precision == "bf16" else 4
-        size_mb = (total_params * bytes_per_param) / (1024 ** 2)
+        size_mb = (total_params * bytes_per_param) / (1024**2)
 
         genome.estimated_size_mb = size_mb
         return size_mb

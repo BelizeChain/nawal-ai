@@ -7,6 +7,7 @@ Checks:
   C11.3  Merkle proof submission
   C11.4  Azure staging fallback
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,10 +21,10 @@ import pytest
 
 from storage.pakit_client import PakitClient
 
-
 # ───────────────────────────────────────────────────────────────────────────
 # Helpers
 # ───────────────────────────────────────────────────────────────────────────
+
 
 def _mock_response(
     status: int = 200,
@@ -47,6 +48,7 @@ def _sha256(data: bytes) -> str:
 # C11.1 — Content ID integrity verification
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestC111ContentIDIntegrity:
     """Download must recompute hash and reject mismatches; CID format validated."""
 
@@ -58,8 +60,10 @@ class TestC111ContentIDIntegrity:
         cid = _sha256(content)
         out = str(tmp_path / "model.bin")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.get.return_value = _mock_response(200, content)
             client = PakitClient()
             result = client.download_file(cid, out)
@@ -73,8 +77,10 @@ class TestC111ContentIDIntegrity:
         wrong_cid = _sha256(b"original data")
         out = str(tmp_path / "bad.bin")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.get.return_value = _mock_response(200, content)
             client = PakitClient()
             result = client.download_file(wrong_cid, out)
@@ -87,8 +93,10 @@ class TestC111ContentIDIntegrity:
         wrong_cid = _sha256(b"expected")
         out = str(tmp_path / "partial.bin")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.get.return_value = _mock_response(200, content)
             client = PakitClient()
             client.download_file(wrong_cid, out)
@@ -101,8 +109,10 @@ class TestC111ContentIDIntegrity:
         expected = hashlib.sha256(content).hexdigest()
         out = str(tmp_path / "sha.bin")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.get.return_value = _mock_response(200, content)
             client = PakitClient()
             result = client.download_file(expected, out)
@@ -113,8 +123,10 @@ class TestC111ContentIDIntegrity:
 
     def test_download_rejects_empty_cid(self, tmp_path):
         """Empty string CID is rejected before network call."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             client = PakitClient()
             result = client.download_file("", str(tmp_path / "out.bin"))
 
@@ -123,18 +135,24 @@ class TestC111ContentIDIntegrity:
 
     def test_download_rejects_non_hex_cid(self, tmp_path):
         """Non-hex CID is rejected before network call."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             client = PakitClient()
-            result = client.download_file("not-a-valid-hex!!!", str(tmp_path / "out.bin"))
+            result = client.download_file(
+                "not-a-valid-hex!!!", str(tmp_path / "out.bin")
+            )
 
         assert result is False
         mock_req.get.assert_not_called()
 
     def test_download_rejects_path_traversal_cid(self, tmp_path):
         """CID with path-traversal chars is rejected."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             client = PakitClient()
             result = client.download_file("../../etc/passwd", str(tmp_path / "out.bin"))
 
@@ -147,8 +165,10 @@ class TestC111ContentIDIntegrity:
         cid = _sha256(content)
         out = str(tmp_path / "ok.bin")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.get.return_value = _mock_response(200, content)
             client = PakitClient()
             result = client.download_file(cid, out)
@@ -161,8 +181,10 @@ class TestC111ContentIDIntegrity:
         fpath = tmp_path / "model.bin"
         fpath.write_bytes(b"model data")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.post.return_value = _mock_response(
                 200, json_data={"hash": "abc123"}
             )
@@ -173,8 +195,10 @@ class TestC111ContentIDIntegrity:
 
     def test_pin_rejects_invalid_cid(self):
         """pin_content rejects invalid CID format."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             client = PakitClient()
             result = client.pin_content("")
 
@@ -183,8 +207,10 @@ class TestC111ContentIDIntegrity:
 
     def test_get_metadata_rejects_invalid_cid(self):
         """get_metadata rejects invalid CID format."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             client = PakitClient()
             result = client.get_metadata("../../../etc/passwd")
 
@@ -196,6 +222,7 @@ class TestC111ContentIDIntegrity:
 # C11.2 — Quantum compression integration resilience
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestC112QuantumCompression:
     """Compression via Kinich should degrade gracefully."""
 
@@ -204,12 +231,12 @@ class TestC112QuantumCompression:
         fpath = tmp_path / "model.bin"
         fpath.write_bytes(b"model")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req, \
-             patch.dict(os.environ, {"KINICH_ENABLED": "false"}):
-            mock_req.post.return_value = _mock_response(
-                200, json_data={"hash": "h1"}
-            )
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+            patch.dict(os.environ, {"KINICH_ENABLED": "false"}),
+        ):
+            mock_req.post.return_value = _mock_response(200, json_data={"hash": "h1"})
             client = PakitClient()
             result = client.upload_file(str(fpath))
 
@@ -218,6 +245,7 @@ class TestC112QuantumCompression:
     def test_pakit_client_has_no_kinich_dependency(self):
         """PakitClient does not import or reference kinich."""
         import inspect
+
         source = inspect.getsource(PakitClient)
         assert "kinich" not in source.lower()
 
@@ -238,8 +266,10 @@ class TestC112QuantumCompression:
         fpath.write_bytes(b"raw content")
         compress_fn = MagicMock(return_value=b"compressed content")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.post.return_value = _mock_response(200, json_data={"hash": "h1"})
             client = PakitClient(pre_compress_fn=compress_fn)
             result = client.upload_file(str(fpath))
@@ -253,8 +283,10 @@ class TestC112QuantumCompression:
         fpath.write_bytes(b"raw content")
         compress_fn = MagicMock(side_effect=RuntimeError("compression failed"))
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
             mock_req.post.return_value = _mock_response(200, json_data={"hash": "h2"})
             client = PakitClient(pre_compress_fn=compress_fn)
             result = client.upload_file(str(fpath))
@@ -265,6 +297,7 @@ class TestC112QuantumCompression:
 # ═══════════════════════════════════════════════════════════════════════════
 # C11.3 — Merkle proof submission
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestC113MerkleProof:
     """Merkle proof should be submitted from actual CID with finality wait."""
@@ -283,6 +316,7 @@ class TestC113MerkleProof:
     def test_submit_merkle_proof_logs_warning(self, caplog):
         """submit_merkle_proof logs a warning about missing implementation."""
         import logging
+
         with caplog.at_level(logging.WARNING, logger="storage.pakit_client"):
             client = PakitClient()
             client.submit_merkle_proof("deadbeef" * 8)
@@ -292,6 +326,7 @@ class TestC113MerkleProof:
 # ═══════════════════════════════════════════════════════════════════════════
 # C11.4 — Azure staging fallback
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestC114AzureStagingFallback:
     """When PAKIT_ENABLED=false, uploads should fall back to local path."""
@@ -347,6 +382,7 @@ class TestC114AzureStagingFallback:
     def test_fallback_dir_is_logged(self, tmp_path, caplog):
         """When falling back to local, the fallback path is logged."""
         import logging
+
         fpath = tmp_path / "model.bin"
         fpath.write_bytes(b"data")
         fallback_dir = tmp_path / "fb"
@@ -371,6 +407,7 @@ class TestC114AzureStagingFallback:
     def test_fallback_no_hardcoded_credentials(self):
         """PakitClient source code has no hardcoded Azure credentials."""
         import inspect
+
         source = inspect.getsource(PakitClient)
         # No Azure connection string or SAS token patterns
         assert "DefaultEndpointsProtocol" not in source
@@ -399,7 +436,9 @@ class TestC114AzureStagingFallback:
         fpath = tmp_path / "model.bin"
         fpath.write_bytes(b"azure model")
 
-        with patch.object(PakitClient, "_azure_blob_upload", return_value=True) as mock_az:
+        with patch.object(
+            PakitClient, "_azure_blob_upload", return_value=True
+        ) as mock_az:
             client = PakitClient(
                 pakit_enabled=False,
                 azure_blob_connection_string="conn",
@@ -415,7 +454,9 @@ class TestC114AzureStagingFallback:
         cid = "deadbeef" * 8
         out = str(tmp_path / "out.bin")
 
-        with patch.object(PakitClient, "_azure_blob_download", return_value=True) as mock_az:
+        with patch.object(
+            PakitClient, "_azure_blob_download", return_value=True
+        ) as mock_az:
             client = PakitClient(
                 pakit_enabled=False,
                 azure_blob_connection_string="conn",
@@ -446,10 +487,13 @@ class TestC114AzureStagingFallback:
 
     def test_from_env_reads_azure_config(self):
         """from_env reads AZURE_BLOB_CONNECTION_STRING and AZURE_BLOB_CONTAINER."""
-        with patch.dict(os.environ, {
-            "AZURE_BLOB_CONNECTION_STRING": "connstr",
-            "AZURE_BLOB_CONTAINER": "mycontainer",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "AZURE_BLOB_CONNECTION_STRING": "connstr",
+                "AZURE_BLOB_CONTAINER": "mycontainer",
+            },
+        ):
             client = PakitClient.from_env()
         assert client.azure_blob_connection_string == "connstr"
         assert client.azure_blob_container == "mycontainer"

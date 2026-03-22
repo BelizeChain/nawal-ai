@@ -26,6 +26,7 @@ Dependency
     # OR for fine-tuning:
     pip install open-clip-torch
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -41,6 +42,7 @@ from perception.text_cortex import _l2_normalize, _project
 # Try to import PIL — required for image loading
 try:
     from PIL import Image as PILImage  # type: ignore
+
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -49,6 +51,7 @@ except ImportError:
 # Optional numpy
 try:
     import numpy as np  # type: ignore
+
     NUMPY_AVAILABLE = True
 except ImportError:
     NUMPY_AVAILABLE = False
@@ -97,12 +100,14 @@ class VisualCortex(AbstractCortex):
         self.embed_dim = embed_dim
         self.stub_mode = stub_mode or (model_name is None)
         self.device = (
-            "cuda" if torch.cuda.is_available() else "cpu"
-        ) if device == "auto" else device
+            ("cuda" if torch.cuda.is_available() else "cpu")
+            if device == "auto"
+            else device
+        )
 
         self._processor: Any = None
-        self._model: Any     = None
-        self._loaded         = False
+        self._model: Any = None
+        self._loaded = False
 
         logger.debug(
             f"VisualCortex init: model={model_name or 'STUB'} "
@@ -129,6 +134,7 @@ class VisualCortex(AbstractCortex):
 
         if isinstance(raw_input, bytes):
             import io
+
             return PILImage.open(io.BytesIO(raw_input)).convert("RGB")
 
         # Assume PIL Image already
@@ -175,14 +181,14 @@ class VisualCortex(AbstractCortex):
         self._loaded = True  # avoid retry on failure
         try:
             from transformers import CLIPModel, CLIPProcessor  # type: ignore
+
             logger.info(f"VisualCortex: loading '{self.model_name}'")
             self._processor = CLIPProcessor.from_pretrained(self.model_name)
             self._model = CLIPModel.from_pretrained(self.model_name).to(self.device)
             self._model.eval()
         except Exception as exc:
             logger.warning(
-                f"VisualCortex: CLIP load failed ({exc}). "
-                "Activating stub mode."
+                f"VisualCortex: CLIP load failed ({exc}). " "Activating stub mode."
             )
             self.stub_mode = True
 

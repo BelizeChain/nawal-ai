@@ -27,6 +27,7 @@ Public API
     best = opt.select_best_plan(candidate_plans, objectives=["safety", "speed"])
     ranked = opt.rank_plans(candidate_plans)
 """
+
 from __future__ import annotations
 
 import math
@@ -39,10 +40,10 @@ from loguru import logger
 
 from control.interfaces import Plan
 
-
 # --------------------------------------------------------------------------- #
 # QuantumPlanOptimizer                                                         #
 # --------------------------------------------------------------------------- #
+
 
 class QuantumPlanOptimizer:
     """
@@ -75,17 +76,17 @@ class QuantumPlanOptimizer:
         sa_iterations: int = 1_000,
         sa_temperature: float = 2.0,
     ) -> None:
-        self._connector           = connector
+        self._connector = connector
         self.fallback_to_classical = fallback_to_classical
-        self.simulation_mode      = simulation_mode
-        self.n_qubits             = n_qubits
-        self.sa_iterations        = sa_iterations
-        self.sa_temperature       = sa_temperature
+        self.simulation_mode = simulation_mode
+        self.n_qubits = n_qubits
+        self.sa_iterations = sa_iterations
+        self.sa_temperature = sa_temperature
 
         self.stats: Dict[str, int] = {
-            "quantum_calls":    0,
-            "simulated_calls":  0,
-            "classical_calls":  0,
+            "quantum_calls": 0,
+            "simulated_calls": 0,
+            "classical_calls": 0,
         }
 
         logger.info(
@@ -236,7 +237,9 @@ class QuantumPlanOptimizer:
         PhaseHook — Phase 5: replace with real QAOA HTTP call.
         Falls back to SA for now.
         """
-        logger.debug("QuantumPlanOptimizer: Kinich live — delegating to SA (Phase 5 QAOA TBD)")
+        logger.debug(
+            "QuantumPlanOptimizer: Kinich live — delegating to SA (Phase 5 QAOA TBD)"
+        )
         return self._simulated_annealing_rank(plans, objectives, constraints)
 
     # ------------------------------------------------------------------ #

@@ -15,6 +15,7 @@ Coverage:
   • Maintenance screens action inputs before dispatch
   • Orchestrator constructs with all layers present
 """
+
 from __future__ import annotations
 
 import pytest
@@ -26,23 +27,22 @@ from pathlib import Path
 
 from nawal_types import WorldState, GenerationResult, FeedbackSignal
 
-
 # ─────────────────────────────────────────────────────────────────────────── #
 # Brain layers                                                                  #
 # ─────────────────────────────────────────────────────────────────────────── #
 
-from nawal.memory      import MemoryManager
-from nawal.control     import ExecutiveController
-from nawal.valuation   import ValuationLayer
+from nawal.memory import MemoryManager
+from nawal.control import ExecutiveController
+from nawal.valuation import ValuationLayer
 from nawal.metacognition import MetacognitionLayer
-from nawal.perception  import SensoryHub
+from nawal.perception import SensoryHub
 from nawal.maintenance import MaintenanceLayer
-from nawal.action      import ActionLayer
-
+from nawal.action import ActionLayer
 
 # ═══════════════════════════════════════════════════════════════════════════ #
 # Canonical types                                                              #
 # ═══════════════════════════════════════════════════════════════════════════ #
+
 
 class TestWorldState:
     def test_default_construction(self):
@@ -112,11 +112,10 @@ class TestFeedbackSignal:
 # Individual layer smoke tests                                                  #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
+
 class TestLayerInstantiation:
     def test_memory_manager(self, tmp_path):
-        mm = MemoryManager(
-            episodic_persist_path=str(tmp_path / "episodic_db")
-        )
+        mm = MemoryManager(episodic_persist_path=str(tmp_path / "episodic_db"))
         assert mm is not None
 
     def test_executive_controller(self, tmp_path):
@@ -153,26 +152,27 @@ class TestLayerInstantiation:
 # End-to-end pipeline                                                          #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
+
 @pytest.fixture()
 def brain(tmp_path):
     """Returns a dict of all brain layers for pipeline tests."""
-    mm  = MemoryManager(episodic_persist_path=str(tmp_path / "ep"))
-    vl  = ValuationLayer()
-    ml  = MetacognitionLayer(
+    mm = MemoryManager(episodic_persist_path=str(tmp_path / "ep"))
+    vl = ValuationLayer()
+    ml = MetacognitionLayer(
         valuation_layer=vl,
         persist_path=str(tmp_path / "identity.json"),
     )
     mnt = MaintenanceLayer(checkpoint_path=str(tmp_path))
-    ac  = ActionLayer(
+    ac = ActionLayer(
         memory_manager=mm,
         stub_network_tools=True,
     )
     return {
-        "memory":      mm,
-        "valuation":   vl,
-        "metacog":     ml,
+        "memory": mm,
+        "valuation": vl,
+        "metacog": ml,
         "maintenance": mnt,
-        "action":      ac,
+        "action": ac,
     }
 
 
@@ -259,6 +259,7 @@ class TestEndToEndPipeline:
 # ═══════════════════════════════════════════════════════════════════════════ #
 # Orchestrator integration                                                      #
 # ═══════════════════════════════════════════════════════════════════════════ #
+
 
 class TestOrchestratorIntegration:
     def test_orchestrator_has_maintenance(self, tmp_path):

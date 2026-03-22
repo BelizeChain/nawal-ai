@@ -117,10 +117,9 @@ class NawalTransformer(nn.Module):
         self.embeddings = NawalEmbeddings(config)
 
         # Transformer blocks
-        self.blocks = nn.ModuleList([
-            NawalTransformerBlock(config)
-            for _ in range(config.num_layers)
-        ])
+        self.blocks = nn.ModuleList(
+            [NawalTransformerBlock(config) for _ in range(config.num_layers)]
+        )
 
         # Final layer normalization
         self.ln_f = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
@@ -311,21 +310,32 @@ class NawalTransformer(nn.Module):
                 if do_sample:
                     # Top-k filtering
                     if top_k > 0:
-                        indices_to_remove = next_token_logits < torch.topk(next_token_logits, top_k)[0][..., -1, None]
-                        next_token_logits[indices_to_remove] = float('-inf')
+                        indices_to_remove = (
+                            next_token_logits
+                            < torch.topk(next_token_logits, top_k)[0][..., -1, None]
+                        )
+                        next_token_logits[indices_to_remove] = float("-inf")
 
                     # Top-p (nucleus) filtering
                     if top_p < 1.0:
-                        sorted_logits, sorted_indices = torch.sort(next_token_logits, descending=True)
-                        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+                        sorted_logits, sorted_indices = torch.sort(
+                            next_token_logits, descending=True
+                        )
+                        cumulative_probs = torch.cumsum(
+                            F.softmax(sorted_logits, dim=-1), dim=-1
+                        )
 
                         # Remove tokens with cumulative probability > top_p
                         sorted_indices_to_remove = cumulative_probs > top_p
-                        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
+                            ..., :-1
+                        ].clone()
                         sorted_indices_to_remove[..., 0] = 0
 
-                        indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-                        next_token_logits[indices_to_remove] = float('-inf')
+                        indices_to_remove = sorted_indices_to_remove.scatter(
+                            1, sorted_indices, sorted_indices_to_remove
+                        )
+                        next_token_logits[indices_to_remove] = float("-inf")
 
                     # Sample from distribution
                     probs = F.softmax(next_token_logits, dim=-1)
@@ -370,6 +380,7 @@ class NawalTransformer(nn.Module):
     def save_pretrained(self, save_directory: str) -> None:
         """Save model weights and configuration"""
         import os
+
         os.makedirs(save_directory, exist_ok=True)
 
         # Save config

@@ -122,7 +122,7 @@ jobs:
 
       - name: Deploy to AKS
         run: |
-          cat <<EOFK | kubectl apply -f -
+          cat <<EOFK | kubectl apply --server-side --force-conflicts -f -
           apiVersion: apps/v1
           kind: Deployment
           metadata:
@@ -148,15 +148,16 @@ jobs:
                     ports:
                       - containerPort: 8080
                         name: api
+                    envFrom:
+                      - configMapRef:
+                          name: belizechain-config
+                      - secretRef:
+                          name: belizechain-secrets
                     env:
-                      - name: NAWAL_API_HOST
-                        value: "0.0.0.0"
                       - name: BLOCKCHAIN_RPC
                         value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
                       - name: ENVIRONMENT
                         value: "production"
-                      - name: LOG_LEVEL
-                        value: "info"
                     livenessProbe:
                       httpGet:
                         path: /health

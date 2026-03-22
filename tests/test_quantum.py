@@ -13,6 +13,7 @@ TestQuantumImagination   — QuantumImagination (classical + stochastic)
 TestQuantumExports       — quantum/__init__.py exports present
 TestQuantumLayer         — integration: orchestrator wires all 4 modules
 """
+
 from __future__ import annotations
 
 import math
@@ -81,7 +82,9 @@ def _mock_episodic(records: List[MemoryRecord]) -> MagicMock:
         for rec in records:
             if rec.embedding is not None:
                 v = np.asarray(rec.embedding, dtype=np.float32)
-                cos = float(np.dot(q, v) / (np.linalg.norm(q) * np.linalg.norm(v) + 1e-9))
+                cos = float(
+                    np.dot(q, v) / (np.linalg.norm(q) * np.linalg.norm(v) + 1e-9)
+                )
             else:
                 cos = 0.0
             scored.append((cos, rec))
@@ -89,16 +92,17 @@ def _mock_episodic(records: List[MemoryRecord]) -> MagicMock:
         return [r for _, r in scored[:top_k]]
 
     mock.retrieve = MagicMock(side_effect=_retrieve)
-    mock.store    = MagicMock()
-    mock.get      = MagicMock(return_value=None)
-    mock.delete   = MagicMock(return_value=True)
-    mock.clear    = MagicMock()
+    mock.store = MagicMock()
+    mock.get = MagicMock(return_value=None)
+    mock.delete = MagicMock(return_value=True)
+    mock.clear = MagicMock()
     return mock
 
 
 # =============================================================================
 # TestQuantumMemory
 # =============================================================================
+
 
 class TestQuantumMemory:
     """QuantumMemory — retrieval and routing logic."""
@@ -143,7 +147,7 @@ class TestQuantumMemory:
     def test_search_pure_indices(self):
         rng = np.random.default_rng(42)
         corpus = rng.standard_normal((20, 8)).astype(np.float32)
-        query  = corpus[0]  # exact first record
+        query = corpus[0]  # exact first record
         backing = _mock_episodic([])
         qm = QuantumMemory(backing_store=backing)
         indices = qm.search(query, top_k=3, corpus_vectors=corpus)
@@ -156,10 +160,10 @@ class TestQuantumMemory:
         assert qm.search([1.0, 2.0], top_k=5, corpus_vectors=np.empty((0, 2))) == []
 
     def test_search_returns_unique(self):
-        rng   = np.random.default_rng(3)
+        rng = np.random.default_rng(3)
         corpus = rng.standard_normal((10, 4)).astype(np.float32)
-        qm    = QuantumMemory(backing_store=_mock_episodic([]))
-        idx   = qm.search(corpus[0], top_k=5, corpus_vectors=corpus)
+        qm = QuantumMemory(backing_store=_mock_episodic([]))
+        idx = qm.search(corpus[0], top_k=5, corpus_vectors=corpus)
         assert len(idx) == len(set(idx)), "no duplicate indices"
 
     def test_get_stats_structure(self):
@@ -193,6 +197,7 @@ class TestQuantumMemory:
 # =============================================================================
 # TestQuantumPlanOptimizer
 # =============================================================================
+
 
 class TestQuantumPlanOptimizer:
     """QuantumPlanOptimizer — plan ranking logic."""
@@ -279,6 +284,7 @@ class TestQuantumPlanOptimizer:
 # TestQuantumAnomalyDetector
 # =============================================================================
 
+
 class TestQuantumAnomalyDetector:
     """QuantumAnomalyDetector — fit / predict / score."""
 
@@ -322,10 +328,10 @@ class TestQuantumAnomalyDetector:
         det = QuantumAnomalyDetector(contamination=0.05)
         det.fit(normal)
 
-        inliers  = rng.standard_normal((10, 8)) * 0.5
+        inliers = rng.standard_normal((10, 8)) * 0.5
         outliers = rng.standard_normal((10, 8)) * 10 + 20  # far out
 
-        s_in  = det.score(inliers).mean()
+        s_in = det.score(inliers).mean()
         s_out = det.score(outliers).mean()
         assert s_out > s_in, "outliers should have higher anomaly scores"
 
@@ -375,7 +381,7 @@ class TestQuantumAnomalyDetector:
 
     def test_contamination_affects_threshold(self):
         data = self._normal_data(n=200)
-        det_low  = QuantumAnomalyDetector(contamination=0.01)
+        det_low = QuantumAnomalyDetector(contamination=0.01)
         det_high = QuantumAnomalyDetector(contamination=0.50)
         det_low.fit(data)
         det_high.fit(data)
@@ -387,6 +393,7 @@ class TestQuantumAnomalyDetector:
 # TestQuantumImagination
 # =============================================================================
 
+
 class TestQuantumImagination:
     """QuantumImagination — future trajectory sampling."""
 
@@ -395,8 +402,8 @@ class TestQuantumImagination:
 
     def _actions(self) -> List[Dict[str, Any]]:
         return [
-            {"model": "fast", "speed": True,   "accuracy": False},
-            {"model": "best", "speed": False,  "accuracy": True, "safety": True},
+            {"model": "fast", "speed": True, "accuracy": False},
+            {"model": "best", "speed": False, "accuracy": True, "safety": True},
             {"model": "balanced", "speed": True, "accuracy": True},
         ]
 
@@ -468,8 +475,8 @@ class TestQuantumImagination:
         mock_sim = MagicMock()
         mock_result = MagicMock()
         mock_result.trajectory = [{"step": 1}]
-        mock_result.value      = 0.7
-        mock_sim.simulate      = MagicMock(return_value=mock_result)
+        mock_result.value = 0.7
+        mock_sim.simulate = MagicMock(return_value=mock_result)
 
         qi = QuantumImagination(internal_simulator=mock_sim, simulation_mode=False)
         qi.sample_futures(self._state(), self._actions()[:1], n_samples=2)
@@ -486,6 +493,7 @@ class TestQuantumImagination:
 # =============================================================================
 # TestQuantumExports
 # =============================================================================
+
 
 class TestQuantumExports:
     """Verify all Phase 5 symbols are exported from quantum/__init__.py."""
@@ -515,16 +523,17 @@ class TestQuantumExports:
 # TestQuantumLayer  (integration — orchestrator wiring)
 # =============================================================================
 
+
 class TestQuantumLayer:
     """Integration: all four modules coexist and produce consistent results."""
 
     def _build_modules(self):
         records = _make_records(30, dim=16)
         backing = _mock_episodic(records)
-        qm   = QuantumMemory(backing_store=backing)
-        qpo  = QuantumPlanOptimizer()
-        qad  = QuantumAnomalyDetector()
-        qi   = QuantumImagination()
+        qm = QuantumMemory(backing_store=backing)
+        qpo = QuantumPlanOptimizer()
+        qad = QuantumAnomalyDetector()
+        qi = QuantumImagination()
         return qm, qpo, qad, qi
 
     def test_all_four_instantiate(self):
@@ -538,24 +547,21 @@ class TestQuantumLayer:
         """Retrieve from memory, build plans, optimise."""
         records = _make_records(10, dim=8)
         backing = _mock_episodic(records)
-        qm  = QuantumMemory(backing_store=backing)
+        qm = QuantumMemory(backing_store=backing)
         qpo = QuantumPlanOptimizer()
 
         q = np.random.default_rng(0).standard_normal(8).tolist()
         mems = qm.retrieve(q, top_k=3)
         assert len(mems) > 0
 
-        plans = [
-            _make_plan(f"plan_{i}", float(i) / 10)
-            for i in range(5)
-        ]
+        plans = [_make_plan(f"plan_{i}", float(i) / 10) for i in range(5)]
         best = qpo.select_best_plan(plans)
         assert best is not None
 
     def test_anomaly_detector_full_cycle(self):
-        rng    = np.random.default_rng(99)
+        rng = np.random.default_rng(99)
         normal = rng.standard_normal((100, 8))
-        qad    = QuantumAnomalyDetector(contamination=0.1)
+        qad = QuantumAnomalyDetector(contamination=0.1)
         qad.fit(normal)
 
         test = rng.standard_normal((5, 8))
@@ -567,17 +573,16 @@ class TestQuantumLayer:
 
     def test_imagination_and_optimizer_pipeline(self):
         """Sample futures and then optimise the resulting action-plans."""
-        state   = {"task": "translate"}
+        state = {"task": "translate"}
         actions = [{"lang": "es"}, {"lang": "fr"}, {"lang": "de"}]
-        qi  = QuantumImagination(simulation_mode=True)
+        qi = QuantumImagination(simulation_mode=True)
         qpo = QuantumPlanOptimizer()
 
         futures = qi.sample_futures(state, actions, n_samples=4)
         assert len(futures) > 0
 
         plans = [
-            _make_plan(f"p{i}", futures[i].value)
-            for i in range(min(3, len(futures)))
+            _make_plan(f"p{i}", futures[i].value) for i in range(min(3, len(futures)))
         ]
         best = qpo.select_best_plan(plans)
         assert best is not None
@@ -597,18 +602,18 @@ class TestQuantumLayer:
         rng = np.random.default_rng(42)
 
         backing_classical = _mock_episodic(records)
-        backing_sim       = _mock_episodic(records)
+        backing_sim = _mock_episodic(records)
 
         qm_c = QuantumMemory(backing_store=backing_classical, simulation_mode=False)
-        qm_s = QuantumMemory(backing_store=backing_sim,       simulation_mode=True)
+        qm_s = QuantumMemory(backing_store=backing_sim, simulation_mode=True)
 
         n_overlap = 0
-        n_trials  = 20
+        n_trials = 20
         for _ in range(n_trials):
-            q   = rng.standard_normal(dim).tolist()
+            q = rng.standard_normal(dim).tolist()
             r_c = {r.key for r in qm_c.retrieve(q, top_k=5)}
             r_s = {r.key for r in qm_s.retrieve(q, top_k=5)}
-            if r_c & r_s:          # at least one key in common
+            if r_c & r_s:  # at least one key in common
                 n_overlap += 1
 
         # Classical candidates are the input pool for simulated Grover,  so

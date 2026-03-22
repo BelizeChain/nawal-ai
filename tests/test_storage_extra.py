@@ -5,6 +5,7 @@ Targets the specific uncovered branches reported by coverage:
   pakit_client  : upload_directory, download/pin/metadata exception paths
   checkpoint_mgr: from_pakit branches, integrity failure, registry exceptions
 """
+
 from __future__ import annotations
 
 import io
@@ -19,10 +20,10 @@ import torch
 from storage.pakit_client import PakitClient
 from storage.checkpoint_manager import CheckpointManager
 
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _mock_response(status: int = 200, json_data=None, text: str = "ok"):
     resp = MagicMock()
@@ -37,6 +38,7 @@ def _mock_response(status: int = 200, json_data=None, text: str = "ok"):
 # PakitClient — upload_directory
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestUploadDirectory:
 
     def test_upload_directory_success(self, tmp_path):
@@ -44,8 +46,10 @@ class TestUploadDirectory:
         (tmp_path / "dir").mkdir()
         (tmp_path / "dir" / "file.txt").write_text("hello")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
 
             mock_req.post.return_value = _mock_response(200, {"hash": "abc123"})
             client = PakitClient(dag_gateway_url="http://localhost:8081")
@@ -58,8 +62,10 @@ class TestUploadDirectory:
         (tmp_path / "dir").mkdir()
         (tmp_path / "dir" / "model.pt").write_bytes(b"\x00" * 8)
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
 
             mock_req.post.return_value = _mock_response(200, {"content_hash": "xyz"})
             client = PakitClient()
@@ -82,8 +88,10 @@ class TestUploadDirectory:
         (tmp_path / "dir").mkdir()
         (tmp_path / "dir" / "f.bin").write_bytes(b"x")
 
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
 
             mock_req.post.return_value = _mock_response(500, text="server error")
             client = PakitClient()
@@ -95,12 +103,15 @@ class TestUploadDirectory:
 # PakitClient — exception paths in download / pin / get_metadata
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestExceptionPaths:
 
     def test_download_generic_exception_returns_false(self, tmp_path):
         """Any non-requests exception in download_file returns False."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
 
             mock_req.get.side_effect = Exception("unexpected error")
             client = PakitClient()
@@ -110,8 +121,10 @@ class TestExceptionPaths:
 
     def test_pin_content_generic_exception_returns_false(self):
         """Any exception in pin_content returns False."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
 
             mock_req.post.side_effect = Exception("boom")
             client = PakitClient()
@@ -121,8 +134,10 @@ class TestExceptionPaths:
 
     def test_get_metadata_generic_exception_returns_none(self):
         """Any exception in get_metadata returns None."""
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", True), \
-             patch("storage.pakit_client.requests") as mock_req:
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", True),
+            patch("storage.pakit_client.requests") as mock_req,
+        ):
 
             mock_req.get.side_effect = Exception("network failure")
             client = PakitClient()
@@ -134,6 +149,7 @@ class TestExceptionPaths:
 # ──────────────────────────────────────────────────────────────────────────────
 # CheckpointManager — load_checkpoint branch coverage
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def ckpt_mgr(tmp_path):
@@ -221,9 +237,6 @@ class TestLoadCheckpointLocalMissingFile:
         result = ckpt_mgr.load_checkpoint("test.pt")
         assert result is None
 
-
-
-
     def test_load_registry_handles_corrupt_json(self, tmp_path):
         """_load_registry returns {} on invalid JSON in registry file."""
         ckpt_dir = tmp_path / "ckpts"
@@ -244,6 +257,7 @@ class TestLoadCheckpointLocalMissingFile:
 # ──────────────────────────────────────────────────────────────────────────────
 # PakitClient — module-level import guard (REQUESTS_AVAILABLE=False, lines 19-21)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestRequestsUnavailableBranch:
 

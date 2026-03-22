@@ -20,10 +20,10 @@ from copy import deepcopy
 from nawal.server.aggregator import FederatedAggregator
 from nawal.server.metrics_tracker import MetricsTracker
 
-
 # ============================================================================
 # Federated Aggregator Tests
 # ============================================================================
+
 
 class TestFederatedAggregator:
     """Test federated aggregation functionality."""
@@ -87,8 +87,12 @@ class TestFederatedAggregator:
 
         # Average should be 2.0
         expected_value = 2.0
-        assert torch.allclose(global_params["weight"].mean(), torch.tensor(expected_value), atol=0.1)
-        assert torch.allclose(global_params["bias"].mean(), torch.tensor(expected_value), atol=0.1)
+        assert torch.allclose(
+            global_params["weight"].mean(), torch.tensor(expected_value), atol=0.1
+        )
+        assert torch.allclose(
+            global_params["bias"].mean(), torch.tensor(expected_value), atol=0.1
+        )
 
     def test_single_client_aggregation(self, client_models):
         """Test aggregation with single client."""
@@ -112,6 +116,7 @@ class TestFederatedAggregator:
 # ============================================================================
 # Client Selection Tests
 # ============================================================================
+
 
 class TestClientSelection:
     """Test client selection strategies."""
@@ -152,6 +157,7 @@ class TestClientSelection:
 # ============================================================================
 # Federated Training Round Tests
 # ============================================================================
+
 
 class TestFederatedRound:
     """Test complete federated training round."""
@@ -233,6 +239,7 @@ class TestFederatedRound:
 # Metrics Tracking Tests
 # ============================================================================
 
+
 class TestMetricsTracker:
     """Test metrics tracking during federated learning."""
 
@@ -282,9 +289,13 @@ class TestMetricsTracker:
 
         # Record metrics for multiple clients
         for client_id in range(3):
-            tracker.record_client_metric(client_id, "accuracy", 0.8 + client_id * 0.05, round_num=1)
+            tracker.record_client_metric(
+                client_id, "accuracy", 0.8 + client_id * 0.05, round_num=1
+            )
 
-        avg_accuracy = tracker.aggregate_client_metrics("accuracy", round_num=1, method="mean")
+        avg_accuracy = tracker.aggregate_client_metrics(
+            "accuracy", round_num=1, method="mean"
+        )
         assert 0.8 <= avg_accuracy <= 0.95
 
     def test_metrics_export(self, temp_dir):
@@ -318,6 +329,7 @@ class TestMetricsTracker:
 # Byzantine Resilience Tests (Placeholder for Security Module)
 # ============================================================================
 
+
 class TestByzantineResilience:
     """Test resilience against Byzantine clients (placeholder)."""
 
@@ -350,6 +362,7 @@ class TestByzantineResilience:
 # ============================================================================
 # Integration Tests
 # ============================================================================
+
 
 @pytest.mark.integration
 class TestFederatedIntegration:
@@ -390,7 +403,9 @@ class TestFederatedIntegration:
                 metrics = trainer.train_epoch(dataloader)
 
                 # Record metrics
-                tracker.record_client_metric(client_id, "loss", metrics["loss"], round_num)
+                tracker.record_client_metric(
+                    client_id, "loss", metrics["loss"], round_num
+                )
 
                 # Collect update
                 client_updates.append(client_model.state_dict())
@@ -411,6 +426,7 @@ class TestFederatedIntegration:
 # ============================================================================
 # Performance Tests
 # ============================================================================
+
 
 @pytest.mark.benchmark
 class TestFederationPerformance:

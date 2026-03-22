@@ -47,6 +47,7 @@ Usage::
     # Consolidate (call periodically or at session end)
     mm.consolidate()
 """
+
 from __future__ import annotations
 
 import uuid
@@ -61,10 +62,10 @@ from memory.working import WorkingMemory
 from memory.episodic import EpisodicMemory
 from memory.semantic import SemanticMemory
 
-
 # --------------------------------------------------------------------------- #
 # MemoryManager                                                                #
 # --------------------------------------------------------------------------- #
+
 
 class MemoryManager:
     """
@@ -82,10 +83,10 @@ class MemoryManager:
     """
 
     # Store routing key
-    STORE_WORKING  = "working"
+    STORE_WORKING = "working"
     STORE_EPISODIC = "episodic"
     STORE_SEMANTIC = "semantic"
-    STORE_ALL      = "all"
+    STORE_ALL = "all"
 
     def __init__(
         self,
@@ -207,9 +208,13 @@ class MemoryManager:
         for store_name in stores:
             store_obj: AbstractMemory = self._store_by_name(store_name)
             try:
-                results = store_obj.retrieve(query_embedding, top_k=top_k, filters=filters)
+                results = store_obj.retrieve(
+                    query_embedding, top_k=top_k, filters=filters
+                )
             except Exception as exc:
-                logger.warning(f"MemoryManager retrieve error from {store_name!r}: {exc}")
+                logger.warning(
+                    f"MemoryManager retrieve error from {store_name!r}: {exc}"
+                )
                 continue
             for rec in results:
                 if dedup and rec.key in seen_keys:
@@ -290,6 +295,7 @@ class MemoryManager:
             Number of items consolidated.
         """
         import time
+
         now = time.time()
         to_consolidate: List[MemoryRecord] = []
 
@@ -328,14 +334,13 @@ class MemoryManager:
 
     def _store_by_name(self, name: str) -> AbstractMemory:
         mapping = {
-            self.STORE_WORKING:  self.working,
+            self.STORE_WORKING: self.working,
             self.STORE_EPISODIC: self.episodic,
             self.STORE_SEMANTIC: self.semantic,
         }
         if name not in mapping:
             raise ValueError(
-                f"Unknown store {name!r}. "
-                f"Valid options: {list(mapping.keys())}"
+                f"Unknown store {name!r}. " f"Valid options: {list(mapping.keys())}"
             )
         return mapping[name]
 
@@ -352,6 +357,7 @@ class MemoryManager:
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
+
 
 def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
     norm_a = float(np.linalg.norm(a))

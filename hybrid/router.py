@@ -56,7 +56,9 @@ class IntelligentRouter:
         # Time-windowed sovereignty tracker
         self.sovereignty_metrics = SovereigntyMetrics()
 
-        logger.info(f"Initialized IntelligentRouter with threshold={confidence_threshold}")
+        logger.info(
+            f"Initialized IntelligentRouter with threshold={confidence_threshold}"
+        )
 
     def route(
         self,
@@ -143,8 +145,8 @@ class IntelligentRouter:
         }
 
         # Append to JSONL file
-        with open(self.fallback_log_path, 'a') as f:
-            f.write(json.dumps(log_entry) + '\n')
+        with open(self.fallback_log_path, "a") as f:
+            f.write(json.dumps(log_entry) + "\n")
 
     def get_statistics(self) -> Dict:
         """Get routing statistics (includes rolling windowed sovereignty rate)"""

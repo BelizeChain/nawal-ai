@@ -27,10 +27,10 @@ import pytest
 import torch
 import torch.nn as nn
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _run(coro):
     """Synchronously run an async coroutine."""
@@ -60,7 +60,7 @@ def _make_trainer(**overrides):
     cfg = TrainingConfig(**defaults)
     trainer = GenomeTrainer(cfg)
     # The source uses self.config.gradient_clip (dynamic attr not in TrainingConfig)
-    if not hasattr(cfg, 'gradient_clip'):
+    if not hasattr(cfg, "gradient_clip"):
         cfg.gradient_clip = None
     return trainer
 
@@ -107,7 +107,9 @@ class DictOutputModel(nn.Module):
         batch_size = x.size(0)
         logits = self.linear(x)
         if self.logits_3d:
-            logits = logits.unsqueeze(1).expand(batch_size, self.seq_len, -1).contiguous()
+            logits = (
+                logits.unsqueeze(1).expand(batch_size, self.seq_len, -1).contiguous()
+            )
         if self.return_loss:
             loss = logits.sum() * 0.001
             return {"loss": loss, "logits": logits}
@@ -127,7 +129,9 @@ class KeywordDictModel(nn.Module):
         logits = self.proj(x)
         loss = None
         if labels is not None:
-            loss = nn.functional.cross_entropy(logits.view(-1, logits.size(-1)), labels.view(-1))
+            loss = nn.functional.cross_entropy(
+                logits.view(-1, logits.size(-1)), labels.view(-1)
+            )
         return {"loss": loss, "logits": logits}
 
     def count_parameters(self):
@@ -255,6 +259,7 @@ class TestTrainEpochOutputHandling:
             def __init__(self):
                 super().__init__()
                 self.linear = nn.Linear(8, 20)
+
             def forward(self, x):
                 out = self.linear(x)
                 return out.view(x.size(0), 5, 4)  # 3D: (batch, seq, classes)
@@ -268,10 +273,12 @@ class TestTrainEpochOutputHandling:
 
     def test_train_epoch_tensor_3d_seq2seq(self):
         """Plain tensor output, 3D for seq-to-seq."""
+
         class Wrapper(nn.Module):
             def __init__(self):
                 super().__init__()
                 self.linear = nn.Linear(8, 50)
+
             def forward(self, x):
                 return self.linear(x).view(x.size(0), 5, 10)
 
@@ -460,7 +467,12 @@ class TestTrainGenomeAsync:
         class SlowModel(KeywordDictModel):
             def forward(self, input_ids=None, attention_mask=None, labels=None, **kw):
                 time.sleep(0.01)
-                return super().forward(input_ids=input_ids, attention_mask=attention_mask, labels=labels, **kw)
+                return super().forward(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels,
+                    **kw,
+                )
 
         real_model = SlowModel(vocab_size=100, hidden_size=32)
 
@@ -487,7 +499,10 @@ class TestTrainGenomeAsync:
         genome = MagicMock()
         genome.genome_id = "g_no_mask"
 
-        batch = {"input_ids": torch.randint(0, 100, (4, 16)), "labels": torch.randint(0, 100, (4, 16))}
+        batch = {
+            "input_ids": torch.randint(0, 100, (4, 16)),
+            "labels": torch.randint(0, 100, (4, 16)),
+        }
         weights, metrics = _run(trainer.train_genome(genome, [batch]))
         assert metrics.samples_trained == 4
 
@@ -834,7 +849,18 @@ class TestDataLeakageChecks:
         trainer.current_model = _mock_genome_model()
         trainer.dp_config = None
         # Simulate high variance gradient history
-        trainer.gradient_clip_history = [0.1, 10.0, 0.01, 50.0, 0.001, 100.0, 0.1, 20.0, 0.01, 80.0]
+        trainer.gradient_clip_history = [
+            0.1,
+            10.0,
+            0.01,
+            50.0,
+            0.001,
+            100.0,
+            0.1,
+            20.0,
+            0.01,
+            80.0,
+        ]
 
         gradients = {"w": torch.randn(100) * 0.01}
         result = trainer.validate_privacy_compliance(gradients)
@@ -861,7 +887,9 @@ class TestByzantineDetectionAdvanced:
         for _ in range(6):
             w = {k: v + torch.randn_like(v) * 0.001 for k, v in initial.items()}
             trainer._store_update_statistics(w)
-            trainer.historical_updates.append({k: v.clone().cpu() for k, v in w.items()})
+            trainer.historical_updates.append(
+                {k: v.clone().cpu() for k, v in w.items()}
+            )
 
         return trainer, initial
 
@@ -874,7 +902,10 @@ class TestByzantineDetectionAdvanced:
     def test_check_update_similarity_opposite_dir(self):
         trainer, initial = self._setup_trainer_with_history()
         # Opposite direction
-        weights = {k: initial[k] - (v - initial[k]) * 100 for k, v in trainer.historical_updates[-1].items()}
+        weights = {
+            k: initial[k] - (v - initial[k]) * 100
+            for k, v in trainer.historical_updates[-1].items()
+        }
         score = trainer._check_update_similarity(weights)
         assert score <= 50
 
@@ -1070,13 +1101,19 @@ class TestDataLeakageVerification:
 
     def test_gradient_inversion_low(self):
         trainer = _make_trainer()
-        gradients = {"layer_0": torch.randn(10) * 0.01, "layer_1": torch.randn(10) * 0.01}
+        gradients = {
+            "layer_0": torch.randn(10) * 0.01,
+            "layer_1": torch.randn(10) * 0.01,
+        }
         score = trainer._check_gradient_inversion(gradients)
         assert score >= 80.0
 
     def test_gradient_inversion_high(self):
         trainer = _make_trainer()
-        gradients = {"layer_0": torch.randn(10) * 100, "layer_1": torch.randn(10) * 0.01}
+        gradients = {
+            "layer_0": torch.randn(10) * 100,
+            "layer_1": torch.randn(10) * 0.01,
+        }
         score = trainer._check_gradient_inversion(gradients)
         assert score < 100
 
@@ -1100,7 +1137,9 @@ class TestDataLeakageVerification:
         trainer.validation_losses = [0.35] * 10
         gradients = {"layer_0": torch.randn(10) * 0.01}
         predictions = torch.randn(10, 4)
-        score = trainer._verify_data_leakage(gradients=gradients, predictions=predictions)
+        score = trainer._verify_data_leakage(
+            gradients=gradients, predictions=predictions
+        )
         assert 0 <= score <= 100
 
 
@@ -1120,6 +1159,7 @@ class TestGetStatistics:
 
     def test_get_statistics_with_metrics(self):
         from nawal.server import TrainingMetrics
+
         trainer = _make_trainer()
         genome = MagicMock()
         genome.genome_id = "g_stats"
@@ -1174,7 +1214,9 @@ class TestQuantizedBelizeModel:
     @patch("client.model.AutoModelForSequenceClassification")
     @patch("client.model.AutoModelForCausalLM")
     @patch("client.model.BitsAndBytesConfig")
-    def test_init_4bit_fallback_to_causal(self, mock_bnb, mock_causal, mock_seq_model, mock_tokenizer):
+    def test_init_4bit_fallback_to_causal(
+        self, mock_bnb, mock_causal, mock_seq_model, mock_tokenizer
+    ):
         from client.model import QuantizedBelizeModel
 
         mock_tokenizer.from_pretrained.return_value = MagicMock()
@@ -1222,7 +1264,9 @@ class TestQuantizedBelizeModel:
     @patch("client.model.AutoModelForSequenceClassification")
     @patch("client.model.AutoModelForCausalLM")
     @patch("client.model.BitsAndBytesConfig")
-    def test_forward_without_classifier(self, mock_bnb, mock_causal, mock_seq_model, mock_tokenizer):
+    def test_forward_without_classifier(
+        self, mock_bnb, mock_causal, mock_seq_model, mock_tokenizer
+    ):
         from client.model import QuantizedBelizeModel
 
         mock_tokenizer.from_pretrained.return_value = MagicMock()
@@ -1290,7 +1334,10 @@ class TestBelizeanLanguageDetector:
         from client.model import BelizeanLanguageDetector
 
         mock_tok = MagicMock()
-        mock_tok.return_value = {"input_ids": torch.randint(0, 100, (1, 10)), "attention_mask": torch.ones(1, 10)}
+        mock_tok.return_value = {
+            "input_ids": torch.randint(0, 100, (1, 10)),
+            "attention_mask": torch.ones(1, 10),
+        }
         mock_tok.__call__ = MagicMock(return_value=mock_tok.return_value)
         mock_tokenizer.from_pretrained.return_value = mock_tok
 
@@ -1312,6 +1359,7 @@ class TestModelVersioning:
 
     def test_compute_model_hash(self):
         from client.model import compute_model_hash
+
         model = nn.Linear(8, 4)
         h = compute_model_hash(model)
         assert isinstance(h, str)
@@ -1319,6 +1367,7 @@ class TestModelVersioning:
 
     def test_save_versioned_checkpoint(self, tmp_path):
         from client.model import save_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         model.version = "1.0.0"
         model.training_rounds = 5
@@ -1330,6 +1379,7 @@ class TestModelVersioning:
 
     def test_load_versioned_checkpoint(self, tmp_path):
         from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         model.version = "1.0.0"
         model.training_rounds = 3
@@ -1349,6 +1399,7 @@ class TestModelVersioning:
 
     def test_load_versioned_checkpoint_version_mismatch(self, tmp_path):
         from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         model.version = "1.0.0"
         path = str(tmp_path / "ckpt.pt")
@@ -1361,6 +1412,7 @@ class TestModelVersioning:
 
     def test_versions_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "1.0.1") is True
         assert versions_compatible("1.0.0", "1.1.0") is False
         assert versions_compatible("1.0.0", "2.0.0") is False
@@ -1530,8 +1582,10 @@ class TestBelizeChainFederatedClient:
     def test_apply_differential_privacy(self):
         from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
-        with patch("client.train.QuantizedBelizeModel") as mock_qmodel, \
-             patch("client.train.BelizeDataLoader") as mock_loader:
+        with (
+            patch("client.train.QuantizedBelizeModel") as mock_qmodel,
+            patch("client.train.BelizeDataLoader") as mock_loader,
+        ):
             mock_model_inst = MagicMock()
             mock_model_inst.to.return_value = mock_model_inst
             mock_qmodel.return_value = mock_model_inst
@@ -1557,41 +1611,49 @@ class TestComplianceDataFilter:
 
     def test_is_compliant_credit_card(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         assert f._is_compliant("Buy with card 4111111111111111") is False
 
     def test_is_compliant_ssn(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         assert f._is_compliant("SSN: 123-45-6789") is False
 
     def test_is_compliant_email(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         assert f._is_compliant("Contact at test@example.com") is False
 
     def test_is_compliant_belize_phone(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         assert f._is_compliant("Call +501-222-3344") is False
 
     def test_contains_restricted_illegal_gambling(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         assert f._contains_restricted_content("Promote illegal gambling") is True
 
     def test_contains_restricted_ponzi(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         assert f._contains_restricted_content("Run a ponzi scheme") is True
 
     def test_is_compliant_clean(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         assert f._is_compliant("BelizeChain is great") is True
 
     def test_filter_batch_all_compliant(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         batch = {
             "input_ids": torch.randint(0, 100, (3, 10)),
@@ -1605,6 +1667,7 @@ class TestComplianceDataFilter:
 
     def test_filter_batch_removes_non_compliant(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         batch = {
             "input_ids": torch.randint(0, 100, (3, 10)),
@@ -1618,6 +1681,7 @@ class TestComplianceDataFilter:
 
     def test_filter_batch_all_rejected(self):
         from client.data_loader import ComplianceDataFilter
+
         f = ComplianceDataFilter()
         batch = {
             "input_ids": torch.randint(0, 100, (2, 10)),
@@ -1634,15 +1698,18 @@ class TestBelizeDataset:
 
     def test_load_json_data(self, tmp_path):
         from client.data_loader import BelizeDataset
+
         data = [{"text": "Hello", "label": 0}, {"text": "World", "label": 1}]
         path = tmp_path / "data.json"
         path.write_text(json.dumps(data))
 
         mock_tokenizer = MagicMock()
-        mock_tokenizer.__call__ = MagicMock(return_value={
-            "input_ids": torch.randint(0, 100, (1, 10)),
-            "attention_mask": torch.ones(1, 10),
-        })
+        mock_tokenizer.__call__ = MagicMock(
+            return_value={
+                "input_ids": torch.randint(0, 100, (1, 10)),
+                "attention_mask": torch.ones(1, 10),
+            }
+        )
         mock_tokenizer.return_value = mock_tokenizer.__call__.return_value
 
         ds = BelizeDataset(str(path), mock_tokenizer, max_length=10)
@@ -1652,15 +1719,18 @@ class TestBelizeDataset:
 
     def test_load_csv_data(self, tmp_path):
         from client.data_loader import BelizeDataset
+
         csv_content = "text,label\nHello,0\nWorld,1\n"
         path = tmp_path / "data.csv"
         path.write_text(csv_content)
 
         mock_tokenizer = MagicMock()
-        mock_tokenizer.__call__ = MagicMock(return_value={
-            "input_ids": torch.randint(0, 100, (1, 10)),
-            "attention_mask": torch.ones(1, 10),
-        })
+        mock_tokenizer.__call__ = MagicMock(
+            return_value={
+                "input_ids": torch.randint(0, 100, (1, 10)),
+                "attention_mask": torch.ones(1, 10),
+            }
+        )
         mock_tokenizer.return_value = mock_tokenizer.__call__.return_value
 
         ds = BelizeDataset(str(path), mock_tokenizer, max_length=10)
@@ -1668,14 +1738,17 @@ class TestBelizeDataset:
 
     def test_load_text_data(self, tmp_path):
         from client.data_loader import BelizeDataset
+
         path = tmp_path / "data.txt"
         path.write_text("Hello\nWorld\n")
 
         mock_tokenizer = MagicMock()
-        mock_tokenizer.__call__ = MagicMock(return_value={
-            "input_ids": torch.randint(0, 100, (1, 10)),
-            "attention_mask": torch.ones(1, 10),
-        })
+        mock_tokenizer.__call__ = MagicMock(
+            return_value={
+                "input_ids": torch.randint(0, 100, (1, 10)),
+                "attention_mask": torch.ones(1, 10),
+            }
+        )
         mock_tokenizer.return_value = mock_tokenizer.__call__.return_value
 
         ds = BelizeDataset(str(path), mock_tokenizer, max_length=10)
@@ -1690,10 +1763,12 @@ class TestBelizeDataLoader:
         from client.data_loader import BelizeDataLoader
 
         mock_tok = MagicMock()
-        mock_tok.__call__ = MagicMock(return_value={
-            "input_ids": torch.randint(0, 100, (1, 10)),
-            "attention_mask": torch.ones(1, 10),
-        })
+        mock_tok.__call__ = MagicMock(
+            return_value={
+                "input_ids": torch.randint(0, 100, (1, 10)),
+                "attention_mask": torch.ones(1, 10),
+            }
+        )
         mock_tok.return_value = mock_tok.__call__.return_value
         mock_tokenizer_cls.return_value = mock_tok
 
@@ -1710,10 +1785,12 @@ class TestBelizeDataLoader:
         from client.data_loader import BelizeDataLoader
 
         mock_tok = MagicMock()
-        mock_tok.__call__ = MagicMock(return_value={
-            "input_ids": torch.randint(0, 100, (1, 10)),
-            "attention_mask": torch.ones(1, 10),
-        })
+        mock_tok.__call__ = MagicMock(
+            return_value={
+                "input_ids": torch.randint(0, 100, (1, 10)),
+                "attention_mask": torch.ones(1, 10),
+            }
+        )
         mock_tok.return_value = mock_tok.__call__.return_value
         mock_tokenizer_cls.return_value = mock_tok
 
@@ -1735,10 +1812,18 @@ class TestBelizeDataLoader:
         # Test the collate pattern manually
         f = ComplianceDataFilter()
         batch = [
-            {"input_ids": torch.tensor([1, 2]), "attention_mask": torch.tensor([1, 1]),
-             "labels": torch.tensor(0), "text": "Hello"},
-            {"input_ids": torch.tensor([3, 4]), "attention_mask": torch.tensor([1, 1]),
-             "labels": torch.tensor(1), "text": "World"},
+            {
+                "input_ids": torch.tensor([1, 2]),
+                "attention_mask": torch.tensor([1, 1]),
+                "labels": torch.tensor(0),
+                "text": "Hello",
+            },
+            {
+                "input_ids": torch.tensor([3, 4]),
+                "attention_mask": torch.tensor([1, 1]),
+                "labels": torch.tensor(1),
+                "text": "World",
+            },
         ]
         # Collate manually
         collated = {}
@@ -1763,7 +1848,9 @@ class TestCreateBelizeanDataSplits:
         input_file.write_text(json.dumps(data))
 
         output_dir = str(tmp_path / "federated")
-        dirs = create_belizean_data_splits(str(input_file), num_participants=3, output_dir=output_dir)
+        dirs = create_belizean_data_splits(
+            str(input_file), num_participants=3, output_dir=output_dir
+        )
         assert len(dirs) == 3
         for d in dirs:
             assert Path(d).exists()
@@ -1777,7 +1864,9 @@ class TestCreateBelizeanDataSplits:
         input_file.write_text(text_content)
 
         output_dir = str(tmp_path / "fed2")
-        dirs = create_belizean_data_splits(str(input_file), num_participants=2, output_dir=output_dir)
+        dirs = create_belizean_data_splits(
+            str(input_file), num_participants=2, output_dir=output_dir
+        )
         assert len(dirs) == 2
 
 
@@ -1873,8 +1962,10 @@ class TestNawalModel:
         """Load from non-existent path falls back to new model."""
         from client.nawal import Nawal
 
-        with patch("client.nawal.NawalTransformer") as mock_tf_cls, \
-             patch("client.nawal.NawalModelConfig") as mock_cfg_cls:
+        with (
+            patch("client.nawal.NawalTransformer") as mock_tf_cls,
+            patch("client.nawal.NawalModelConfig") as mock_cfg_cls,
+        ):
             mock_config = MagicMock()
             mock_config.belizean_vocab_extension = False
             mock_config.supported_languages = ["en"]
@@ -1943,7 +2034,9 @@ class TestNawalModel:
             model = Nawal(model_size="small")
             with tempfile.TemporaryDirectory() as tmpdir:
                 # IPFS upload should log warning but not crash
-                model.save_to_belizechain("v1.0.0", save_directory=tmpdir, ipfs_node="http://localhost:5001")
+                model.save_to_belizechain(
+                    "v1.0.0", save_directory=tmpdir, ipfs_node="http://localhost:5001"
+                )
 
 
 class TestNawalLanguageDetector:
@@ -1951,16 +2044,19 @@ class TestNawalLanguageDetector:
 
     def test_detect_english(self):
         from client.nawal import LanguageDetector
+
         d = LanguageDetector(["en", "es", "bzj"])
         assert d.detect("Hello, how are you today?") == "en"
 
     def test_detect_kriol(self):
         from client.nawal import LanguageDetector
+
         d = LanguageDetector(["en", "es", "bzj"])
         assert d.detect("Weh di gat fi du fi unu yaad") == "bzj"
 
     def test_detect_spanish(self):
         from client.nawal import LanguageDetector
+
         d = LanguageDetector(["en", "es", "bzj"])
         assert d.detect("El capital de Belize es Belmopan") == "es"
 
@@ -1970,12 +2066,14 @@ class TestComplianceFilter:
 
     def test_filter_cleans_ssn(self):
         from client.nawal import ComplianceFilter
+
         f = ComplianceFilter()
         result = f.filter("My SSN is 123-45-6789")
         assert "[REDACTED]" in result
 
     def test_filter_clean_text(self):
         from client.nawal import ComplianceFilter
+
         f = ComplianceFilter()
         result = f.filter("BelizeChain is amazing")
         assert result == "BelizeChain is amazing"
@@ -1994,7 +2092,10 @@ class TestDomainModelGenomeBuild:
         from genome.encoding import Genome, ArchitectureLayer, LayerType
 
         # Build genome with layers
-        layer1 = ArchitectureLayer(layer_type=LayerType.LINEAR, parameters={"in_features": 10, "out_features": 64})
+        layer1 = ArchitectureLayer(
+            layer_type=LayerType.LINEAR,
+            parameters={"in_features": 10, "out_features": 64},
+        )
         layer2 = ArchitectureLayer(layer_type=LayerType.RELU, parameters={})
         layer3 = ArchitectureLayer(layer_type=LayerType.DROPOUT, parameters={"p": 0.1})
 
@@ -2020,7 +2121,9 @@ class TestDomainModelGenomeBuild:
         from genome.encoding import ArchitectureLayer, LayerType
 
         model = AgriTechModel()
-        layer = ArchitectureLayer(layer_type=LayerType.BATCH_NORM, parameters={"num_features": 64})
+        layer = ArchitectureLayer(
+            layer_type=LayerType.BATCH_NORM, parameters={"num_features": 64}
+        )
         result = model._genome_layer_to_pytorch(layer)
         assert isinstance(result, nn.BatchNorm1d)
 
@@ -2029,7 +2132,9 @@ class TestDomainModelGenomeBuild:
         from genome.encoding import ArchitectureLayer, LayerType
 
         model = AgriTechModel()
-        layer = ArchitectureLayer(layer_type=LayerType.LAYER_NORM, parameters={"normalized_shape": 64})
+        layer = ArchitectureLayer(
+            layer_type=LayerType.LAYER_NORM, parameters={"normalized_shape": 64}
+        )
         result = model._genome_layer_to_pytorch(layer)
         assert isinstance(result, nn.LayerNorm)
 
@@ -2038,9 +2143,15 @@ class TestDomainModelGenomeBuild:
         from genome.encoding import ArchitectureLayer, LayerType
 
         model = AgriTechModel()
-        layer = ArchitectureLayer(layer_type=LayerType.CONV2D, parameters={
-            "in_channels": 3, "out_channels": 32, "kernel_size": 3, "padding": 1
-        })
+        layer = ArchitectureLayer(
+            layer_type=LayerType.CONV2D,
+            parameters={
+                "in_channels": 3,
+                "out_channels": 32,
+                "kernel_size": 3,
+                "padding": 1,
+            },
+        )
         result = model._genome_layer_to_pytorch(layer)
         assert isinstance(result, nn.Conv2d)
 
@@ -2050,6 +2161,7 @@ class TestAgriTechDroneImagery:
 
     def test_preprocess_drone_imagery(self):
         from client.domain_models import AgriTechModel
+
         model = AgriTechModel()
 
         # Create a small valid image in bytes
@@ -2058,12 +2170,15 @@ class TestAgriTechDroneImagery:
         img.save(buf, format="PNG")
         img_bytes = buf.getvalue()
 
-        result = model.preprocess_data({"feed_type": "drone_imagery", "data": img_bytes})
+        result = model.preprocess_data(
+            {"feed_type": "drone_imagery", "data": img_bytes}
+        )
         assert result.dim() == 4  # B, C, H, W
         assert result.shape[0] == 1
 
     def test_forward_image_data(self):
         from client.domain_models import AgriTechModel
+
         model = AgriTechModel(device="cpu")
         # Base nn.Sequential collapses 4D to 2D, so sensor path is taken
         input_tensor = torch.randn(1, 3, 224, 224)
@@ -2074,15 +2189,23 @@ class TestAgriTechDroneImagery:
 
     def test_calculate_improvement_with_ground_truth(self):
         from client.domain_models import AgriTechModel
+
         model = AgriTechModel()
-        old_preds = {"predictions": torch.tensor([0.7]), "confidence": torch.tensor([0.6])}
-        new_preds = {"predictions": torch.tensor([0.85]), "confidence": torch.tensor([0.8])}
+        old_preds = {
+            "predictions": torch.tensor([0.7]),
+            "confidence": torch.tensor([0.6]),
+        }
+        new_preds = {
+            "predictions": torch.tensor([0.85]),
+            "confidence": torch.tensor([0.8]),
+        }
         gt = torch.tensor([0.9])
         improvement = model.calculate_improvement(old_preds, new_preds, gt)
         assert improvement >= 0.0
 
     def test_preprocess_unknown_feed_type(self):
         from client.domain_models import AgriTechModel
+
         model = AgriTechModel()
         with pytest.raises(ValueError, match="Unknown feed type"):
             model.preprocess_data({"feed_type": "unknown"})
@@ -2093,23 +2216,30 @@ class TestMarineModelGaps:
 
     def test_preprocess_underwater_imagery(self):
         from client.domain_models import MarineModel
+
         model = MarineModel()
         img = Image.new("RGB", (64, 64), color="blue")
         buf = io.BytesIO()
         img.save(buf, format="PNG")
 
-        result = model.preprocess_data({"feed_type": "drone_imagery", "data": buf.getvalue()})
+        result = model.preprocess_data(
+            {"feed_type": "drone_imagery", "data": buf.getvalue()}
+        )
         assert result.dim() == 4
 
     def test_preprocess_water_quality_sensor(self):
         from client.domain_models import MarineModel
+
         model = MarineModel()
         sensor_data = _float32_bytes(35.0, 7.5, 8.0, 27.0)
-        result = model.preprocess_data({"feed_type": "sensor_reading", "data": sensor_data})
+        result = model.preprocess_data(
+            {"feed_type": "sensor_reading", "data": sensor_data}
+        )
         assert result.dim() == 2
 
     def test_forward_image_path(self):
         from client.domain_models import MarineModel
+
         model = MarineModel(device="cpu")
         input_tensor = torch.randn(1, 3, 224, 224)
         result = model.forward(input_tensor)
@@ -2120,6 +2250,7 @@ class TestMarineModelGaps:
 
     def test_forward_sensor_path(self):
         from client.domain_models import MarineModel
+
         model = MarineModel(device="cpu")
         # Marine base model has Conv2d requiring 4D input
         input_tensor = torch.randn(1, 3, 64, 64)
@@ -2134,6 +2265,7 @@ class TestEducationModelGaps:
     @patch("client.domain_models.BelizeChainLLM")
     def test_preprocess_student_data(self, mock_llm):
         from client.domain_models import EducationModel
+
         mock_llm.return_value = MagicMock()
         model = EducationModel()
         student = {
@@ -2149,6 +2281,7 @@ class TestEducationModelGaps:
     @patch("client.domain_models.BelizeChainLLM")
     def test_preprocess_student_data_malformed(self, mock_llm):
         from client.domain_models import EducationModel
+
         mock_llm.return_value = MagicMock()
         model = EducationModel()
         data = b"not valid json"
@@ -2159,6 +2292,7 @@ class TestEducationModelGaps:
     @patch("client.domain_models.BelizeChainLLM")
     def test_forward_education(self, mock_llm):
         from client.domain_models import EducationModel
+
         mock_llm.return_value = MagicMock()
         model = EducationModel()
         input_tensor = torch.randn(1, 4)
@@ -2173,6 +2307,7 @@ class TestTechModelGaps:
 
     def test_preprocess_metrics(self):
         from client.domain_models import TechModel
+
         model = TechModel()
         # 100 timesteps * 4 features = 400 floats
         data = _float32_bytes(*[50.0] * 400)
@@ -2181,6 +2316,7 @@ class TestTechModelGaps:
 
     def test_preprocess_metrics_short(self):
         from client.domain_models import TechModel
+
         model = TechModel()
         # Short data that needs padding
         data = _float32_bytes(50.0, 60.0, 70.0, 80.0)
@@ -2189,6 +2325,7 @@ class TestTechModelGaps:
 
     def test_forward_tech(self):
         from client.domain_models import TechModel
+
         model = TechModel(device="cpu")
         input_tensor = torch.randn(1, 100, 4)
         result = model.forward(input_tensor)
@@ -2198,9 +2335,16 @@ class TestTechModelGaps:
 
     def test_calculate_improvement_tech(self):
         from client.domain_models import TechModel
+
         model = TechModel()
-        old_preds = {"predictions": torch.tensor([0.5]), "confidence": torch.tensor([0.3])}
-        new_preds = {"predictions": torch.tensor([0.8]), "confidence": torch.tensor([0.7])}
+        old_preds = {
+            "predictions": torch.tensor([0.5]),
+            "confidence": torch.tensor([0.3]),
+        }
+        new_preds = {
+            "predictions": torch.tensor([0.8]),
+            "confidence": torch.tensor([0.7]),
+        }
         gt = torch.tensor([0.9])
         improvement = model.calculate_improvement(old_preds, new_preds, gt)
         assert improvement >= 0.0

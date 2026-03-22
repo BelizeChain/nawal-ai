@@ -31,6 +31,7 @@ from .substrate_client import SubstrateClient, ExtrinsicReceipt
 
 class ValidatorStatus(Enum):
     """Validator status on BelizeChain."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     JAILED = "jailed"
@@ -57,6 +58,7 @@ class FitnessScore:
         round: Training round number
         timestamp: Submission timestamp
     """
+
     quality: float
     timeliness: float
     honesty: float
@@ -68,7 +70,7 @@ class FitnessScore:
             self.timestamp = datetime.now()
 
         # Validate scores
-        for score_name in ['quality', 'timeliness', 'honesty']:
+        for score_name in ["quality", "timeliness", "honesty"]:
             score = getattr(self, score_name)
             if not 0 <= score <= 100:
                 raise ValueError(f"{score_name} must be 0-100, got {score}")
@@ -76,19 +78,15 @@ class FitnessScore:
     @property
     def total(self) -> float:
         """Calculate weighted total score."""
-        return (
-            0.4 * self.quality +
-            0.3 * self.timeliness +
-            0.3 * self.honesty
-        )
+        return 0.4 * self.quality + 0.3 * self.timeliness + 0.3 * self.honesty
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for chain submission."""
         return {
-            'quality': int(self.quality * 100),  # Convert to basis points
-            'timeliness': int(self.timeliness * 100),
-            'honesty': int(self.honesty * 100),
-            'round': self.round,
+            "quality": int(self.quality * 100),  # Convert to basis points
+            "timeliness": int(self.timeliness * 100),
+            "honesty": int(self.honesty * 100),
+            "round": self.round,
         }
 
 
@@ -107,6 +105,7 @@ class ValidatorInfo:
         last_fitness: Last submitted fitness score
         reputation: Reputation score (0-100)
     """
+
     address: str
     stake: int
     status: ValidatorStatus
@@ -129,6 +128,7 @@ class StakeInfo:
         min_required: Minimum required stake
         is_sufficient: Whether stake meets requirement
     """
+
     total: int
     own: int
     delegated: int
@@ -247,12 +247,12 @@ class StakingInterface:
             # Parse validator data
             info = ValidatorInfo(
                 address=address,
-                stake=validator_data.get('total_stake', 0),
-                status=ValidatorStatus(validator_data.get('status', 'inactive')),
-                commission=validator_data.get('commission', 0.0) / 100.0,
-                total_score=validator_data.get('total_score', 0.0),
-                rounds_participated=validator_data.get('rounds_participated', 0),
-                reputation=validator_data.get('reputation', 100.0),
+                stake=validator_data.get("total_stake", 0),
+                status=ValidatorStatus(validator_data.get("status", "inactive")),
+                commission=validator_data.get("commission", 0.0) / 100.0,
+                total_score=validator_data.get("total_score", 0.0),
+                rounds_participated=validator_data.get("rounds_participated", 0),
+                reputation=validator_data.get("reputation", 100.0),
             )
 
             logger.debug(f"Retrieved validator info: {address}")
@@ -287,15 +287,14 @@ class StakingInterface:
             min_stake = self.get_minimum_stake()
 
             info = StakeInfo(
-                total=stake_data.get('total', 0),
-                own=stake_data.get('own', 0),
-                delegated=stake_data.get('delegated', 0),
+                total=stake_data.get("total", 0),
+                own=stake_data.get("own", 0),
+                delegated=stake_data.get("delegated", 0),
                 min_required=min_stake,
             )
 
             logger.debug(
-                f"Stake info: total={info.total}, "
-                f"sufficient={info.is_sufficient}"
+                f"Stake info: total={info.total}, " f"sufficient={info.is_sufficient}"
             )
 
             return info
@@ -328,7 +327,7 @@ class StakingInterface:
             call_module="Staking",
             call_function="bond",
             call_params={
-                'value': amount,
+                "value": amount,
             },
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
@@ -365,7 +364,7 @@ class StakingInterface:
             call_module="Staking",
             call_function="unbond",
             call_params={
-                'value': amount,
+                "value": amount,
             },
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
@@ -402,7 +401,7 @@ class StakingInterface:
             call_module="Staking",
             call_function="validate",
             call_params={
-                'commission': int(commission * 100),  # Basis points
+                "commission": int(commission * 100),  # Basis points
             },
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,

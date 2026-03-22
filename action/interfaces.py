@@ -3,6 +3,7 @@ Action interfaces — ABCs and data-classes for the Motor Cortex.
 
 All concrete action/tool implementations must satisfy these contracts.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -10,30 +11,31 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
 
-
 # --------------------------------------------------------------------------- #
 # Enumerations                                                                  #
 # --------------------------------------------------------------------------- #
+
 
 class ToolStatus(str, Enum):
     SUCCESS = "success"
     FAILURE = "failure"
     TIMEOUT = "timeout"
-    BLOCKED = "blocked"   # Safety filter prevented execution
+    BLOCKED = "blocked"  # Safety filter prevented execution
 
 
 class ToolCategory(str, Enum):
-    WEB_SEARCH    = "web_search"
-    CODE_EXEC     = "code_execution"
-    MEMORY        = "memory"
-    BLOCKCHAIN    = "blockchain"
-    IO            = "io"
-    CUSTOM        = "custom"
+    WEB_SEARCH = "web_search"
+    CODE_EXEC = "code_execution"
+    MEMORY = "memory"
+    BLOCKCHAIN = "blockchain"
+    IO = "io"
+    CUSTOM = "custom"
 
 
 # --------------------------------------------------------------------------- #
 # Data classes                                                                  #
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class ToolResult:
@@ -48,12 +50,13 @@ class ToolResult:
         metadata  : Optional extra data (latency, source URLs, etc.).
         cost      : Estimated cost in DALLA tokens (0.0 if free).
     """
-    tool_name:  str
-    status:     ToolStatus              = ToolStatus.SUCCESS
-    output:     Any                     = None
-    error:      Optional[str]           = None
-    metadata:   Dict[str, Any]          = field(default_factory=dict)
-    cost:       float                   = 0.0
+
+    tool_name: str
+    status: ToolStatus = ToolStatus.SUCCESS
+    output: Any = None
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    cost: float = 0.0
 
 
 @dataclass
@@ -68,16 +71,18 @@ class ToolSpec:
         category    : Tool category.
         safe        : Whether the tool can run without a safety pre-check.
     """
-    name:        str
+
+    name: str
     description: str
-    parameters:  Dict[str, Any]         = field(default_factory=dict)
-    category:    ToolCategory           = ToolCategory.CUSTOM
-    safe:        bool                   = True
+    parameters: Dict[str, Any] = field(default_factory=dict)
+    category: ToolCategory = ToolCategory.CUSTOM
+    safe: bool = True
 
 
 # --------------------------------------------------------------------------- #
 # Abstract base classes                                                         #
 # --------------------------------------------------------------------------- #
+
 
 class AbstractTool(ABC):
     """Base class for all callable tools."""

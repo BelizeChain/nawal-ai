@@ -7,6 +7,7 @@ Checks:
   C13.3 — Self-healing logic transparency
   C13.4 — Metacognition boundary check
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,6 @@ from maintenance.layer import MaintenanceLayer
 from metacognition.interfaces import ConfidenceScore, CritiqueResult
 from metacognition.layer import MetacognitionLayer, ReflectionResult
 from monitoring.logging_config import configure_logging
-
 
 # ═══════════════════════════════════════════════════════════════════════════ #
 # C13.2 — Log format for Azure Log Analytics                                 #
@@ -303,6 +303,7 @@ class TestC13_4_MetacognitionBoundary:
     def test_identity_module_confidence_clipped(self):
         """IdentityModule.record_decision should clip confidence to [0, 1]."""
         from metacognition.identity_module import IdentityModule
+
         im = IdentityModule()
         rec = im.record_decision(goal="test", outcome="success", confidence=5.0)
         assert rec.confidence == 1.0
@@ -324,11 +325,13 @@ class TestC13_1_AppInsightsSurface:
 
     def test_prometheus_exporter_importable(self):
         from monitoring.prometheus_exporter import PrometheusExporter
+
         exporter = PrometheusExporter(port=0)  # port=0 → no bind
         assert exporter is not None
 
     def test_metrics_collector_records_metrics(self):
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         mc.record(MetricType.TRAINING_LOSS, 0.5)
         latest = mc.get_latest(MetricType.TRAINING_LOSS)
@@ -337,6 +340,7 @@ class TestC13_1_AppInsightsSurface:
 
     def test_inference_metrics_collector_importable(self):
         from monitoring.metrics_collector import InferenceMetricsCollector
+
         imc = InferenceMetricsCollector()
         assert imc is not None
 
@@ -351,11 +355,16 @@ class TestRecommendation1_AzureExporter:
 
     def test_azure_exporter_importable(self):
         from monitoring.prometheus_exporter import AzureExporter
+
         assert AzureExporter is not None
 
     def test_azure_exporter_disabled_without_sdk(self):
         """Without the SDK installed, AzureExporter should instantiate but stay disabled."""
-        from monitoring.prometheus_exporter import AzureExporter, AZURE_MONITOR_AVAILABLE
+        from monitoring.prometheus_exporter import (
+            AzureExporter,
+            AZURE_MONITOR_AVAILABLE,
+        )
+
         exporter = AzureExporter()
         if not AZURE_MONITOR_AVAILABLE:
             assert not exporter.enabled
@@ -365,6 +374,7 @@ class TestRecommendation1_AzureExporter:
     def test_azure_exporter_noop_when_disabled(self):
         """Calling record methods when disabled should be a no-op."""
         from monitoring.prometheus_exporter import AzureExporter
+
         exporter = AzureExporter()
         # These must not raise even when disabled
         exporter.record_sovereignty_rate(0.95)
@@ -374,6 +384,7 @@ class TestRecommendation1_AzureExporter:
 
     def test_azure_exporter_exported_from_package(self):
         from monitoring import AzureExporter
+
         assert AzureExporter is not None
 
 
@@ -382,16 +393,19 @@ class TestRecommendation2_CustomMetrics:
 
     def test_sovereignty_rate_metric_type_exists(self):
         from monitoring.metrics import MetricType
+
         assert hasattr(MetricType, "SOVEREIGNTY_RATE")
         assert MetricType.SOVEREIGNTY_RATE.value == "sovereignty_rate"
 
     def test_pouw_reward_metric_type_exists(self):
         from monitoring.metrics import MetricType
+
         assert hasattr(MetricType, "POUW_REWARD")
         assert MetricType.POUW_REWARD.value == "pouw_reward"
 
     def test_collector_records_sovereignty_rate(self):
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         mc.record(MetricType.SOVEREIGNTY_RATE, 0.92)
         latest = mc.get_latest(MetricType.SOVEREIGNTY_RATE)
@@ -400,6 +414,7 @@ class TestRecommendation2_CustomMetrics:
 
     def test_collector_records_pouw_reward(self):
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         mc.record(MetricType.POUW_REWARD, 5.0, labels={"validator": "alice"})
         latest = mc.get_latest(MetricType.POUW_REWARD)
@@ -408,11 +423,13 @@ class TestRecommendation2_CustomMetrics:
 
     def test_prometheus_has_sovereignty_gauge(self):
         from monitoring.prometheus_exporter import PrometheusExporter
+
         exporter = PrometheusExporter(port=0)
         assert hasattr(exporter, "sovereignty_rate")
 
     def test_prometheus_has_pouw_counter(self):
         from monitoring.prometheus_exporter import PrometheusExporter
+
         exporter = PrometheusExporter(port=0)
         assert hasattr(exporter, "pouw_reward_total")
 
@@ -420,6 +437,7 @@ class TestRecommendation2_CustomMetrics:
         """update_from_collector should propagate sovereignty_rate."""
         from monitoring.prometheus_exporter import PrometheusExporter
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         mc.record(MetricType.SOVEREIGNTY_RATE, 0.88)
         exporter = PrometheusExporter(port=0)
@@ -434,11 +452,13 @@ class TestRecommendation3_SS58Logging:
     def test_enroll_log_is_debug(self):
         """The enrollment log line in api_server should use logger.debug, not logger.info."""
         import ast
+
         source_path = Path(__file__).resolve().parent.parent / "api_server.py"
         source = source_path.read_text()
         # Ensure no INFO-level log mentions "Enrolled participant"
-        assert 'logger.info' not in source or 'Enrolled participant' not in \
-            ''.join(line for line in source.splitlines() if 'logger.info' in line)
+        assert "logger.info" not in source or "Enrolled participant" not in "".join(
+            line for line in source.splitlines() if "logger.info" in line
+        )
 
     def test_404_detail_does_not_leak_account_id(self):
         """The 404 error detail should not interpolate the account_id."""
@@ -450,5 +470,6 @@ class TestRecommendation3_SS58Logging:
                 # The next non-blank line contains the detail
                 continue
             if "Participant" in line and "not found" in line and "detail" in line:
-                assert "{account_id}" not in line and "f\"" not in line, \
-                    "404 detail should not interpolate account_id"
+                assert (
+                    "{account_id}" not in line and 'f"' not in line
+                ), "404 detail should not interpolate account_id"

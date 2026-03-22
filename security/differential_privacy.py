@@ -31,6 +31,7 @@ from loguru import logger
 
 class PrivacyBudgetExhaustedError(RuntimeError):
     """Raised when the differential privacy budget has been fully consumed."""
+
     pass
 
 
@@ -45,6 +46,7 @@ class PrivacyBudget:
         spent_epsilon (float): Cumulative privacy budget spent
         steps (int): Number of training steps taken
     """
+
     epsilon: float = 1.0
     delta: float = 1e-5
     spent_epsilon: float = 0.0
@@ -180,18 +182,14 @@ class DifferentialPrivacy:
         """
         # Collect all gradient tensors
         grads = [
-            param.grad.data
-            for param in model.parameters()
-            if param.grad is not None
+            param.grad.data for param in model.parameters() if param.grad is not None
         ]
 
         if not grads:
             return 0.0
 
         # Compute global L2 norm across all parameters
-        total_norm = math.sqrt(
-            sum(g.detach().norm(2).item() ** 2 for g in grads)
-        )
+        total_norm = math.sqrt(sum(g.detach().norm(2).item() ** 2 for g in grads))
 
         # Clip uniformly: scale all gradients by the same factor
         clip_coef = self.clip_norm / (total_norm + 1e-6)
@@ -254,9 +252,9 @@ class DifferentialPrivacy:
 
         # Conservative estimate
         epsilon_per_step = (
-            self.sampling_rate *
-            self.budget.epsilon /
-            math.sqrt(max(self.budget.steps, 1))
+            self.sampling_rate
+            * self.budget.epsilon
+            / math.sqrt(max(self.budget.steps, 1))
         )
 
         return epsilon_per_step
@@ -343,11 +341,7 @@ class PrivacyAccountant:
         """
         for order in self.orders:
             # RDP formula for Gaussian mechanism
-            rdp_step = (
-                self.sampling_rate**2 *
-                order /
-                (2 * noise_multiplier**2)
-            )
+            rdp_step = self.sampling_rate**2 * order / (2 * noise_multiplier**2)
             self.rdp[order] += rdp_step * steps
 
     def get_privacy_spent(self) -> Tuple[float, float]:
@@ -357,7 +351,7 @@ class PrivacyAccountant:
         Returns:
             Tuple of (epsilon, delta)
         """
-        min_epsilon = float('inf')
+        min_epsilon = float("inf")
 
         for order in self.orders:
             # Convert RDP to (ε, δ)
@@ -451,6 +445,8 @@ def create_dp_optimizer(
         noise_multiplier=noise_multiplier,
     )
 
-    logger.info("Created DPOptimizer (simplified). Consider using Opacus for production.")
+    logger.info(
+        "Created DPOptimizer (simplified). Consider using Opacus for production."
+    )
 
     return DPOptimizer(optimizer, dp)

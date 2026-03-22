@@ -25,16 +25,17 @@ import pytest
 import torch
 import torch.nn as nn
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 1: perception/auditory_cortex.py
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestHashAudio:
     """Tests for the _hash_audio helper function."""
 
     def _import(self):
         from perception.auditory_cortex import _hash_audio
+
         return _hash_audio
 
     def test_np_array_input(self):
@@ -104,11 +105,13 @@ class TestAuditoryCortexStubMode:
     @pytest.fixture
     def cortex(self):
         from perception.auditory_cortex import AuditoryCortex
+
         return AuditoryCortex(stub_mode=True)
 
     @pytest.fixture
     def cortex_none_name(self):
         from perception.auditory_cortex import AuditoryCortex
+
         return AuditoryCortex(model_name=None)
 
     def test_stub_mode_via_flag(self, cortex):
@@ -125,6 +128,7 @@ class TestAuditoryCortexStubMode:
 
     def test_custom_embed_dim(self):
         from perception.auditory_cortex import AuditoryCortex
+
         c = AuditoryCortex(stub_mode=True, embed_dim=64)
         assert c.embed_dim == 64
 
@@ -140,6 +144,7 @@ class TestAuditoryCortexStubMode:
 
     def test_encode_custom_embed_dim(self):
         from perception.auditory_cortex import AuditoryCortex
+
         c = AuditoryCortex(stub_mode=True, embed_dim=16)
         r = c.encode(np.array([0.1] * 50))
         assert len(r) == 16
@@ -164,6 +169,7 @@ class TestAuditoryCortexStubMode:
 
     def test_to_world_state_returns_object(self, cortex):
         from perception.auditory_cortex import AuditoryCortex
+
         emb = [0.1] * 512
         ws = cortex._to_world_state(emb, np.array([0.1] * 100))
         assert ws is not None
@@ -180,16 +186,19 @@ class TestAuditoryCortexStubMode:
 
     def test_sample_rate_attribute(self):
         from perception.auditory_cortex import AuditoryCortex
+
         c = AuditoryCortex(stub_mode=True, sample_rate=8000)
         assert c.sample_rate == 8000
 
     def test_max_duration_attribute(self):
         from perception.auditory_cortex import AuditoryCortex
+
         c = AuditoryCortex(stub_mode=True, max_duration=10.0)
         assert c.max_duration == 10.0
 
     def test_language_attribute(self):
         from perception.auditory_cortex import AuditoryCortex
+
         c = AuditoryCortex(stub_mode=True, language="es")
         assert c.language == "es"
 
@@ -203,6 +212,7 @@ class TestAuditoryCortexStubMode:
 
     def test_world_state_has_embedding(self, cortex):
         from perception.auditory_cortex import AuditoryCortex
+
         emb = [float(i) for i in range(512)]
         ws = cortex._to_world_state(emb, b"audio")
         # WorldState should expose our embedding somehow
@@ -217,12 +227,14 @@ class TestAuditoryCortexStubMode:
 
     def test_load_model_stub_no_exception(self):
         from perception.auditory_cortex import AuditoryCortex
+
         c = AuditoryCortex(stub_mode=True)
         # should not raise
         c._load_model()
 
     def test_cortex_instantiation_default_device(self):
         from perception.auditory_cortex import AuditoryCortex
+
         c = AuditoryCortex(stub_mode=True, device="cpu")
         assert c is not None
 
@@ -231,11 +243,13 @@ class TestAuditoryCortexStubMode:
 # Section 2: hybrid/teacher.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestDeepSeekConfig:
     """Tests for DeepSeekConfig dataclass."""
 
     def test_defaults(self):
         from hybrid.teacher import DeepSeekConfig
+
         cfg = DeepSeekConfig()
         assert cfg.model_name == "deepseek-ai/deepseek-coder-33b-instruct"
         assert cfg.max_tokens == 2048
@@ -247,26 +261,31 @@ class TestDeepSeekConfig:
 
     def test_custom_temperature(self):
         from hybrid.teacher import DeepSeekConfig
+
         cfg = DeepSeekConfig(temperature=0.3)
         assert cfg.temperature == 0.3
 
     def test_quantization_none(self):
         from hybrid.teacher import DeepSeekConfig
+
         cfg = DeepSeekConfig(quantization=None)
         assert cfg.quantization is None
 
     def test_custom_model_name(self):
         from hybrid.teacher import DeepSeekConfig
+
         cfg = DeepSeekConfig(model_name="some-model")
         assert cfg.model_name == "some-model"
 
     def test_is_dataclass(self):
         from hybrid.teacher import DeepSeekConfig
         import dataclasses
+
         assert dataclasses.is_dataclass(DeepSeekConfig)
 
     def test_multiple_fields(self):
         from hybrid.teacher import DeepSeekConfig
+
         cfg = DeepSeekConfig(max_tokens=512, top_p=0.8, tensor_parallel_size=2)
         assert cfg.max_tokens == 512
         assert cfg.top_p == 0.8
@@ -278,28 +297,33 @@ class TestDeepSeekTeacherInit:
 
     def test_default_init(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         assert t.model is None
 
     def test_cache_starts_empty(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         assert isinstance(t.cache, dict)
         assert len(t.cache) == 0
 
     def test_cache_maxsize(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         assert t._cache_maxsize == 1024
 
     def test_custom_config(self):
         from hybrid.teacher import DeepSeekTeacher, DeepSeekConfig
+
         cfg = DeepSeekConfig(temperature=0.9)
         t = DeepSeekTeacher(config=cfg)
         assert t.config.temperature == 0.9
 
     def test_default_config_created(self):
         from hybrid.teacher import DeepSeekTeacher, DeepSeekConfig
+
         t = DeepSeekTeacher()
         assert isinstance(t.config, DeepSeekConfig)
 
@@ -309,6 +333,7 @@ class TestDeepSeekTeacherClear:
 
     def test_clear_cache_empties_dict(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         t.cache["k1"] = {"text": "hello"}
         t.cache["k2"] = {"text": "world"}
@@ -317,12 +342,14 @@ class TestDeepSeekTeacherClear:
 
     def test_clear_cache_when_empty(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         t.clear_cache()  # should not raise
         assert len(t.cache) == 0
 
     def test_clear_cache_multiple_times(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         t.cache["x"] = {}
         t.clear_cache()
@@ -336,6 +363,7 @@ class TestDeepSeekTeacherGenerate:
     def _make_teacher_with_mock_generate(self, text="generated text"):
         """Return a teacher whose generate() is patched to avoid vllm/transformers."""
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         t._mock_result = {"text": text, "cached": False}
         t.generate = MagicMock(return_value=t._mock_result)
@@ -345,6 +373,7 @@ class TestDeepSeekTeacherGenerate:
         """Teacher with self.model set to a mock that claims to be vllm,
         but _generate_vllm is patched to avoid the real import."""
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         mock_model = MagicMock()
         mock_model.__module__ = "vllm.engine"
@@ -376,6 +405,7 @@ class TestDeepSeekTeacherGenerate:
 
     def test_generate_with_return_logits(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         mock_model = MagicMock()
         mock_model.__module__ = "vllm.engine"
@@ -387,9 +417,12 @@ class TestDeepSeekTeacherGenerate:
 
     def test_generate_model_none_raises_or_returns_error(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         # With no model loaded, _generate_transformers will fail; acceptable
-        with patch.object(t, '_generate_transformers', side_effect=RuntimeError("no model")):
+        with patch.object(
+            t, "_generate_transformers", side_effect=RuntimeError("no model")
+        ):
             try:
                 result = t.generate("hello")
                 assert isinstance(result, dict)
@@ -412,37 +445,47 @@ class TestDeepSeekTeacherSoftTargets:
 
     def test_soft_targets_no_model_returns_none(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         # generate() with no model tries _generate_transformers → None tokenizer → fails
         # We patch generate to return no logits key, so get_soft_targets returns None
-        with patch.object(t, 'generate', return_value={"text": "hi"}):
+        with patch.object(t, "generate", return_value={"text": "hi"}):
             result = t.get_soft_targets("hello", temperature=2.0)
             assert result is None
 
     def test_soft_targets_with_mock_logits(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         # Mock generate to return logits
         fake_logits = torch.randn(1, 10, 1000)
-        with patch.object(t, 'generate', return_value={"text": "hi", "logits": fake_logits}):
+        with patch.object(
+            t, "generate", return_value={"text": "hi", "logits": fake_logits}
+        ):
             result = t.get_soft_targets("some prompt", temperature=2.0)
             assert result is not None
             assert isinstance(result, torch.Tensor)
 
     def test_soft_targets_without_logits_in_response(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
-        with patch.object(t, 'generate', return_value={"text": "hi"}):
+        with patch.object(t, "generate", return_value={"text": "hi"}):
             result = t.get_soft_targets("prompt", temperature=2.0)
             assert result is None
 
     def test_soft_targets_temperature_parameter(self):
         from hybrid.teacher import DeepSeekTeacher
+
         t = DeepSeekTeacher()
         fake_logits = torch.randn(1, 5, 100)
-        with patch.object(t, 'generate', return_value={"text": "x", "logits": fake_logits}) as mock_gen:
+        with patch.object(
+            t, "generate", return_value={"text": "x", "logits": fake_logits}
+        ) as mock_gen:
             t.get_soft_targets("test", temperature=4.0)
-            mock_gen.assert_called_once_with("test", temperature=4.0, return_logits=True)
+            mock_gen.assert_called_once_with(
+                "test", temperature=4.0, return_logits=True
+            )
 
 
 class TestCreateDeepSeekTeacher:
@@ -450,10 +493,12 @@ class TestCreateDeepSeekTeacher:
 
     def test_function_exists(self):
         from hybrid.teacher import create_deepseek_teacher
+
         assert callable(create_deepseek_teacher)
 
     def test_function_calls_load_model(self):
         from hybrid.teacher import create_deepseek_teacher
+
         with patch("hybrid.teacher.DeepSeekTeacher") as MockTeacher:
             mock_instance = MagicMock()
             MockTeacher.return_value = mock_instance
@@ -465,12 +510,14 @@ class TestCreateDeepSeekTeacher:
 # Section 3: integration/kinich_connector.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestKinichConnectorInit:
     """Tests for KinichQuantumConnector initialization."""
 
     @pytest.fixture
     def connector(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         # Use unreachable endpoint so _init_kinich_connection sets available=False
         return KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
@@ -489,12 +536,13 @@ class TestKinichConnectorInit:
 
     def test_stats_initialized(self, connector):
         stats = connector.stats
-        assert stats['quantum_calls'] == 0
-        assert stats['cache_hits'] == 0
-        assert stats['fallback_calls'] == 0
+        assert stats["quantum_calls"] == 0
+        assert stats["cache_hits"] == 0
+        assert stats["fallback_calls"] == 0
 
     def test_classical_dim_default(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         c = KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
             classical_dim=768,
@@ -509,6 +557,7 @@ class TestKinichConnectorInit:
 
     def test_custom_quantum_dim(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         c = KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
             quantum_dim=4,
@@ -522,6 +571,7 @@ class TestKinichConnectorClassicalFallback:
     @pytest.fixture
     def conn(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         return KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
             classical_dim=8,
@@ -541,7 +591,7 @@ class TestKinichConnectorClassicalFallback:
     def test_fallback_creates_matrix(self, conn):
         feat = np.random.rand(8).astype(np.float32)
         conn._classical_fallback(feat)
-        assert hasattr(conn, '_fallback_matrix')
+        assert hasattr(conn, "_fallback_matrix")
 
     def test_fallback_matrix_reused(self, conn):
         feat = np.random.rand(8).astype(np.float32)
@@ -558,6 +608,7 @@ class TestKinichConnectorCacheKey:
     @pytest.fixture
     def conn(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         return KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
             classical_dim=8,
@@ -586,6 +637,7 @@ class TestKinichConnectorStatistics:
     @pytest.fixture
     def conn(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         return KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
             classical_dim=8,
@@ -597,19 +649,26 @@ class TestKinichConnectorStatistics:
 
     def test_statistics_keys_present(self, conn):
         s = conn.get_statistics()
-        expected = {'total_calls', 'quantum_calls', 'cache_hits',
-                    'fallback_calls', 'quantum_ratio', 'cache_hit_ratio',
-                    'avg_latency', 'kinich_available'}
+        expected = {
+            "total_calls",
+            "quantum_calls",
+            "cache_hits",
+            "fallback_calls",
+            "quantum_ratio",
+            "cache_hit_ratio",
+            "avg_latency",
+            "kinich_available",
+        }
         assert expected.issubset(s.keys())
 
     def test_statistics_available_false(self, conn):
         s = conn.get_statistics()
-        assert s['kinich_available'] is False
+        assert s["kinich_available"] is False
 
     def test_reset_statistics(self, conn):
-        conn.stats['fallback_calls'] = 5
+        conn.stats["fallback_calls"] = 5
         conn.reset_statistics()
-        assert conn.stats['fallback_calls'] == 0
+        assert conn.stats["fallback_calls"] == 0
 
     def test_clear_cache(self, conn):
         conn.result_cache["x"] = np.zeros(8)
@@ -618,9 +677,9 @@ class TestKinichConnectorStatistics:
 
     def test_zero_division_safe_ratio(self, conn):
         s = conn.get_statistics()
-        assert s['quantum_ratio'] == 0.0
-        assert s['cache_hit_ratio'] == 0.0
-        assert s['avg_latency'] == 0.0
+        assert s["quantum_ratio"] == 0.0
+        assert s["cache_hit_ratio"] == 0.0
+        assert s["avg_latency"] == 0.0
 
 
 class TestKinichConnectorQuantumProcess:
@@ -629,6 +688,7 @@ class TestKinichConnectorQuantumProcess:
     @pytest.fixture
     def conn(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         return KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
             classical_dim=8,
@@ -639,7 +699,7 @@ class TestKinichConnectorQuantumProcess:
         feat = np.random.rand(8).astype(np.float32)
         result = await conn.quantum_process(feat)
         assert isinstance(result, np.ndarray)
-        assert conn.stats['fallback_calls'] >= 1
+        assert conn.stats["fallback_calls"] >= 1
 
     async def test_quantum_process_caches_result(self, conn):
         feat = np.array([1.0] * 8, dtype=np.float32)
@@ -649,16 +709,16 @@ class TestKinichConnectorQuantumProcess:
     async def test_quantum_process_cache_hit(self, conn):
         feat = np.array([2.0] * 8, dtype=np.float32)
         await conn.quantum_process(feat)
-        first_fallback = conn.stats['fallback_calls']
+        first_fallback = conn.stats["fallback_calls"]
         await conn.quantum_process(feat)
         # Cache hit — fallback not called again
-        assert conn.stats['fallback_calls'] == first_fallback
-        assert conn.stats['cache_hits'] >= 1
+        assert conn.stats["fallback_calls"] == first_fallback
+        assert conn.stats["cache_hits"] >= 1
 
     async def test_quantum_process_statistics_updated(self, conn):
         feat = np.random.rand(8).astype(np.float32)
         await conn.quantum_process(feat)
-        assert conn.stats['total_latency'] >= 0.0
+        assert conn.stats["total_latency"] >= 0.0
 
     def test_repr(self, conn):
         r = repr(conn)
@@ -671,6 +731,7 @@ class TestKinichConnectorNoFallback:
 
     def test_no_fallback_raises_on_quantum_fail(self):
         from integration.kinich_connector import KinichQuantumConnector
+
         conn = KinichQuantumConnector(
             kinich_endpoint="http://localhost:19999",
             fallback_to_classical=False,
@@ -695,6 +756,7 @@ class TestQuantumEnhancedLayer:
 
     def test_layer_can_be_instantiated(self):
         from integration.kinich_connector import QuantumEnhancedLayer
+
         # Correct params: classical_dim, quantum_dim, model_type
         layer = QuantumEnhancedLayer(
             classical_dim=8,
@@ -704,6 +766,7 @@ class TestQuantumEnhancedLayer:
 
     def test_forward_returns_tensor(self):
         from integration.kinich_connector import QuantumEnhancedLayer
+
         layer = QuantumEnhancedLayer(
             classical_dim=8,
             quantum_dim=4,
@@ -714,6 +777,7 @@ class TestQuantumEnhancedLayer:
 
     def test_extra_repr(self):
         from integration.kinich_connector import QuantumEnhancedLayer
+
         layer = QuantumEnhancedLayer(
             classical_dim=8,
             quantum_dim=4,
@@ -727,11 +791,13 @@ class TestQuantumEnhancedLayer:
 # Section 4: integration/oracle_pipeline.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestDeviceType:
     """Tests for DeviceType enum."""
 
     def test_enum_values(self):
         from integration.oracle_pipeline import DeviceType
+
         assert DeviceType.DRONE.value == 0
         assert DeviceType.PHONE.value == 1
         assert DeviceType.SENSOR.value == 2
@@ -741,6 +807,7 @@ class TestDeviceType:
 
     def test_enum_by_value(self):
         from integration.oracle_pipeline import DeviceType
+
         assert DeviceType(2) == DeviceType.SENSOR
 
 
@@ -750,6 +817,7 @@ class TestIoTDeviceInfo:
     def _make_device(self, **kwargs):
         from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
         from nawal.client.domain_models import ModelDomain
+
         defaults = dict(
             device_id=b"\x01\x02\x03",
             device_type=DeviceType.SENSOR,
@@ -771,6 +839,7 @@ class TestIoTDeviceInfo:
     def test_fields_match(self):
         from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
         from nawal.client.domain_models import ModelDomain
+
         d = self._make_device(device_type=DeviceType.DRONE)
         assert d.device_type == DeviceType.DRONE
 
@@ -788,6 +857,7 @@ class TestIoTDeviceInfo:
 
     def test_domain_field(self):
         from nawal.client.domain_models import ModelDomain
+
         d = self._make_device(domain=ModelDomain.MARINE)
         assert d.domain == ModelDomain.MARINE
 
@@ -797,6 +867,7 @@ class TestIoTDataSubmission:
 
     def _make_submission(self, **kwargs):
         from integration.oracle_pipeline import IoTDataSubmission
+
         defaults = dict(
             device_id=b"\x01",
             data=b"raw_data_here",
@@ -837,43 +908,54 @@ class TestDataPreprocessor:
     @pytest.fixture
     def preprocessor(self):
         from integration.oracle_pipeline import DataPreprocessor
-        return DataPreprocessor(device='cpu')
+
+        return DataPreprocessor(device="cpu")
 
     def test_init(self, preprocessor):
-        assert preprocessor.device == 'cpu'
+        assert preprocessor.device == "cpu"
         assert isinstance(preprocessor.models, dict)
 
     def test_get_model_agritech(self, preprocessor):
         # oracle_pipeline imports ModelDomain from nawal.client.domain_models
         from nawal.client.domain_models import ModelDomain
+
         model = preprocessor.get_model(ModelDomain.AGRITECH)
         assert model is not None
 
     def test_get_model_cached(self, preprocessor):
         from nawal.client.domain_models import ModelDomain
+
         m1 = preprocessor.get_model(ModelDomain.AGRITECH)
         m2 = preprocessor.get_model(ModelDomain.AGRITECH)
         assert m1 is m2
 
     def test_get_model_marine(self, preprocessor):
         from nawal.client.domain_models import ModelDomain
+
         model = preprocessor.get_model(ModelDomain.MARINE)
         assert model is not None
 
     def test_get_model_tech(self, preprocessor):
         from nawal.client.domain_models import ModelDomain
+
         model = preprocessor.get_model(ModelDomain.TECH)
         assert model is not None
 
     def test_get_model_education(self, preprocessor):
         from nawal.client.domain_models import ModelDomain
+
         with patch("nawal.client.domain_models.BelizeChainLLM"):
             model = preprocessor.get_model(ModelDomain.EDUCATION)
             assert model is not None
 
     def test_preprocess_agritech_sensor(self, preprocessor):
-        from integration.oracle_pipeline import IoTDeviceInfo, IoTDataSubmission, DeviceType
+        from integration.oracle_pipeline import (
+            IoTDeviceInfo,
+            IoTDataSubmission,
+            DeviceType,
+        )
         from nawal.client.domain_models import ModelDomain
+
         sensor_data = struct.pack("4f", 25.0, 60.0, 7.5, 1.2)
         sub = IoTDataSubmission(
             device_id=b"\x01",
@@ -899,8 +981,13 @@ class TestDataPreprocessor:
         assert tensor is not None
 
     def test_preprocess_marine_sensor(self, preprocessor):
-        from integration.oracle_pipeline import IoTDeviceInfo, IoTDataSubmission, DeviceType
+        from integration.oracle_pipeline import (
+            IoTDeviceInfo,
+            IoTDataSubmission,
+            DeviceType,
+        )
         from nawal.client.domain_models import ModelDomain
+
         sensor_data = struct.pack("4f", 25.0, 35.0, 8.1, 2.0)
         sub = IoTDataSubmission(
             device_id=b"\x02",
@@ -930,28 +1017,33 @@ class TestDataPreprocessor:
 # Section 5: client/model.py standalone utilities
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestComputeModelHash:
     """Tests for compute_model_hash."""
 
     def test_returns_string(self):
         from client.model import compute_model_hash
+
         m = nn.Linear(4, 2)
         h = compute_model_hash(m)
         assert isinstance(h, str)
 
     def test_returns_16_chars(self):
         from client.model import compute_model_hash
+
         m = nn.Linear(4, 2)
         h = compute_model_hash(m)
         assert len(h) == 16
 
     def test_deterministic(self):
         from client.model import compute_model_hash
+
         m = nn.Linear(4, 2)
         assert compute_model_hash(m) == compute_model_hash(m)
 
     def test_different_weights_different_hash(self):
         from client.model import compute_model_hash
+
         m1 = nn.Linear(4, 2)
         m2 = nn.Linear(4, 2)
         # Two different randomly-initialized models almost certainly differ
@@ -964,6 +1056,7 @@ class TestComputeModelHash:
 
     def test_works_with_sequential(self):
         from client.model import compute_model_hash
+
         m = nn.Sequential(nn.Linear(4, 8), nn.ReLU(), nn.Linear(8, 2))
         h = compute_model_hash(m)
         assert len(h) == 16
@@ -974,26 +1067,32 @@ class TestVersionsCompatible:
 
     def test_same_version_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "1.0.0") is True
 
     def test_same_major_minor_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.2.0", "1.2.5") is True
 
     def test_different_minor_incompatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "1.1.0") is False
 
     def test_different_major_incompatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "2.0.0") is False
 
     def test_malformed_version_returns_false(self):
         from client.model import versions_compatible
+
         assert versions_compatible("bad", "1.0.0") is False
 
     def test_both_malformed_returns_false(self):
         from client.model import versions_compatible
+
         assert versions_compatible("bad", "alsobad") is False
 
 
@@ -1002,18 +1101,21 @@ class TestGetModelInfo:
 
     def test_returns_dict(self):
         from client.model import get_model_info
+
         m = nn.Linear(4, 2)
         info = get_model_info(m)
         assert isinstance(info, dict)
 
     def test_parameters_count(self):
         from client.model import get_model_info
+
         m = nn.Linear(4, 2)
         info = get_model_info(m)
         assert info["parameters"] == sum(p.numel() for p in m.parameters())
 
     def test_model_hash_in_info(self):
         from client.model import get_model_info
+
         m = nn.Linear(4, 2)
         info = get_model_info(m)
         assert "model_hash" in info
@@ -1021,6 +1123,7 @@ class TestGetModelInfo:
 
     def test_privacy_budget_in_info(self):
         from client.model import get_model_info
+
         m = nn.Linear(4, 2)
         info = get_model_info(m)
         assert "privacy_budget" in info
@@ -1029,12 +1132,14 @@ class TestGetModelInfo:
 
     def test_version_field_unknown_for_plain_model(self):
         from client.model import get_model_info
+
         m = nn.Linear(4, 2)
         info = get_model_info(m)
         assert "version" in info
 
     def test_training_rounds_default_zero(self):
         from client.model import get_model_info
+
         m = nn.Linear(4, 2)
         info = get_model_info(m)
         assert info["training_rounds"] == 0
@@ -1045,6 +1150,7 @@ class TestSaveLoadVersionedCheckpoint:
 
     def test_save_and_load_roundtrip(self):
         from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+
         m = nn.Linear(4, 2)
         orig_state = {k: v.clone() for k, v in m.state_dict().items()}
         with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
@@ -1061,6 +1167,7 @@ class TestSaveLoadVersionedCheckpoint:
 
     def test_save_creates_file(self):
         from client.model import save_versioned_checkpoint
+
         m = nn.Linear(4, 2)
         with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
             path = f.name
@@ -1073,12 +1180,14 @@ class TestSaveLoadVersionedCheckpoint:
 
     def test_load_missing_file_raises(self):
         from client.model import load_versioned_checkpoint
+
         m = nn.Linear(4, 2)
         with pytest.raises(Exception):
             load_versioned_checkpoint(m, "/nonexistent/path.pt")
 
     def test_save_with_no_metadata(self):
         from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+
         m = nn.Linear(4, 2)
         with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
             path = f.name
@@ -1096,6 +1205,7 @@ class TestCreateBelizechainModel:
 
     def test_default_returns_belizechain_llm(self):
         from client.model import create_belizechain_model
+
         with patch("client.model.BelizeChainLLM") as MockLLM:
             MockLLM.return_value = MagicMock()
             model = create_belizechain_model()
@@ -1103,14 +1213,20 @@ class TestCreateBelizechainModel:
 
     def test_quantized_returns_quantized_model(self):
         from client.model import create_belizechain_model
+
         with patch("client.model.QuantizedBelizeModel") as MockQ:
             MockQ.return_value = MagicMock()
-            model = create_belizechain_model(model_type="quantized", quantization_bits=8)
+            model = create_belizechain_model(
+                model_type="quantized", quantization_bits=8
+            )
             MockQ.assert_called_once()
 
     def test_language_detector_type(self):
         from client.model import create_belizechain_model
+
         with patch("client.model.BelizeanLanguageDetector") as MockLD:
             MockLD.return_value = MagicMock()
-            model = create_belizechain_model(model_type="language_detector", model_name="test-model")
+            model = create_belizechain_model(
+                model_type="language_detector", model_name="test-model"
+            )
             MockLD.assert_called_once()

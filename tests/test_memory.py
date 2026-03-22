@@ -4,6 +4,7 @@ Tests for the Phase 1 Memory subsystem.
 Covers WorkingMemory, EpisodicMemory (numpy fallback), SemanticMemory,
 and MemoryManager — all without requiring external databases.
 """
+
 from __future__ import annotations
 
 import time
@@ -19,10 +20,10 @@ from memory.episodic import EpisodicMemory
 from memory.semantic import SemanticMemory
 from memory.manager import MemoryManager
 
-
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
+
 
 def _rec(
     key: str = None,
@@ -53,6 +54,7 @@ def _unit(dim: int = 8, scale: float = 1.0) -> List[float]:
 # MemoryRecord                                                                 #
 # --------------------------------------------------------------------------- #
 
+
 class TestMemoryRecord:
     def test_not_expired_no_ttl(self):
         r = _rec(ttl=None)
@@ -73,6 +75,7 @@ class TestMemoryRecord:
 # WorkingMemory                                                                #
 # --------------------------------------------------------------------------- #
 
+
 class TestWorkingMemory:
     def test_store_and_len(self):
         wm = WorkingMemory(max_size=10)
@@ -85,7 +88,7 @@ class TestWorkingMemory:
         for i in range(4):
             wm.store(_rec(f"k{i}"))
         assert len(wm) == 3
-        assert wm.get("k0") is None   # evicted
+        assert wm.get("k0") is None  # evicted
         assert wm.get("k3") is not None
 
     def test_update_in_place(self):
@@ -103,15 +106,15 @@ class TestWorkingMemory:
         target_emb /= np.linalg.norm(target_emb)
 
         # r_close has embedding parallel to query
-        r_close = MemoryRecord(key="close", content="close",
-                               embedding=target_emb.tolist())
+        r_close = MemoryRecord(
+            key="close", content="close", embedding=target_emb.tolist()
+        )
         # r_far has orthogonal embedding
         far_emb = np.zeros(8, dtype=float)
         far_emb[0] = 1.0
         far_emb[1] = -1.0
         far_emb /= np.linalg.norm(far_emb)
-        r_far = MemoryRecord(key="far", content="far",
-                             embedding=far_emb.tolist())
+        r_far = MemoryRecord(key="far", content="far", embedding=far_emb.tolist())
         wm.store(r_far)
         wm.store(r_close)
 
@@ -122,8 +125,7 @@ class TestWorkingMemory:
         wm = WorkingMemory(max_size=10)
         wm.store(_rec("a", metadata={"role": "user"}))
         wm.store(_rec("b", metadata={"role": "assistant"}))
-        results = wm.retrieve(query_embedding=[1.0] * 8,
-                              filters={"role": "user"})
+        results = wm.retrieve(query_embedding=[1.0] * 8, filters={"role": "user"})
         assert all(r.metadata.get("role") == "user" for r in results)
 
     def test_ttl_expiry_pruned_on_retrieve(self):
@@ -171,6 +173,7 @@ class TestWorkingMemory:
 # EpisodicMemory (numpy backend — no external DB required)                     #
 # --------------------------------------------------------------------------- #
 
+
 class TestEpisodicMemoryNumpy:
     """Force numpy fallback by passing persist_path=None."""
 
@@ -190,12 +193,12 @@ class TestEpisodicMemoryNumpy:
     def test_retrieve_returns_similar(self):
         em = self._em()
         query = np.ones(8, dtype=float) / np.sqrt(8)
-        close = MemoryRecord(key="close", content="x",
-                             embedding=(query * 0.99).tolist())
+        close = MemoryRecord(
+            key="close", content="x", embedding=(query * 0.99).tolist()
+        )
         far_emb = np.zeros(8, dtype=float)
         far_emb[0] = -1.0
-        far = MemoryRecord(key="far", content="y",
-                           embedding=far_emb.tolist())
+        far = MemoryRecord(key="far", content="y", embedding=far_emb.tolist())
         em.store(far)
         em.store(close)
         results = em.retrieve(query_embedding=query.tolist(), top_k=2)
@@ -249,6 +252,7 @@ class TestEpisodicMemoryNumpy:
 # SemanticMemory                                                               #
 # --------------------------------------------------------------------------- #
 
+
 class TestSemanticMemory:
     def test_store_and_len(self):
         sm = SemanticMemory()
@@ -259,12 +263,10 @@ class TestSemanticMemory:
     def test_retrieve_by_similarity(self):
         sm = SemanticMemory()
         q = np.ones(8, dtype=float) / np.sqrt(8)
-        close = MemoryRecord(key="close", content="close",
-                             embedding=(q * 1.0).tolist())
+        close = MemoryRecord(key="close", content="close", embedding=(q * 1.0).tolist())
         far_emb = np.zeros(8)
         far_emb[0] = -1.0
-        far = MemoryRecord(key="far", content="far",
-                           embedding=far_emb.tolist())
+        far = MemoryRecord(key="far", content="far", embedding=far_emb.tolist())
         sm.store(far)
         sm.store(close)
         results = sm.retrieve(q.tolist(), top_k=2)
@@ -356,6 +358,7 @@ class TestSemanticMemory:
 # MemoryManager                                                                #
 # --------------------------------------------------------------------------- #
 
+
 class TestMemoryManager:
     def _mm(self) -> MemoryManager:
         """Return a MemoryManager with all in-memory backends."""
@@ -413,18 +416,22 @@ class TestMemoryManager:
     def test_retrieve_merges_stores(self):
         mm = self._mm()
         q = np.ones(8, dtype=float) / np.sqrt(8)
-        mm.store_text("working item",  embedding=q.tolist(),  store="working")
-        mm.store_text("episodic item", embedding=q.tolist(),  store="episodic")
-        mm.store_text("semantic item", embedding=q.tolist(),  store="semantic")
+        mm.store_text("working item", embedding=q.tolist(), store="working")
+        mm.store_text("episodic item", embedding=q.tolist(), store="episodic")
+        mm.store_text("semantic item", embedding=q.tolist(), store="semantic")
         results = mm.retrieve(q.tolist(), top_k=10)
         assert len(results) == 3
 
     def test_retrieve_dedup(self):
         mm = self._mm()
         q = np.ones(8, dtype=float) / np.sqrt(8)
-        rec = MemoryRecord(key="shared", content="shared",
-                           embedding=q.tolist(), metadata={"store": "all"})
-        mm.store(rec, store="all")   # same key in all three
+        rec = MemoryRecord(
+            key="shared",
+            content="shared",
+            embedding=q.tolist(),
+            metadata={"store": "all"},
+        )
+        mm.store(rec, store="all")  # same key in all three
         results = mm.retrieve(q.tolist(), top_k=10, dedup=True)
         keys = [r.key for r in results]
         assert keys.count("shared") == 1
@@ -435,10 +442,12 @@ class TestMemoryManager:
         for i in range(5):
             mm.store_text(f"turn {i}", embedding=q.tolist(), store="working")
         mm.store_text("past event", embedding=q.tolist(), store="episodic")
-        mm.store_text("dog fact",   embedding=q.tolist(), store="semantic")
+        mm.store_text("dog fact", embedding=q.tolist(), store="semantic")
         ctx = mm.context_window(
             query_embedding=q.tolist(),
-            n_recent=3, n_episodic=1, n_semantic=1,
+            n_recent=3,
+            n_episodic=1,
+            n_semantic=1,
         )
         assert len(ctx) >= 3
 
@@ -455,7 +464,7 @@ class TestMemoryManager:
 
     def test_consolidate_skips_recent_items(self):
         mm = self._mm()
-        mm.consolidation_age = 3600.0   # 1 hour — nothing should consolidate
+        mm.consolidation_age = 3600.0  # 1 hour — nothing should consolidate
         q = np.ones(8, dtype=float) / np.sqrt(8)
         mm.store_text("fresh item", embedding=q.tolist(), store="working")
         consolidated = mm.consolidate()

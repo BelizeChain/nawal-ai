@@ -49,7 +49,6 @@ from blockchain.staking_interface import (
 )
 from blockchain.substrate_client import SubstrateClient
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -290,6 +289,7 @@ class TestC102RPCErrorHandling:
     def test_substrate_client_connect_retries(self):
         """SubstrateClient.connect() retries with exponential backoff."""
         from blockchain.substrate_client import ChainConfig
+
         with patch("blockchain.substrate_client.SUBSTRATE_AVAILABLE", True):
             config = ChainConfig(rpc_url="ws://fake:9944")
             client = SubstrateClient(config=config)
@@ -472,6 +472,7 @@ class TestC103TransactionSigning:
     def test_signing_key_is_parameter(self):
         """submit_training_proof accepts keypair as parameter, not hardcoded."""
         import inspect
+
         sig = inspect.signature(StakingConnector.submit_training_proof)
         assert "keypair" in sig.parameters
 
@@ -503,6 +504,7 @@ class TestC104MockPath:
     def test_mock_mode_defaults_false(self):
         """mock_mode parameter defaults to False — explicit opt-in only."""
         import inspect
+
         sig = inspect.signature(StakingConnector.__init__)
         param = sig.parameters["mock_mode"]
         assert param.default is False
@@ -515,7 +517,8 @@ class TestC104MockPath:
             _make_connector()
             # At least one warning about mock mode
             warning_calls = [
-                call for call in mock_log.warning.call_args_list
+                call
+                for call in mock_log.warning.call_args_list
                 if "MOCK MODE" in str(call) or "mock" in str(call).lower()
             ]
             assert len(warning_calls) > 0

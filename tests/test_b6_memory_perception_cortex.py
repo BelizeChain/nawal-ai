@@ -7,6 +7,7 @@ Covers:
   C6.3 Cortex coordination logic
   C6.4 Data flow to transformer
 """
+
 from __future__ import annotations
 
 import time
@@ -30,10 +31,10 @@ from perception.multimodal_cortex import MultimodalCortex
 from perception.sensory_hub import SensoryHub
 from perception.interfaces import WorldState
 
-
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
+
 
 def _rec(
     key: str = None,
@@ -43,7 +44,9 @@ def _rec(
     ttl: float = None,
     embedding: list = None,
 ) -> MemoryRecord:
-    emb = embedding if embedding is not None else list(np.random.randn(dim).astype(float))
+    emb = (
+        embedding if embedding is not None else list(np.random.randn(dim).astype(float))
+    )
     return MemoryRecord(
         key=key or str(uuid.uuid4()),
         content=content,
@@ -56,6 +59,7 @@ def _rec(
 # =========================================================================== #
 # C6.1 — Memory scope and isolation                                           #
 # =========================================================================== #
+
 
 class TestC61MemoryScope:
 
@@ -151,6 +155,7 @@ class TestC61MemoryScope:
 # C6.2 — Perception input sanitisation                                        #
 # =========================================================================== #
 
+
 class TestC62PerceptionSanitisation:
 
     # F6.2a — TextCortex strips null bytes and control chars
@@ -203,8 +208,10 @@ class TestC62PerceptionSanitisation:
     # F6.2c — AuditoryCortex preprocess enforces max_duration
     def test_auditory_cortex_preprocess_trims_long_audio(self):
         ac = AuditoryCortex(
-            embed_dim=32, stub_mode=True,
-            sample_rate=16000, max_duration=1.0,
+            embed_dim=32,
+            stub_mode=True,
+            sample_rate=16000,
+            max_duration=1.0,
         )
         # 3 seconds of audio at 16kHz
         long_audio = np.random.randn(48000).astype("float32")
@@ -214,8 +221,10 @@ class TestC62PerceptionSanitisation:
 
     def test_auditory_cortex_preprocess_short_audio_unchanged(self):
         ac = AuditoryCortex(
-            embed_dim=32, stub_mode=True,
-            sample_rate=16000, max_duration=30.0,
+            embed_dim=32,
+            stub_mode=True,
+            sample_rate=16000,
+            max_duration=30.0,
         )
         short_audio = np.random.randn(8000).astype("float32")
         processed = ac.preprocess(short_audio)
@@ -223,8 +232,10 @@ class TestC62PerceptionSanitisation:
 
     def test_auditory_cortex_preprocess_stereo_to_mono(self):
         ac = AuditoryCortex(
-            embed_dim=32, stub_mode=True,
-            sample_rate=16000, max_duration=30.0,
+            embed_dim=32,
+            stub_mode=True,
+            sample_rate=16000,
+            max_duration=30.0,
         )
         stereo = np.random.randn(2, 8000).astype("float32")
         processed = ac.preprocess(stereo)
@@ -262,15 +273,18 @@ class TestC62PerceptionSanitisation:
 # C6.3 — Cortex coordination logic (cortex/ is a re-export alias)            #
 # =========================================================================== #
 
+
 class TestC63CortexCoordination:
 
     def test_cortex_exports_transformer(self):
         """cortex/__init__.py should re-export architecture classes."""
         from cortex import NawalTransformer
+
         assert NawalTransformer is not None
 
     def test_cortex_exports_config(self):
         from cortex import NawalModelConfig
+
         assert NawalModelConfig is not None
 
     def test_multimodal_fusion_strategy_validation(self):
@@ -312,6 +326,7 @@ class TestC63CortexCoordination:
 # C6.4 — Data flow to transformer                                             #
 # =========================================================================== #
 
+
 class TestC64DataFlow:
 
     # F6.4a — generate() guards against negative max_new_tokens
@@ -337,7 +352,9 @@ class TestC64DataFlow:
         max_length = 100
         input_ids = fake_ids
         max_new_tokens = max_length - input_ids.size(1)
-        assert max_new_tokens < 1, "This test expects prompt to be longer than max_length"
+        assert (
+            max_new_tokens < 1
+        ), "This test expects prompt to be longer than max_length"
 
     def test_memory_manager_context_window_returns_list(self):
         """context_window should always return a list."""
@@ -377,6 +394,7 @@ class TestC64DataFlow:
 # =========================================================================== #
 # Semantic memory persistence safety                                           #
 # =========================================================================== #
+
 
 class TestSemanticMemorySafety:
 

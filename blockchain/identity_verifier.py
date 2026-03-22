@@ -11,6 +11,7 @@ import hashlib
 
 try:
     from substrateinterface import SubstrateInterface
+
     SUBSTRATE_AVAILABLE = True
 except ImportError:
     SUBSTRATE_AVAILABLE = False
@@ -18,7 +19,9 @@ except ImportError:
 from loguru import logger
 
 if not SUBSTRATE_AVAILABLE:
-    logger.warning("py-substrate-interface not installed. Run: pip install substrate-interface")
+    logger.warning(
+        "py-substrate-interface not installed. Run: pip install substrate-interface"
+    )
 
 
 class BelizeIDVerifier:
@@ -30,10 +33,12 @@ class BelizeIDVerifier:
     def __init__(
         self,
         rpc_url: str = "ws://127.0.0.1:9944",
-        cache_ttl_seconds: int = 3600  # 1 hour cache
+        cache_ttl_seconds: int = 3600,  # 1 hour cache
     ):
         if not SUBSTRATE_AVAILABLE:
-            raise ImportError("substrate-interface required. Install with: pip install substrate-interface")
+            raise ImportError(
+                "substrate-interface required. Install with: pip install substrate-interface"
+            )
 
         self.rpc_url = rpc_url
         self.cache: Dict[str, tuple[bool, datetime]] = {}
@@ -44,8 +49,7 @@ class BelizeIDVerifier:
         """Connect to BelizeChain node"""
         loop = asyncio.get_event_loop()
         self.substrate = await loop.run_in_executor(
-            None,
-            lambda: SubstrateInterface(url=self.rpc_url)
+            None, lambda: SubstrateInterface(url=self.rpc_url)
         )
         logger.info(f"✅ Connected to BelizeChain: {self.rpc_url}")
 
@@ -92,10 +96,8 @@ class BelizeIDVerifier:
         result = await loop.run_in_executor(
             None,
             lambda: self.substrate.query(
-                module='Identity',
-                storage_function='Identities',
-                params=[identity_id]
-            )
+                module="Identity", storage_function="Identities", params=[identity_id]
+            ),
         )
 
         if result is None:
@@ -104,7 +106,7 @@ class BelizeIDVerifier:
 
         # Check KYC status
         identity_data = result.value
-        kyc_approved = identity_data.get('kycApproved', False)
+        kyc_approved = identity_data.get("kycApproved", False)
 
         if not kyc_approved:
             logger.debug(f"BelizeID {belizeid} not KYC-approved")
@@ -117,7 +119,7 @@ class BelizeIDVerifier:
         """Convert BelizeID string to numeric identity_id"""
         # Hash-based conversion — use 16 bytes (128-bit) for collision resistance
         hash_bytes = hashlib.sha256(belizeid.encode()).digest()
-        return int.from_bytes(hash_bytes[:16], byteorder='big')
+        return int.from_bytes(hash_bytes[:16], byteorder="big")
 
     async def get_identity_details(self, belizeid: str) -> Optional[Dict]:
         """
@@ -135,10 +137,8 @@ class BelizeIDVerifier:
         result = await loop.run_in_executor(
             None,
             lambda: self.substrate.query(
-                module='Identity',
-                storage_function='Identities',
-                params=[identity_id]
-            )
+                module="Identity", storage_function="Identities", params=[identity_id]
+            ),
         )
 
         if result is None:
@@ -167,10 +167,7 @@ class BelizeIDVerifier:
     async def close(self):
         """Close blockchain connection"""
         if self.substrate:
-            await asyncio.get_event_loop().run_in_executor(
-                None,
-                self.substrate.close
-            )
+            await asyncio.get_event_loop().run_in_executor(None, self.substrate.close)
 
 
 class DummyBelizeIDVerifier:
@@ -187,11 +184,7 @@ class DummyBelizeIDVerifier:
         return True
 
     async def get_identity_details(self, belizeid: str) -> Optional[Dict]:
-        return {
-            "belizeId": belizeid,
-            "kycApproved": True,
-            "accountType": "Citizen"
-        }
+        return {"belizeId": belizeid, "kycApproved": True, "accountType": "Citizen"}
 
     async def check_rate_limits(self, belizeid: str) -> bool:
         return True
@@ -238,6 +231,7 @@ def create_verifier(mode: str = "production", **kwargs) -> BelizeIDVerifier:
 
 # Example usage
 if __name__ == "__main__":
+
     async def main():
         verifier = create_verifier(mode="development")
         await verifier.connect()

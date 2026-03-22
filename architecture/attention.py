@@ -97,10 +97,7 @@ class MultiHeadAttention(nn.Module):
         return x.view(batch_size, seq_len, self.hidden_size)
 
     def _create_causal_mask(
-        self,
-        seq_len: int,
-        device: torch.device,
-        dtype: torch.dtype
+        self, seq_len: int, device: torch.device, dtype: torch.dtype
     ) -> torch.Tensor:
         """
         Create causal attention mask for autoregressive generation
@@ -116,7 +113,7 @@ class MultiHeadAttention(nn.Module):
         # Create lower triangular matrix (1 for allowed positions, 0 for masked)
         mask = torch.tril(torch.ones(seq_len, seq_len, device=device, dtype=dtype))
         # Convert 0s to -inf for masking in softmax
-        mask = mask.masked_fill(mask == 0, float('-inf'))
+        mask = mask.masked_fill(mask == 0, float("-inf"))
         mask = mask.masked_fill(mask == 1, 0.0)
         return mask
 
@@ -186,7 +183,9 @@ class MultiHeadAttention(nn.Module):
             # Expand mask to [batch, 1, seq_len, kv_len]
             attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
             attention_mask = attention_mask.to(dtype=attn_weights.dtype)
-            attention_mask = (1.0 - attention_mask) * torch.finfo(attn_weights.dtype).min
+            attention_mask = (1.0 - attention_mask) * torch.finfo(
+                attn_weights.dtype
+            ).min
             attn_weights = attn_weights + attention_mask
 
         # Softmax to get attention probabilities

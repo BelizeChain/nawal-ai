@@ -14,8 +14,11 @@ Model Versioning:
 import torch
 import torch.nn as nn
 from transformers import (
-    AutoTokenizer, AutoModel, AutoModelForSequenceClassification,
-    BitsAndBytesConfig, AutoModelForCausalLM
+    AutoTokenizer,
+    AutoModel,
+    AutoModelForSequenceClassification,
+    BitsAndBytesConfig,
+    AutoModelForCausalLM,
 )
 from typing import Optional, Dict, Any
 from datetime import datetime, timezone
@@ -33,9 +36,10 @@ MODEL_REGISTRY = {
         "base_model": "nawal-transformer-small",
         "parameters": 117_000_000,
         "training_rounds": 0,
-        "breaking_changes": "Pure Nawal transformer - 100% sovereign architecture"
+        "breaking_changes": "Pure Nawal transformer - 100% sovereign architecture",
     }
 }
+
 
 class BelizeChainLLM(nn.Module):
     """
@@ -54,7 +58,7 @@ class BelizeChainLLM(nn.Module):
         num_labels: int = 2,
         dropout: float = 0.1,
         belizean_vocab_extension: bool = True,
-        version: str = MODEL_VERSION
+        version: str = MODEL_VERSION,
     ):
         super(BelizeChainLLM, self).__init__()
 
@@ -82,13 +86,12 @@ class BelizeChainLLM(nn.Module):
             nn.Linear(self.transformer.config.hidden_size, 512),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(512, num_labels)
+            nn.Linear(512, num_labels),
         )
 
         # Language modeling head
         self.lm_head = nn.Linear(
-            self.transformer.config.hidden_size,
-            self.transformer.config.vocab_size
+            self.transformer.config.hidden_size, self.transformer.config.vocab_size
         )
 
         logger.info(f"Initialized BelizeChain LLM with {model_name}")
@@ -97,23 +100,45 @@ class BelizeChainLLM(nn.Module):
         """Extend tokenizer with Belizean-specific terms"""
         belizean_tokens = [
             # Currencies and Financial Terms
-            "bBZD", "Dalla", "Mahogany", "BZD",
-
+            "bBZD",
+            "Dalla",
+            "Mahogany",
+            "BZD",
             # Government and Legal
-            "FSC", "GOB", "BLEAC", "MoF", "CBB",
-            "BelizeID", "SSI", "KYC", "AML",
-
+            "FSC",
+            "GOB",
+            "BLEAC",
+            "MoF",
+            "CBB",
+            "BelizeID",
+            "SSI",
+            "KYC",
+            "AML",
             # Geographic and Cultural
-            "Belize", "Belizean", "Kriol", "Garifuna",
-            "Maya", "Mestizo", "Mennonite",
-            "Cayo", "Toledo", "Orange Walk", "Corozal", "Stann Creek",
-
+            "Belize",
+            "Belizean",
+            "Kriol",
+            "Garifuna",
+            "Maya",
+            "Mestizo",
+            "Mennonite",
+            "Cayo",
+            "Toledo",
+            "Orange Walk",
+            "Corozal",
+            "Stann Creek",
             # Legal Framework Terms
-            "pallet-belize-kyc", "PoUW", "XCM",
-            "landledger", "belizex",
-
+            "pallet-belize-kyc",
+            "PoUW",
+            "XCM",
+            "landledger",
+            "belizex",
             # Technical Terms
-            "substrate", "polkadot", "WASM", "IPFS", "arweave"
+            "substrate",
+            "polkadot",
+            "WASM",
+            "IPFS",
+            "arweave",
         ]
 
         # Add tokens to tokenizer
@@ -125,7 +150,7 @@ class BelizeChainLLM(nn.Module):
         input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
         labels: Optional[torch.Tensor] = None,
-        task: str = "classification"
+        task: str = "classification",
     ) -> Dict[str, torch.Tensor]:
         """
         Forward pass supporting multiple tasks
@@ -137,13 +162,14 @@ class BelizeChainLLM(nn.Module):
             task: Task type ("classification", "language_modeling")
         """
         # Get transformer outputs
-        outputs = self.transformer(
-            input_ids=input_ids,
-            attention_mask=attention_mask
-        )
+        outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
 
         hidden_states = outputs.last_hidden_state
-        pooled_output = outputs.pooler_output if hasattr(outputs, 'pooler_output') else hidden_states[:, 0]
+        pooled_output = (
+            outputs.pooler_output
+            if hasattr(outputs, "pooler_output")
+            else hidden_states[:, 0]
+        )
 
         result = {"hidden_states": hidden_states}
 
@@ -166,10 +192,13 @@ class BelizeChainLLM(nn.Module):
                 shift_labels = labels[..., 1:].contiguous()
 
                 loss_fn = nn.CrossEntropyLoss(ignore_index=-100)
-                loss = loss_fn(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+                loss = loss_fn(
+                    shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1)
+                )
                 result["loss"] = loss
 
         return result
+
 
 class QuantizedBelizeModel(nn.Module):
     """
@@ -183,7 +212,7 @@ class QuantizedBelizeModel(nn.Module):
         self,
         model_name: str,  # HuggingFace model ID to load (e.g. "meta-llama/Llama-3-8B")
         bits: int = 8,
-        num_labels: int = 2
+        num_labels: int = 2,
     ):
         super(QuantizedBelizeModel, self).__init__()
 
@@ -216,21 +245,18 @@ class QuantizedBelizeModel(nn.Module):
                 model_name,
                 quantization_config=quantization_config,
                 device_map="auto",
-                num_labels=num_labels
+                num_labels=num_labels,
             )
         except Exception as e:
             logger.warning(f"Failed to load as classification model: {e}")
             # Fallback to base model
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                quantization_config=quantization_config,
-                device_map="auto"
+                model_name, quantization_config=quantization_config, device_map="auto"
             )
 
             # Add classification head
             self.classification_head = nn.Linear(
-                self.model.config.hidden_size,
-                num_labels
+                self.model.config.hidden_size, num_labels
             )
 
         logger.info(f"Initialized {bits}-bit quantized BelizeChain model")
@@ -239,18 +265,18 @@ class QuantizedBelizeModel(nn.Module):
         self,
         input_ids: torch.Tensor,
         attention_mask: Optional[torch.Tensor] = None,
-        labels: Optional[torch.Tensor] = None
+        labels: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
         """Forward pass for quantized model"""
 
         outputs = self.model(
             input_ids=input_ids,
             attention_mask=attention_mask,
-            labels=labels if hasattr(self.model, 'classifier') else None
+            labels=labels if hasattr(self.model, "classifier") else None,
         )
 
         # Handle different model architectures
-        if hasattr(self.model, 'classifier'):
+        if hasattr(self.model, "classifier"):
             # Model has built-in classifier
             return outputs
         else:
@@ -271,6 +297,7 @@ class QuantizedBelizeModel(nn.Module):
     def get_memory_footprint(self) -> int:
         """Get model memory footprint in bytes"""
         return sum(p.numel() * p.element_size() for p in self.model.parameters())
+
 
 class BelizeanLanguageDetector(nn.Module):
     """
@@ -298,21 +325,16 @@ class BelizeanLanguageDetector(nn.Module):
             nn.Linear(self.transformer.config.hidden_size, 256),
             nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(256, self.num_languages)
+            nn.Linear(256, self.num_languages),
         )
 
         logger.info("Initialized Belizean language detector")
 
     def forward(
-        self,
-        input_ids: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None
+        self, input_ids: torch.Tensor, attention_mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         """Detect language of input text"""
-        outputs = self.transformer(
-            input_ids=input_ids,
-            attention_mask=attention_mask
-        )
+        outputs = self.transformer(input_ids=input_ids, attention_mask=attention_mask)
 
         pooled_output = outputs.last_hidden_state[:, 0]  # [CLS] token
         logits = self.classifier(pooled_output)
@@ -322,23 +344,18 @@ class BelizeanLanguageDetector(nn.Module):
     def predict_language(self, text: str) -> str:
         """Predict the most likely language for given text"""
         inputs = self.tokenizer(
-            text,
-            return_tensors="pt",
-            truncation=True,
-            max_length=512
+            text, return_tensors="pt", truncation=True, max_length=512
         )
 
         with torch.no_grad():
-            probabilities = self.forward(
-                inputs["input_ids"],
-                inputs["attention_mask"]
-            )
+            probabilities = self.forward(inputs["input_ids"], inputs["attention_mask"])
 
         predicted_idx = torch.argmax(probabilities, dim=-1).item()
         return self.languages[predicted_idx]
 
 
 # Model versioning and checkpoint management utilities
+
 
 def compute_model_hash(model: nn.Module) -> str:
     """
@@ -359,9 +376,7 @@ def compute_model_hash(model: nn.Module) -> str:
 
 
 def save_versioned_checkpoint(
-    model: nn.Module,
-    path: str,
-    metadata: Optional[Dict[str, Any]] = None
+    model: nn.Module, path: str, metadata: Optional[Dict[str, Any]] = None
 ):
     """
     Save model checkpoint with version metadata
@@ -373,29 +388,29 @@ def save_versioned_checkpoint(
     """
     checkpoint = {
         "model_state_dict": model.state_dict(),
-        "version": getattr(model, 'version', MODEL_VERSION),
+        "version": getattr(model, "version", MODEL_VERSION),
         "model_hash": compute_model_hash(model),
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "metadata": metadata or {}
+        "metadata": metadata or {},
     }
 
-    if hasattr(model, 'training_rounds'):
+    if hasattr(model, "training_rounds"):
         checkpoint["training_rounds"] = model.training_rounds
 
-    if hasattr(model, 'privacy_epsilon'):
+    if hasattr(model, "privacy_epsilon"):
         checkpoint["privacy_budget"] = {
             "epsilon": model.privacy_epsilon,
-            "delta": model.privacy_delta
+            "delta": model.privacy_delta,
         }
 
     torch.save(checkpoint, path)
-    logger.info(f"✅ Saved versioned checkpoint: {path} (version {checkpoint['version']})")
+    logger.info(
+        f"✅ Saved versioned checkpoint: {path} (version {checkpoint['version']})"
+    )
 
 
 def load_versioned_checkpoint(
-    model: nn.Module,
-    path: str,
-    strict: bool = True
+    model: nn.Module, path: str, strict: bool = True
 ) -> Dict[str, Any]:
     """
     Load model checkpoint and verify version compatibility
@@ -408,14 +423,16 @@ def load_versioned_checkpoint(
     Returns:
         Checkpoint metadata dictionary
     """
-    checkpoint = torch.load(path, map_location='cpu', weights_only=True)
+    checkpoint = torch.load(path, map_location="cpu", weights_only=True)
 
     # Verify version compatibility
     checkpoint_version = checkpoint.get("version", "unknown")
-    current_version = getattr(model, 'version', MODEL_VERSION)
+    current_version = getattr(model, "version", MODEL_VERSION)
 
     if checkpoint_version != current_version:
-        logger.warning(f"⚠️ Version mismatch: checkpoint={checkpoint_version}, current={current_version}")
+        logger.warning(
+            f"⚠️ Version mismatch: checkpoint={checkpoint_version}, current={current_version}"
+        )
 
         # Check if versions are compatible (same MAJOR.MINOR)
         if not versions_compatible(checkpoint_version, current_version):
@@ -428,17 +445,19 @@ def load_versioned_checkpoint(
     model.load_state_dict(checkpoint["model_state_dict"], strict=strict)
 
     # Restore metadata
-    if hasattr(model, 'training_rounds'):
+    if hasattr(model, "training_rounds"):
         model.training_rounds = checkpoint.get("training_rounds", 0)
 
     if "privacy_budget" in checkpoint:
         model.privacy_epsilon = checkpoint["privacy_budget"]["epsilon"]
         model.privacy_delta = checkpoint["privacy_budget"]["delta"]
 
-    if hasattr(model, 'last_updated'):
+    if hasattr(model, "last_updated"):
         model.last_updated = datetime.fromisoformat(checkpoint["timestamp"])
 
-    logger.info(f"✅ Loaded checkpoint: {path} (hash: {checkpoint.get('model_hash', 'N/A')})")
+    logger.info(
+        f"✅ Loaded checkpoint: {path} (hash: {checkpoint.get('model_hash', 'N/A')})"
+    )
 
     return checkpoint.get("metadata", {})
 
@@ -450,8 +469,8 @@ def versions_compatible(version1: str, version2: str) -> bool:
     Compatible if MAJOR.MINOR match (PATCH differences allowed)
     """
     try:
-        v1_parts = version1.split('.')
-        v2_parts = version2.split('.')
+        v1_parts = version1.split(".")
+        v2_parts = version2.split(".")
 
         # Same MAJOR.MINOR = compatible
         return v1_parts[0] == v2_parts[0] and v1_parts[1] == v2_parts[1]
@@ -469,24 +488,22 @@ def get_model_info(model: nn.Module) -> Dict[str, Any]:
         Dictionary with model metadata
     """
     return {
-        "version": getattr(model, 'version', 'unknown'),
-        "model_name": getattr(model, 'model_name', 'unknown'),
+        "version": getattr(model, "version", "unknown"),
+        "model_name": getattr(model, "model_name", "unknown"),
         "parameters": sum(p.numel() for p in model.parameters()),
-        "training_rounds": getattr(model, 'training_rounds', 0),
-        "created_at": getattr(model, 'created_at', None),
-        "last_updated": getattr(model, 'last_updated', None),
+        "training_rounds": getattr(model, "training_rounds", 0),
+        "created_at": getattr(model, "created_at", None),
+        "last_updated": getattr(model, "last_updated", None),
         "model_hash": compute_model_hash(model),
         "privacy_budget": {
-            "epsilon": getattr(model, 'privacy_epsilon', 0.0),
-            "delta": getattr(model, 'privacy_delta', 0.0)
-        }
+            "epsilon": getattr(model, "privacy_epsilon", 0.0),
+            "delta": getattr(model, "privacy_delta", 0.0),
+        },
     }
 
 
 def create_belizechain_model(
-    model_type: str = "standard",
-    quantization_bits: int = None,
-    **kwargs
+    model_type: str = "standard", quantization_bits: int = None, **kwargs
 ) -> nn.Module:
     """
     Factory function to create BelizeChain models
@@ -505,6 +522,7 @@ def create_belizechain_model(
         return BelizeanLanguageDetector(**kwargs)
     else:
         return BelizeChainLLM(**kwargs)
+
 
 if __name__ == "__main__":
     # Test model creation

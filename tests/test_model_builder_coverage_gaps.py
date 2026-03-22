@@ -38,7 +38,6 @@ from genome.model_builder import (
 from genome.encoding import Genome, ArchitectureLayer, LayerType
 from nawal.genome.dna import DNA, LayerGene
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -97,13 +96,17 @@ class TestMultiQueryAttention:
 
 class TestGroupedQueryAttention:
     def test_forward(self):
-        gqa = GroupedQueryAttention(hidden_size=64, num_heads=4, num_kv_heads=2, dropout=0.0)
+        gqa = GroupedQueryAttention(
+            hidden_size=64, num_heads=4, num_kv_heads=2, dropout=0.0
+        )
         x = torch.randn(2, 8, 64)
         out = gqa(x)
         assert out.shape == (2, 8, 64)
 
     def test_forward_with_mask(self):
-        gqa = GroupedQueryAttention(hidden_size=64, num_heads=4, num_kv_heads=2, dropout=0.0)
+        gqa = GroupedQueryAttention(
+            hidden_size=64, num_heads=4, num_kv_heads=2, dropout=0.0
+        )
         x = torch.randn(2, 8, 64)
         mask = torch.zeros(2, 1, 1, 8)
         out = gqa(x, attention_mask=mask)
@@ -123,11 +126,13 @@ class TestAttentionFactory:
         attn = AttentionFactory.create("flash_attention", 64, 4, 0.0)
         # Falls back to MultiHeadAttention
         from genome.model_builder import MultiHeadAttention
+
         assert isinstance(attn, MultiHeadAttention)
 
     def test_unknown_type(self):
         attn = AttentionFactory.create("xxunknownxx", 64, 4, 0.0)
         from genome.model_builder import MultiHeadAttention
+
         assert isinstance(attn, MultiHeadAttention)
 
 
@@ -138,7 +143,13 @@ class TestAttentionFactory:
 
 class TestMoELayer:
     def test_forward(self):
-        moe = MoELayer(hidden_size=64, intermediate_size=128, num_experts=4, num_experts_per_token=2, dropout=0.0)
+        moe = MoELayer(
+            hidden_size=64,
+            intermediate_size=128,
+            num_experts=4,
+            num_experts_per_token=2,
+            dropout=0.0,
+        )
         x = torch.randn(2, 4, 64)
         out = moe(x)
         assert out.shape == (2, 4, 64)
@@ -147,8 +158,12 @@ class TestMoELayer:
 class TestTransformerBlockMoE:
     def test_moe_transformer(self):
         block = TransformerBlock(
-            hidden_size=64, num_heads=4, intermediate_size=128,
-            use_moe=True, num_experts=4, dropout=0.0,
+            hidden_size=64,
+            num_heads=4,
+            intermediate_size=128,
+            use_moe=True,
+            num_experts=4,
+            dropout=0.0,
         )
         x = torch.randn(1, 4, 64)
         out = block(x)
@@ -382,7 +397,12 @@ class TestModelBuilderBuild:
         builder = ModelBuilder(vocab_size=10, max_seq_length=16)
         dna = DNA(input_size=10, output_size=5)
         dna.layer_genes = [
-            LayerGene(innovation_id=1, layer_type="linear", params={"in_features": 10, "out_features": 5}, enabled=True),
+            LayerGene(
+                innovation_id=1,
+                layer_type="linear",
+                params={"in_features": 10, "out_features": 5},
+                enabled=True,
+            ),
         ]
         model = builder.build(dna)
         assert isinstance(model, nn.Sequential)
@@ -392,7 +412,12 @@ class TestModelBuilderBuild:
         builder = ModelBuilder(vocab_size=10, max_seq_length=16)
         dna = DNA(input_size=10, output_size=5)
         dna.layer_genes = [
-            LayerGene(innovation_id=1, layer_type="linear", params={"in_features": 10, "out_features": 5}, enabled=True),
+            LayerGene(
+                innovation_id=1,
+                layer_type="linear",
+                params={"in_features": 10, "out_features": 5},
+                enabled=True,
+            ),
             LayerGene(innovation_id=2, layer_type="relu", params={}, enabled=False),
         ]
         model = builder.build(dna)
@@ -430,19 +455,28 @@ class TestModelBuilderBuild:
 class TestBuildLayer:
     def test_linear(self):
         builder = ModelBuilder()
-        gene = LayerGene(1, "linear", {"in_features": 10, "out_features": 5}, enabled=True)
+        gene = LayerGene(
+            1, "linear", {"in_features": 10, "out_features": 5}, enabled=True
+        )
         layer = builder.build_layer(gene)
         assert isinstance(layer, nn.Linear)
 
     def test_conv2d(self):
         builder = ModelBuilder()
-        gene = LayerGene(1, "conv2d", {"in_channels": 3, "out_channels": 16, "kernel_size": 3}, enabled=True)
+        gene = LayerGene(
+            1,
+            "conv2d",
+            {"in_channels": 3, "out_channels": 16, "kernel_size": 3},
+            enabled=True,
+        )
         layer = builder.build_layer(gene)
         assert isinstance(layer, nn.Conv2d)
 
     def test_conv_alias(self):
         builder = ModelBuilder()
-        gene = LayerGene(1, "conv", {"in_channels": 3, "out_channels": 16}, enabled=True)
+        gene = LayerGene(
+            1, "conv", {"in_channels": 3, "out_channels": 16}, enabled=True
+        )
         layer = builder.build_layer(gene)
         assert isinstance(layer, nn.Conv2d)
 
@@ -528,7 +562,9 @@ class TestBuildLayer:
 
     def test_multiheadattention(self):
         builder = ModelBuilder()
-        gene = LayerGene(1, "multihead_attention", {"embed_dim": 64, "num_heads": 4}, enabled=True)
+        gene = LayerGene(
+            1, "multihead_attention", {"embed_dim": 64, "num_heads": 4}, enabled=True
+        )
         assert isinstance(builder.build_layer(gene), nn.MultiheadAttention)
 
     def test_flatten(self):

@@ -23,6 +23,7 @@ Usage::
     ranked = model.ranked(candidates, context={"goal": "geography question"})
     best   = ranked[0]
 """
+
 from __future__ import annotations
 
 import re
@@ -33,13 +34,14 @@ from loguru import logger
 
 try:
     from valuation.interfaces import AbstractRewardModel, DriveSignal
-except ImportError:                         # graceful fallback during testing
+except ImportError:  # graceful fallback during testing
     from interfaces import AbstractRewardModel, DriveSignal  # type: ignore
 
 
 # --------------------------------------------------------------------------- #
 # Drive evaluator functions                                                    #
 # --------------------------------------------------------------------------- #
+
 
 def _safety_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> float:
     """
@@ -51,8 +53,14 @@ def _safety_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> flo
     """
     text = str(candidate.get("text", candidate.get("content", "")))
     unsafe_patterns = [
-        r"\bharm\b", r"\bdamage\b", r"\bdestroy\b", r"\battack\b",
-        r"\binjure\b", r"\bkill\b", r"\bexploit\b", r"\bbypass\b",
+        r"\bharm\b",
+        r"\bdamage\b",
+        r"\bdestroy\b",
+        r"\battack\b",
+        r"\binjure\b",
+        r"\bkill\b",
+        r"\bexploit\b",
+        r"\bbypass\b",
         r"\billegal\b",
     ]
     for pat in unsafe_patterns:
@@ -102,7 +110,13 @@ def _curiosity_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> 
     Heuristic: information-seeking verbs or question marks.
     """
     text = str(candidate.get("text", candidate.get("content", "")))
-    search_signals = [r"\?", r"\bsearch\b", r"\bquery\b", r"\blook up\b", r"\bexplore\b"]
+    search_signals = [
+        r"\?",
+        r"\bsearch\b",
+        r"\bquery\b",
+        r"\blook up\b",
+        r"\bexplore\b",
+    ]
     for pat in search_signals:
         if re.search(pat, text, re.IGNORECASE):
             return 0.9
@@ -113,9 +127,9 @@ def _curiosity_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> 
 
 # Default drive definitions
 _DEFAULT_DRIVES: List[Tuple[str, float, Callable]] = [
-    ("safety",    2.0, _safety_evaluator),
+    ("safety", 2.0, _safety_evaluator),
     ("alignment", 1.5, _alignment_evaluator),
-    ("novelty",   1.0, _novelty_evaluator),
+    ("novelty", 1.0, _novelty_evaluator),
     ("curiosity", 0.8, _curiosity_evaluator),
 ]
 
@@ -123,6 +137,7 @@ _DEFAULT_DRIVES: List[Tuple[str, float, Callable]] = [
 # --------------------------------------------------------------------------- #
 # DriveBasedRewardModel                                                        #
 # --------------------------------------------------------------------------- #
+
 
 class DriveBasedRewardModel(AbstractRewardModel):
     """
@@ -214,9 +229,7 @@ class DriveBasedRewardModel(AbstractRewardModel):
         ``_score`` key.
         """
         scores = self.score(candidates, context, drives)
-        annotated = [
-            {**c, "_score": s} for c, s in zip(candidates, scores)
-        ]
+        annotated = [{**c, "_score": s} for c, s in zip(candidates, scores)]
         annotated.sort(key=lambda x: x["_score"], reverse=True)
         return annotated
 

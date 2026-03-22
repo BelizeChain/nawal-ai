@@ -17,6 +17,7 @@ Usage::
         {"tool": "memory_write","args": {"content": "<result from step 1>"}},
     ])
 """
+
 from __future__ import annotations
 
 import time
@@ -43,9 +44,9 @@ class ActionExecutor:
         registry: ToolRegistry,
         chain_outputs: bool = True,
     ) -> None:
-        self._registry     = registry
-        self._chain        = chain_outputs
-        self._history:     List[Dict[str, Any]] = []
+        self._registry = registry
+        self._chain = chain_outputs
+        self._history: List[Dict[str, Any]] = []
 
     # ------------------------------------------------------------------ #
     # Single tool call                                                     #
@@ -57,12 +58,16 @@ class ActionExecutor:
         result = self._registry.call(tool_name, **kwargs)
         elapsed = (time.time() - t0) * 1000
 
-        self._history.append({
-            "tool":       tool_name,
-            "kwargs":     {k: v for k, v in kwargs.items() if k != "code"},  # skip large blobs
-            "status":     result.status,
-            "latency_ms": elapsed,
-        })
+        self._history.append(
+            {
+                "tool": tool_name,
+                "kwargs": {
+                    k: v for k, v in kwargs.items() if k != "code"
+                },  # skip large blobs
+                "status": result.status,
+                "latency_ms": elapsed,
+            }
+        )
 
         logger.debug(
             f"ActionExecutor: '{tool_name}' → {result.status.value} "
@@ -93,16 +98,16 @@ class ActionExecutor:
 
         for i, step in enumerate(steps):
             tool_name = step.get("tool", "")
-            args      = dict(step.get("args", {}))
+            args = dict(step.get("args", {}))
 
             if self._chain and prev_output is not None and "_prev_output" not in args:
                 args["_prev_output"] = prev_output
 
             if not tool_name:
                 r = ToolResult(
-                    tool_name = "",
-                    status    = ToolStatus.FAILURE,
-                    error     = f"Step {i}: missing 'tool' key",
+                    tool_name="",
+                    status=ToolStatus.FAILURE,
+                    error=f"Step {i}: missing 'tool' key",
                 )
                 results.append(r)
                 continue

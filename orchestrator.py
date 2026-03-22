@@ -56,7 +56,6 @@ from nawal.quantum import (
 from nawal.maintenance import MaintenanceLayer
 from nawal.action import ActionLayer
 
-
 # =============================================================================
 # Generation State
 # =============================================================================
@@ -210,7 +209,11 @@ class EvolutionOrchestrator:
         # 5d: Quantum imagination — parallel future-trajectory sampling
         # Wires into the metacognition simulator if present
         try:
-            _sim = getattr(self.metacognition, "simulator", None) if self.metacognition else None
+            _sim = (
+                getattr(self.metacognition, "simulator", None)
+                if self.metacognition
+                else None
+            )
             self.quantum_imagination = QuantumImagination(
                 internal_simulator=_sim,
             )
@@ -236,8 +239,13 @@ class EvolutionOrchestrator:
         try:
             self.action = ActionLayer(
                 memory_manager=self.memory,
-                safety_screener=getattr(self.maintenance, "input_screener", None) if self.maintenance else None,
-                stub_network_tools=os.getenv("NAWAL_ENV", "development") != "production",
+                safety_screener=(
+                    getattr(self.maintenance, "input_screener", None)
+                    if self.maintenance
+                    else None
+                ),
+                stub_network_tools=os.getenv("NAWAL_ENV", "development")
+                != "production",
             )
         except Exception as e:
             logger.warning("Action layer unavailable: {}", e)
@@ -266,10 +274,14 @@ class EvolutionOrchestrator:
         start_time = time.time()
 
         # Main evolution loop
-        for gen in range(self.current_generation, self.config.evolution.num_generations):
+        for gen in range(
+            self.current_generation, self.config.evolution.num_generations
+        ):
             self.current_generation = gen
 
-            logger.info(f"=== GENERATION {gen + 1}/{self.config.evolution.num_generations} ===")
+            logger.info(
+                f"=== GENERATION {gen + 1}/{self.config.evolution.num_generations} ==="
+            )
 
             # Run generation
             gen_start = time.time()
@@ -413,6 +425,7 @@ class EvolutionOrchestrator:
 
         # Add some randomness to simulate training variance
         import random
+
         random.seed(hash(genome.genome_id) + generation)
         variance = random.uniform(-10.0, 10.0)
 
@@ -434,7 +447,10 @@ class EvolutionOrchestrator:
         Returns:
             List of parent genomes
         """
-        num_parents = int(self.config.evolution.population_size * self.config.evolution.selection_pressure)
+        num_parents = int(
+            self.config.evolution.population_size
+            * self.config.evolution.selection_pressure
+        )
         num_parents = max(2, num_parents)  # At least 2 parents
 
         # Use PopulationManager's select_parents method
@@ -705,8 +721,11 @@ class EvolutionOrchestrator:
             "best_fitness": latest.best_fitness,
             "avg_fitness": latest.avg_fitness,
             "diversity": latest.diversity,
-            "total_training_time": sum(s.training_time for s in self.generation_history),
-            "avg_generation_time": sum(s.training_time for s in self.generation_history) / len(self.generation_history),
+            "total_training_time": sum(
+                s.training_time for s in self.generation_history
+            ),
+            "avg_generation_time": sum(s.training_time for s in self.generation_history)
+            / len(self.generation_history),
             "fitness_history": [s.best_fitness for s in self.generation_history],
             "diversity_history": [s.diversity for s in self.generation_history],
         }

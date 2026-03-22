@@ -11,6 +11,7 @@ Covers the major uncovered branches (18% → ~90%+):
   - get_statistics, clear_cache, reset_statistics, __repr__
   - QuantumEnhancedLayer init and forward
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,12 +21,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import numpy as np
 import pytest
 
-from quantum.kinich_connector import KinichQuantumConnector, QuantumEnhancedLayer, TORCH_AVAILABLE
-
+from quantum.kinich_connector import (
+    KinichQuantumConnector,
+    QuantumEnhancedLayer,
+    TORCH_AVAILABLE,
+)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helper — build connector with mocked HTTP health-check
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 def _connector(
     kinich_status: int = 200,
@@ -59,6 +64,7 @@ def _connector(
 # ──────────────────────────────────────────────────────────────────────────────
 # KinichQuantumConnector — __init__ / _init_kinich_connection
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestKinichConnectorInit:
 
@@ -117,6 +123,7 @@ class TestKinichConnectorInit:
 # ──────────────────────────────────────────────────────────────────────────────
 # quantum_process — fallback path (bridge is always None)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestQuantumProcess:
 
@@ -185,6 +192,7 @@ class TestQuantumProcess:
 # _classical_fallback
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestClassicalFallback:
 
     def test_returns_same_shape(self):
@@ -214,6 +222,7 @@ class TestClassicalFallback:
 # _get_cache_key
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestGetCacheKey:
 
     def test_returns_string(self):
@@ -236,6 +245,7 @@ class TestGetCacheKey:
 # ──────────────────────────────────────────────────────────────────────────────
 # _quantum_forward (aiohttp mocked)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestQuantumForward:
 
@@ -287,6 +297,7 @@ class TestQuantumForward:
 # ──────────────────────────────────────────────────────────────────────────────
 # _vqc_forward, _qsvm_forward, _qnn_forward
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestLegacyForwardMethods:
 
@@ -353,14 +364,21 @@ class TestLegacyForwardMethods:
 # get_statistics, clear_cache, reset_statistics, __repr__
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestStatistics:
 
     def test_get_statistics_structure(self):
         conn = _connector(url_error=True)
         stats = conn.get_statistics()
         expected_keys = {
-            "total_calls", "quantum_calls", "cache_hits", "fallback_calls",
-            "quantum_ratio", "cache_hit_ratio", "avg_latency", "kinich_available",
+            "total_calls",
+            "quantum_calls",
+            "cache_hits",
+            "fallback_calls",
+            "quantum_ratio",
+            "cache_hit_ratio",
+            "avg_latency",
+            "kinich_available",
         }
         assert expected_keys <= set(stats.keys())
 
@@ -410,6 +428,7 @@ class TestStatistics:
 # QuantumEnhancedLayer
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch not available")
 class TestQuantumEnhancedLayer:
 
@@ -430,6 +449,7 @@ class TestQuantumEnhancedLayer:
 
     def test_forward_returns_same_shape(self):
         import torch
+
         layer = self._make_layer()
         x = torch.randn(3, 8)
         result = layer(x)
@@ -437,6 +457,7 @@ class TestQuantumEnhancedLayer:
 
     def test_forward_returns_tensor(self):
         import torch
+
         layer = self._make_layer()
         x = torch.randn(2, 8)
         result = layer(x)
@@ -444,6 +465,7 @@ class TestQuantumEnhancedLayer:
 
     def test_forward_preserves_dtype(self):
         import torch
+
         layer = self._make_layer()
         x = torch.randn(2, 8, dtype=torch.float32)
         result = layer(x)
@@ -465,6 +487,7 @@ class TestQuantumEnhancedLayer:
 # ──────────────────────────────────────────────────────────────────────────────
 # Module-level import guard — TORCH_AVAILABLE = False branch (lines 16-18)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestTorchUnavailableBranch:
 
@@ -502,6 +525,7 @@ class TestTorchUnavailableBranch:
 # quantum_process — bridge≠None exception path (lines 164-173)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestQuantumProcessBridgePath:
 
     def test_successful_quantum_forward_increments_quantum_calls(self):
@@ -524,7 +548,7 @@ class TestQuantumProcessBridgePath:
         """When bridge is set and _quantum_forward raises, fallback is used."""
         conn = _connector(url_error=True)
         conn.kinich_available = True
-        conn.bridge = MagicMock()   # Simulate an initialized bridge
+        conn.bridge = MagicMock()  # Simulate an initialized bridge
 
         async def failing_forward(features, model_type, **kwargs):
             raise RuntimeError("quantum hardware error")
@@ -558,6 +582,7 @@ class TestQuantumProcessBridgePath:
 # ──────────────────────────────────────────────────────────────────────────────
 # QuantumEnhancedLayer — additional edge cases (lines 386, 427-429)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch not available")
 class TestQuantumEnhancedLayerEdges:

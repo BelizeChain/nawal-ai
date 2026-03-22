@@ -16,6 +16,7 @@ Usage::
 The registry is thread-safe for concurrent reads; concurrent registration
 is protected by a lock.
 """
+
 from __future__ import annotations
 
 import threading
@@ -43,9 +44,9 @@ class ToolRegistry(AbstractToolRegistry):
     """
 
     def __init__(self, safety_screener: Optional[Any] = None) -> None:
-        self._tools:    Dict[str, AbstractTool] = {}
-        self._screener  = safety_screener
-        self._lock      = threading.RLock()
+        self._tools: Dict[str, AbstractTool] = {}
+        self._screener = safety_screener
+        self._lock = threading.RLock()
 
         logger.info("ToolRegistry initialised")
 

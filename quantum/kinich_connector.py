@@ -12,6 +12,7 @@ import asyncio
 try:
     import torch
     import torch.nn as nn
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -93,10 +94,10 @@ class KinichQuantumConnector:
 
         # Statistics
         self.stats = {
-            'quantum_calls': 0,
-            'cache_hits': 0,
-            'fallback_calls': 0,
-            'total_latency': 0.0
+            "quantum_calls": 0,
+            "cache_hits": 0,
+            "fallback_calls": 0,
+            "total_latency": 0.0,
         }
 
         # Initialize connection
@@ -114,10 +115,7 @@ class KinichQuantumConnector:
             import urllib.request
             import urllib.error
 
-            kinich_api_url = os.getenv(
-                "KINICH_API_URL",
-                self.kinich_endpoint
-            )
+            kinich_api_url = os.getenv("KINICH_API_URL", self.kinich_endpoint)
 
             # Synchronous health check — safe to call from any context
             try:
@@ -128,7 +126,9 @@ class KinichQuantumConnector:
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     self.kinich_available = resp.status == 200
                 if self.kinich_available:
-                    logger.info(f"Connected to Kinich quantum backend at {kinich_api_url}")
+                    logger.info(
+                        f"Connected to Kinich quantum backend at {kinich_api_url}"
+                    )
                 else:
                     logger.warning("Kinich health check failed")
             except (urllib.error.URLError, OSError) as health_error:
@@ -185,10 +185,7 @@ class KinichQuantumConnector:
         logger.info("Circuit breaker manually reset")
 
     async def quantum_process(
-        self,
-        features: np.ndarray,
-        model_type: str = "vqc",
-        **kwargs
+        self, features: np.ndarray, model_type: str = "vqc", **kwargs
     ) -> np.ndarray:
         """
         Process features through Kinich quantum neural networks.
@@ -202,6 +199,7 @@ class KinichQuantumConnector:
             Quantum-enhanced features [batch_size, classical_dim]
         """
         import time
+
         start_time = time.time()
 
         # Validate input
@@ -211,7 +209,7 @@ class KinichQuantumConnector:
         if self.enable_caching:
             cache_key = self._get_cache_key(features)
             if cache_key in self.result_cache:
-                self.stats['cache_hits'] += 1
+                self.stats["cache_hits"] += 1
                 logger.debug("Cache hit - returning cached result")
                 return self.result_cache[cache_key]
 
@@ -219,24 +217,24 @@ class KinichQuantumConnector:
         if self._is_quantum_available():
             try:
                 result = await self._quantum_forward(features, model_type, **kwargs)
-                self.stats['quantum_calls'] += 1
+                self.stats["quantum_calls"] += 1
                 self._record_quantum_success()
             except Exception as e:
                 logger.warning(f"Quantum processing failed: {e}")
                 self._record_quantum_failure()
                 if self.fallback_to_classical:
                     result = self._classical_fallback(features)
-                    self.stats['fallback_calls'] += 1
+                    self.stats["fallback_calls"] += 1
                 else:
                     raise
         else:
             # Fallback to classical
             result = self._classical_fallback(features)
-            self.stats['fallback_calls'] += 1
+            self.stats["fallback_calls"] += 1
 
         # Update statistics
         latency = time.time() - start_time
-        self.stats['total_latency'] += latency
+        self.stats["total_latency"] += latency
 
         # Cache result
         if self.enable_caching:
@@ -249,10 +247,7 @@ class KinichQuantumConnector:
         return result
 
     async def _quantum_forward(
-        self,
-        features: np.ndarray,
-        model_type: str,
-        **kwargs
+        self, features: np.ndarray, model_type: str, **kwargs
     ) -> np.ndarray:
         """
         Execute quantum forward pass via Kinich HTTP API.
@@ -270,7 +265,7 @@ class KinichQuantumConnector:
             "model_type": model_type,
             "classical_dim": self.classical_dim,
             "quantum_dim": self.quantum_dim,
-            **kwargs
+            **kwargs,
         }
 
         # Send to Kinich API
@@ -278,7 +273,7 @@ class KinichQuantumConnector:
             async with session.post(
                 f"{self.kinich_endpoint}/api/v1/qml/process",
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self.request_timeout)
+                timeout=aiohttp.ClientTimeout(total=self.request_timeout),
             ) as resp:
                 if resp.status != 200:
                     error_text = await resp.text()
@@ -303,35 +298,23 @@ class KinichQuantumConnector:
 
         return classical_results
 
-    async def _vqc_forward(
-        self,
-        quantum_features: np.ndarray,
-        **kwargs
-    ) -> np.ndarray:
+    async def _vqc_forward(self, quantum_features: np.ndarray, **kwargs) -> np.ndarray:
         """Process via Variational Quantum Classifier (HTTP API)."""
         # VQC is handled by _quantum_forward HTTP call
         # This method is kept for backward compatibility
         logger.warning("_vqc_forward called directly - use _quantum_forward instead")
         return await self._quantum_forward(quantum_features, "vqc", **kwargs)
 
-    async def _qsvm_forward(
-        self,
-        quantum_features: np.ndarray,
-        **kwargs
-    ) -> np.ndarray:
+    async def _qsvm_forward(self, quantum_features: np.ndarray, **kwargs) -> np.ndarray:
         """Process via Quantum Support Vector Machine."""
         # Placeholder for QSVM (implemented in Phase 3)
         logger.warning("QSVM not yet implemented - using mock")
 
         # Mock QSVM output
         batch_size = quantum_features.shape[0]
-        return np.random.rand(batch_size, kwargs.get('num_classes', 2))
+        return np.random.rand(batch_size, kwargs.get("num_classes", 2))
 
-    async def _qnn_forward(
-        self,
-        quantum_features: np.ndarray,
-        **kwargs
-    ) -> np.ndarray:
+    async def _qnn_forward(self, quantum_features: np.ndarray, **kwargs) -> np.ndarray:
         """Process via Quantum Neural Network (HTTP API)."""
         # QNN is handled by _quantum_forward HTTP call
         # This method is kept for backward compatibility
@@ -348,11 +331,11 @@ class KinichQuantumConnector:
 
         # Simple classical transformation (PCA-like)
         # In production, this would use trained classical model
-        if not hasattr(self, '_fallback_matrix'):
+        if not hasattr(self, "_fallback_matrix"):
             rng = np.random.default_rng(seed=42)
-            self._fallback_matrix = rng.standard_normal(
-                (self.classical_dim, self.classical_dim)
-            ) * 0.01
+            self._fallback_matrix = (
+                rng.standard_normal((self.classical_dim, self.classical_dim)) * 0.01
+            )
 
         result = features @ self._fallback_matrix.T
         return result
@@ -369,31 +352,25 @@ class KinichQuantumConnector:
         Returns:
             Dictionary with usage statistics
         """
-        total_calls = (
-            self.stats['quantum_calls'] +
-            self.stats['fallback_calls']
-        )
+        total_calls = self.stats["quantum_calls"] + self.stats["fallback_calls"]
 
         return {
-            'total_calls': total_calls,
-            'quantum_calls': self.stats['quantum_calls'],
-            'cache_hits': self.stats['cache_hits'],
-            'fallback_calls': self.stats['fallback_calls'],
-            'quantum_ratio': (
-                self.stats['quantum_calls'] / total_calls
-                if total_calls > 0 else 0.0
+            "total_calls": total_calls,
+            "quantum_calls": self.stats["quantum_calls"],
+            "cache_hits": self.stats["cache_hits"],
+            "fallback_calls": self.stats["fallback_calls"],
+            "quantum_ratio": (
+                self.stats["quantum_calls"] / total_calls if total_calls > 0 else 0.0
             ),
-            'cache_hit_ratio': (
-                self.stats['cache_hits'] / total_calls
-                if total_calls > 0 else 0.0
+            "cache_hit_ratio": (
+                self.stats["cache_hits"] / total_calls if total_calls > 0 else 0.0
             ),
-            'avg_latency': (
-                self.stats['total_latency'] / total_calls
-                if total_calls > 0 else 0.0
+            "avg_latency": (
+                self.stats["total_latency"] / total_calls if total_calls > 0 else 0.0
             ),
-            'kinich_available': self.kinich_available,
-            'circuit_open': self._circuit_open,
-            'consecutive_failures': self._consecutive_failures
+            "kinich_available": self.kinich_available,
+            "circuit_open": self._circuit_open,
+            "consecutive_failures": self._consecutive_failures,
         }
 
     def clear_cache(self) -> None:
@@ -404,10 +381,10 @@ class KinichQuantumConnector:
     def reset_statistics(self) -> None:
         """Reset usage statistics."""
         self.stats = {
-            'quantum_calls': 0,
-            'cache_hits': 0,
-            'fallback_calls': 0,
-            'total_latency': 0.0
+            "quantum_calls": 0,
+            "cache_hits": 0,
+            "fallback_calls": 0,
+            "total_latency": 0.0,
         }
         logger.info("Statistics reset")
 
@@ -443,12 +420,7 @@ class QuantumEnhancedLayer(nn.Module if TORCH_AVAILABLE else object):
         ...         return self.classifier(x)
     """
 
-    def __init__(
-        self,
-        classical_dim: int,
-        quantum_dim: int,
-        model_type: str = "vqc"
-    ):
+    def __init__(self, classical_dim: int, quantum_dim: int, model_type: str = "vqc"):
         """
         Initialize quantum-enhanced layer.
 
@@ -468,8 +440,7 @@ class QuantumEnhancedLayer(nn.Module if TORCH_AVAILABLE else object):
 
         # Create connector
         self.connector = KinichQuantumConnector(
-            classical_dim=classical_dim,
-            quantum_dim=quantum_dim
+            classical_dim=classical_dim, quantum_dim=quantum_dim
         )
 
         logger.info(
@@ -477,7 +448,7 @@ class QuantumEnhancedLayer(nn.Module if TORCH_AVAILABLE else object):
             f"{classical_dim}→{quantum_dim}→{classical_dim}"
         )
 
-    def forward(self, x: 'torch.Tensor') -> 'torch.Tensor':
+    def forward(self, x: "torch.Tensor") -> "torch.Tensor":
         """
         Forward pass with quantum enhancement.
 
@@ -492,6 +463,7 @@ class QuantumEnhancedLayer(nn.Module if TORCH_AVAILABLE else object):
 
         # Process via Kinich — run coroutine safely from sync or async context
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -500,6 +472,7 @@ class QuantumEnhancedLayer(nn.Module if TORCH_AVAILABLE else object):
         if loop is not None and loop.is_running():
             # Already inside an event loop — schedule in a new thread
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                 result_np = pool.submit(
                     asyncio.run,

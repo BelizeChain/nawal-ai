@@ -27,16 +27,17 @@ import pytest
 import torch
 import torch.nn as nn
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Section 1: blockchain/staking_connector.py
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestParticipantInfo:
     """Tests for ParticipantInfo dataclass."""
 
     def _make(self, **kwargs):
         from blockchain.staking_connector import ParticipantInfo
+
         defaults = dict(
             account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
             stake_amount=1000,
@@ -67,6 +68,7 @@ class TestParticipantInfo:
 
     def test_invalid_fitness_raises(self):
         from blockchain.staking_connector import ParticipantInfo
+
         with pytest.raises(ValueError):
             ParticipantInfo(
                 account_id="5G...",
@@ -79,6 +81,7 @@ class TestParticipantInfo:
 
     def test_negative_fitness_raises(self):
         from blockchain.staking_connector import ParticipantInfo
+
         with pytest.raises(ValueError):
             ParticipantInfo(
                 account_id="5G...",
@@ -103,6 +106,7 @@ class TestTrainingSubmission:
 
     def _make(self, **kwargs):
         from blockchain.staking_connector import TrainingSubmission
+
         defaults = dict(
             participant_id="5G...",
             round_number=1,
@@ -170,6 +174,7 @@ class TestStakingConnectorMockMode:
     @pytest.fixture
     def connector(self):
         from blockchain.staking_connector import StakingConnector
+
         return StakingConnector(mock_mode=True, enable_community_tracking=False)
 
     def test_mock_mode_flag(self, connector):
@@ -203,7 +208,9 @@ class TestStakingConnectorMockMode:
     def test_get_participant_info_not_enrolled(self, connector):
         asyncio.get_event_loop().run_until_complete(connector.connect())
         info = asyncio.get_event_loop().run_until_complete(
-            connector.get_participant_info("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY_NOTFOUND")
+            connector.get_participant_info(
+                "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY_NOTFOUND"
+            )
         )
         assert info is None
 
@@ -216,12 +223,15 @@ class TestStakingConnectorMockMode:
 
     def test_get_total_staked_mock(self, connector):
         asyncio.get_event_loop().run_until_complete(connector.connect())
-        total = asyncio.get_event_loop().run_until_complete(connector.get_total_staked())
+        total = asyncio.get_event_loop().run_until_complete(
+            connector.get_total_staked()
+        )
         assert isinstance(total, int)
         assert total >= 0
 
     def test_non_mock_mode_raises_without_substrate(self):
         from blockchain.staking_connector import StakingConnector
+
         # Without substrate installed, non-mock mode should raise ImportError
         with patch("blockchain.staking_connector.SUBSTRATE_AVAILABLE", False):
             with pytest.raises(ImportError):
@@ -232,17 +242,20 @@ class TestStakingConnectorMockMode:
 # Section 2: blockchain/mesh_network.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestMessageType:
     """Tests for MessageType enum."""
 
     def test_enum_values(self):
         from blockchain.mesh_network import MessageType
+
         assert MessageType.PEER_DISCOVERY.value == "peer_discovery"
         assert MessageType.FL_ROUND_START.value == "fl_round_start"
         assert MessageType.HEARTBEAT.value == "heartbeat"
 
     def test_all_values_strings(self):
         from blockchain.mesh_network import MessageType
+
         for mt in MessageType:
             assert isinstance(mt.value, str)
 
@@ -252,6 +265,7 @@ class TestPeerInfo:
 
     def _make(self, **kwargs):
         from blockchain.mesh_network import PeerInfo
+
         defaults = dict(
             peer_id="peer_abc123",
             account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
@@ -300,6 +314,7 @@ class TestMeshMessage:
 
     def _make(self, **kwargs):
         from blockchain.mesh_network import MeshMessage, MessageType
+
         defaults = dict(
             message_id="msg_001",
             message_type=MessageType.HEARTBEAT,
@@ -339,6 +354,7 @@ class TestMeshMessage:
 
     def test_from_dict_roundtrip(self):
         from blockchain.mesh_network import MeshMessage, MessageType
+
         m = self._make()
         d = m.to_dict()
         m2 = MeshMessage.from_dict(d)
@@ -348,6 +364,7 @@ class TestMeshMessage:
 
     def test_from_dict_payload_preserved(self):
         from blockchain.mesh_network import MeshMessage
+
         m = self._make(payload={"round": 5, "model": "test"})
         d = m.to_dict()
         m2 = MeshMessage.from_dict(d)
@@ -364,6 +381,7 @@ class TestFLRoundAnnouncement:
 
     def test_create(self):
         from blockchain.mesh_network import FLRoundAnnouncement
+
         ann = FLRoundAnnouncement(
             round_id="round_001",
             coordinator_id="coord_abc",
@@ -386,6 +404,7 @@ class TestMeshNetworkClient:
     @pytest.fixture
     def client(self):
         from blockchain.mesh_network import MeshNetworkClient
+
         # MeshNetworkClient takes: peer_id, listen_port, blockchain_rpc, private_key
         return MeshNetworkClient(
             peer_id="test_peer",
@@ -415,8 +434,11 @@ class TestMeshNetworkClient:
     def test_register_multiple_handlers(self, client):
         from blockchain.mesh_network import MessageType
 
-        async def h1(msg): pass
-        async def h2(msg): pass
+        async def h1(msg):
+            pass
+
+        async def h2(msg):
+            pass
 
         client.register_handler(MessageType.HEARTBEAT, h1)
         client.register_handler(MessageType.HEARTBEAT, h2)
@@ -427,32 +449,38 @@ class TestMeshNetworkClient:
 # Section 3: blockchain/events.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestEventType:
     """Tests for EventType enum."""
 
     def test_training_events_exist(self):
         from blockchain.events import EventType
+
         assert EventType.TRAINING_ROUND_STARTED
         assert EventType.TRAINING_PROOF_SUBMITTED
         assert EventType.TRAINING_ROUND_COMPLETED
 
     def test_enrollment_events_exist(self):
         from blockchain.events import EventType
+
         assert EventType.TRAINER_ENROLLED
         assert EventType.TRAINER_UNENROLLED
 
     def test_reward_events_exist(self):
         from blockchain.events import EventType
+
         assert EventType.REWARDS_CALCULATED
         assert EventType.REWARDS_CLAIMED
 
     def test_genome_events_exist(self):
         from blockchain.events import EventType
+
         assert EventType.GENOME_DEPLOYED
         assert EventType.GENOME_EVOLVED
 
     def test_penalty_events_exist(self):
         from blockchain.events import EventType
+
         assert EventType.TRAINER_SLASHED
 
 
@@ -461,6 +489,7 @@ class TestTrainingEvent:
 
     def _make(self, **kwargs):
         from blockchain.events import TrainingEvent, EventType
+
         defaults = dict(
             event_type=EventType.TRAINING_ROUND_STARTED,
             block_number=100,
@@ -487,6 +516,7 @@ class TestTrainingEvent:
 
     def test_different_event_types(self):
         from blockchain.events import EventType
+
         for et in EventType:
             e = self._make(event_type=et)
             assert e.event_type == et
@@ -498,6 +528,7 @@ class TestBlockchainEventListenerMockMode:
     @pytest.fixture
     def listener(self):
         from blockchain.events import BlockchainEventListener
+
         return BlockchainEventListener(mock_mode=True)
 
     def test_mock_mode_set(self, listener):
@@ -508,6 +539,7 @@ class TestBlockchainEventListenerMockMode:
 
     def test_handlers_dict_initialized(self, listener):
         from blockchain.events import EventType
+
         assert isinstance(listener.handlers, dict)
         for et in EventType:
             assert et in listener.handlers
@@ -540,7 +572,10 @@ class TestBlockchainEventListenerMockMode:
 
     def test_get_event_history_empty(self, listener):
         from blockchain.events import EventType
-        history = listener.get_event_history(event_type=EventType.TRAINING_ROUND_STARTED)
+
+        history = listener.get_event_history(
+            event_type=EventType.TRAINING_ROUND_STARTED
+        )
         assert history == []
 
     def test_get_event_history_all(self, listener):
@@ -553,15 +588,19 @@ class TestBlockchainEventListenerMockMode:
 
     def test_emit_mock_event(self, listener):
         from blockchain.events import EventType
+
         asyncio.get_event_loop().run_until_complete(listener.connect())
         asyncio.get_event_loop().run_until_complete(
             listener.emit_mock_event(EventType.TRAINING_ROUND_STARTED, {"round": 1})
         )
-        history = listener.get_event_history(event_type=EventType.TRAINING_ROUND_STARTED)
+        history = listener.get_event_history(
+            event_type=EventType.TRAINING_ROUND_STARTED
+        )
         assert len(history) >= 1
 
     def test_dispatch_event_calls_handlers(self, listener):
         from blockchain.events import EventType, TrainingEvent
+
         called = []
 
         async def my_handler(event):
@@ -575,9 +614,7 @@ class TestBlockchainEventListenerMockMode:
             timestamp="2024-01-01T00:00:00+00:00",
             data={"amount": 100},
         )
-        asyncio.get_event_loop().run_until_complete(
-            listener._dispatch_event(event)
-        )
+        asyncio.get_event_loop().run_until_complete(listener._dispatch_event(event))
         assert len(called) == 1
 
 
@@ -585,31 +622,37 @@ class TestBlockchainEventListenerMockMode:
 # Section 4: data/data_manager.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestSplitConfig:
     """Tests for SplitConfig dataclass."""
 
     def test_default_ratios(self):
         from data.data_manager import SplitConfig
+
         s = SplitConfig()
         assert abs(s.train_ratio + s.val_ratio + s.test_ratio - 1.0) < 1e-6
 
     def test_custom_ratios(self):
         from data.data_manager import SplitConfig
+
         s = SplitConfig(train_ratio=0.7, val_ratio=0.15, test_ratio=0.15)
         assert abs(s.train_ratio + s.val_ratio + s.test_ratio - 1.0) < 1e-6
 
     def test_invalid_ratios_raises(self):
         from data.data_manager import SplitConfig
+
         with pytest.raises(ValueError):
             SplitConfig(train_ratio=0.5, val_ratio=0.5, test_ratio=0.5)
 
     def test_shuffle_default_true(self):
         from data.data_manager import SplitConfig
+
         s = SplitConfig()
         assert s.shuffle is True
 
     def test_seed_default(self):
         from data.data_manager import SplitConfig
+
         s = SplitConfig()
         assert s.seed == 42
 
@@ -619,26 +662,31 @@ class TestDatasetConfig:
 
     def test_create_with_mnist(self):
         from data.data_manager import DatasetConfig, DatasetType
+
         cfg = DatasetConfig(dataset_type=DatasetType.MNIST)
         assert cfg.dataset_type == DatasetType.MNIST
 
     def test_default_batch_size(self):
         from data.data_manager import DatasetConfig, DatasetType
+
         cfg = DatasetConfig(dataset_type=DatasetType.MNIST)
         assert cfg.batch_size == 32
 
     def test_max_samples_none_default(self):
         from data.data_manager import DatasetConfig, DatasetType
+
         cfg = DatasetConfig(dataset_type=DatasetType.MNIST)
         assert cfg.max_samples is None
 
     def test_custom_max_samples(self):
         from data.data_manager import DatasetConfig, DatasetType
+
         cfg = DatasetConfig(dataset_type=DatasetType.CIFAR10, max_samples=1000)
         assert cfg.max_samples == 1000
 
     def test_split_config_default(self):
         from data.data_manager import DatasetConfig, DatasetType, SplitConfig
+
         cfg = DatasetConfig(dataset_type=DatasetType.MNIST)
         assert isinstance(cfg.split_config, SplitConfig)
 
@@ -648,14 +696,17 @@ class TestDatasetType:
 
     def test_mnist_value(self):
         from data.data_manager import DatasetType
+
         assert DatasetType.MNIST.value == "mnist"
 
     def test_wikitext2_value(self):
         from data.data_manager import DatasetType
+
         assert DatasetType.WIKITEXT2.value == "wikitext-2-raw-v1"
 
     def test_custom_json_value(self):
         from data.data_manager import DatasetType
+
         assert DatasetType.CUSTOM_JSON.value == "custom_json"
 
 
@@ -664,6 +715,7 @@ class TestDataManagerInit:
 
     def test_init_creates_cache_dir(self):
         from data.data_manager import DataManager, DatasetConfig, DatasetType
+
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir) / "test_cache"
             cfg = DatasetConfig(
@@ -676,6 +728,7 @@ class TestDataManagerInit:
 
     def test_get_stats_before_load(self):
         from data.data_manager import DataManager, DatasetConfig, DatasetType
+
         with tempfile.TemporaryDirectory() as tmpdir:
             cfg = DatasetConfig(
                 dataset_type=DatasetType.MNIST,
@@ -687,16 +740,19 @@ class TestDataManagerInit:
 
     def test_get_hf_datasets_returns_list(self):
         from data.data_manager import DataManager
+
         result = DataManager._get_hf_datasets()
         assert isinstance(result, list)
 
     def test_get_custom_datasets_returns_list(self):
         from data.data_manager import DataManager
+
         result = DataManager._get_custom_datasets()
         assert isinstance(result, list)
 
     def test_load_json_dataset(self):
         from data.data_manager import DataManager, DatasetConfig, DatasetType
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a small JSON file
             json_path = Path(tmpdir) / "data.json"
@@ -714,6 +770,7 @@ class TestDataManagerInit:
 
     def test_load_custom_dataset_json(self):
         from data.data_manager import DataManager, DatasetConfig, DatasetType
+
         with tempfile.TemporaryDirectory() as tmpdir:
             json_path = Path(tmpdir) / "corpus.json"
             with open(json_path, "w") as f:
@@ -733,28 +790,33 @@ class TestListDataset:
 
     def test_len(self):
         from data.data_manager import ListDataset
+
         ds = ListDataset([1, 2, 3, 4, 5])
         assert len(ds) == 5
 
     def test_getitem(self):
         from data.data_manager import ListDataset
+
         ds = ListDataset(["a", "b", "c"])
         assert ds[0] == "a"
         assert ds[2] == "c"
 
     def test_empty(self):
         from data.data_manager import ListDataset
+
         ds = ListDataset([])
         assert len(ds) == 0
 
     def test_with_dicts(self):
         from data.data_manager import ListDataset
+
         data = [{"x": 1}, {"x": 2}]
         ds = ListDataset(data)
         assert ds[1]["x"] == 2
 
     def test_with_tensors(self):
         from data.data_manager import ListDataset
+
         data = [torch.randn(4), torch.randn(4)]
         ds = ListDataset(data)
         assert isinstance(ds[0], torch.Tensor)
@@ -764,11 +826,13 @@ class TestListDataset:
 # Section 5: client/data_loader.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestDataSovereigntyLevel:
     """Tests for DataSovereigntyLevel enum."""
 
     def test_values(self):
         from client.data_loader import DataSovereigntyLevel
+
         assert DataSovereigntyLevel.PUBLIC.value == "public"
         assert DataSovereigntyLevel.RESTRICTED.value == "restricted"
         assert DataSovereigntyLevel.CONFIDENTIAL.value == "confidential"
@@ -780,6 +844,7 @@ class TestComplianceMetadata:
 
     def test_create_default(self):
         from client.data_loader import ComplianceMetadata, DataSovereigntyLevel
+
         m = ComplianceMetadata(data_classification=DataSovereigntyLevel.PUBLIC)
         assert m.data_classification == DataSovereigntyLevel.PUBLIC
         assert m.contains_pii is False
@@ -787,6 +852,7 @@ class TestComplianceMetadata:
 
     def test_pii_flag(self):
         from client.data_loader import ComplianceMetadata, DataSovereigntyLevel
+
         m = ComplianceMetadata(
             data_classification=DataSovereigntyLevel.CONFIDENTIAL,
             contains_pii=True,
@@ -795,11 +861,13 @@ class TestComplianceMetadata:
 
     def test_retention_default(self):
         from client.data_loader import ComplianceMetadata, DataSovereigntyLevel
+
         m = ComplianceMetadata(data_classification=DataSovereigntyLevel.PUBLIC)
         assert m.retention_period_days == 2555  # 7 years
 
     def test_encryption_required_default(self):
         from client.data_loader import ComplianceMetadata, DataSovereigntyLevel
+
         m = ComplianceMetadata(data_classification=DataSovereigntyLevel.PUBLIC)
         assert m.encryption_required is True
 
@@ -810,6 +878,7 @@ class TestComplianceDataFilter:
     @pytest.fixture
     def flt(self):
         from client.data_loader import ComplianceDataFilter
+
         return ComplianceDataFilter()
 
     def test_init(self, flt):
@@ -873,58 +942,69 @@ class TestComplianceDataFilter:
 # Section 6: cli/commands.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestCliCommands:
     """Tests for Click CLI commands via CliRunner."""
 
     @pytest.fixture
     def runner(self):
         from click.testing import CliRunner
+
         return CliRunner()
 
     def test_cli_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["--help"])
         assert result.exit_code == 0
         assert "Usage" in result.output or "Options" in result.output
 
     def test_train_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["train", "--help"])
         assert result.exit_code == 0
 
     def test_evolve_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["evolve", "--help"])
         assert result.exit_code == 0
 
     def test_federate_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["federate", "--help"])
         assert result.exit_code == 0
 
     def test_validator_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["validator", "--help"])
         assert result.exit_code == 0
 
     def test_genome_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["genome", "--help"])
         assert result.exit_code == 0
 
     def test_config_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["config", "--help"])
         assert result.exit_code == 0
 
     def test_config_show(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["config", "--show"])
         # Should print config without crashing
         assert result.exit_code == 0 or result.exit_code in (0, 1)
 
     def test_config_init(self, runner):
         from cli.commands import cli
+
         with runner.isolated_filesystem():
             result = runner.invoke(cli, ["config", "--init"])
             # May succeed or fail gracefully
@@ -932,16 +1012,19 @@ class TestCliCommands:
 
     def test_validator_register_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["validator", "register", "--help"])
         assert result.exit_code == 0
 
     def test_genome_store_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["genome", "store", "--help"])
         assert result.exit_code == 0
 
     def test_genome_get_help(self, runner):
         from cli.commands import cli
+
         result = runner.invoke(cli, ["genome", "get", "--help"])
         assert result.exit_code == 0
 
@@ -950,16 +1033,19 @@ class TestCliCommands:
 # Section 7: client/train.py
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class TestBelizeTrainingConfig:
     """Tests for BelizeTrainingConfig dataclass."""
 
     def test_create(self):
         from client.train import BelizeTrainingConfig
+
         cfg = BelizeTrainingConfig(participant_id="p1")
         assert cfg.participant_id == "p1"
 
     def test_defaults(self):
         from client.train import BelizeTrainingConfig
+
         cfg = BelizeTrainingConfig(participant_id="p1")
         assert cfg.learning_rate == 1e-4
         assert cfg.batch_size == 32
@@ -969,6 +1055,7 @@ class TestBelizeTrainingConfig:
 
     def test_custom_values(self):
         from client.train import BelizeTrainingConfig
+
         cfg = BelizeTrainingConfig(
             participant_id="p2",
             learning_rate=1e-3,
@@ -981,6 +1068,7 @@ class TestBelizeTrainingConfig:
 
     def test_azure_endpoint_none_default(self):
         from client.train import BelizeTrainingConfig
+
         cfg = BelizeTrainingConfig(participant_id="p1")
         assert cfg.azure_endpoint is None
 
@@ -991,9 +1079,11 @@ class TestBelizeChainFederatedClient:
     def _make_client(self, quantization_bits=8):
         from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
 
-        with patch("client.train.QuantizedBelizeModel") as MockQ, \
-             patch("client.train.BelizeChainLLM") as MockLLM, \
-             patch("client.train.BelizeDataLoader") as MockLoader:
+        with (
+            patch("client.train.QuantizedBelizeModel") as MockQ,
+            patch("client.train.BelizeChainLLM") as MockLLM,
+            patch("client.train.BelizeDataLoader") as MockLoader,
+        ):
 
             mock_model = MagicMock(spec=nn.Module)
             mock_model.state_dict.return_value = {
@@ -1027,6 +1117,7 @@ class TestBelizeChainFederatedClient:
 
     def test_compliance_filter_created(self):
         from client.data_loader import ComplianceDataFilter
+
         client = self._make_client()
         assert isinstance(client.compliance_filter, ComplianceDataFilter)
 
@@ -1061,9 +1152,11 @@ class TestBelizeChainFederatedClient:
         # quantization_bits >= 16 → uses BelizeChainLLM
         from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
 
-        with patch("client.train.QuantizedBelizeModel") as MockQ, \
-             patch("client.train.BelizeChainLLM") as MockLLM, \
-             patch("client.train.BelizeDataLoader") as MockLoader:
+        with (
+            patch("client.train.QuantizedBelizeModel") as MockQ,
+            patch("client.train.BelizeChainLLM") as MockLLM,
+            patch("client.train.BelizeDataLoader") as MockLoader,
+        ):
 
             mock_model = MagicMock(spec=nn.Module)
             mock_model.state_dict.return_value = {"w": torch.randn(2, 2)}

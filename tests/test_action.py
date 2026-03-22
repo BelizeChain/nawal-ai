@@ -10,6 +10,7 @@ Coverage:
   • ActionExecutor     — single call, plan execution, history, success_rate
   • ActionLayer        — facade, available_tools, execute, plan, status
 """
+
 from __future__ import annotations
 
 import pytest
@@ -29,19 +30,20 @@ from nawal.action import (
     ActionLayer,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════════ #
 # Fixtures / helpers                                                           #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
+
 class _EchoTool(AbstractTool):
     """Simple tool that echoes its input — used for registry/executor tests."""
+
     _SPEC = ToolSpec(
-        name        = "echo",
-        description = "Echo the message argument.",
-        parameters  = {"message": {"type": "string", "required": True}},
-        category    = ToolCategory.CUSTOM,
-        safe        = True,
+        name="echo",
+        description="Echo the message argument.",
+        parameters={"message": {"type": "string", "required": True}},
+        category=ToolCategory.CUSTOM,
+        safe=True,
     )
 
     @property
@@ -54,6 +56,7 @@ class _EchoTool(AbstractTool):
 
 class _FailTool(AbstractTool):
     """Always fails when run."""
+
     _SPEC = ToolSpec(name="always_fail", description="Always fails", safe=True)
 
     @property
@@ -81,6 +84,7 @@ def _layer() -> ActionLayer:
 # ═══════════════════════════════════════════════════════════════════════════ #
 # ToolRegistry                                                                #
 # ═══════════════════════════════════════════════════════════════════════════ #
+
 
 class TestToolRegistry:
     def test_register_and_get(self):
@@ -141,6 +145,7 @@ class TestToolRegistry:
 # WebSearchTool                                                               #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
+
 class TestWebSearchTool:
     def test_stub_returns_results(self):
         tool = WebSearchTool(use_stub=True)
@@ -153,8 +158,8 @@ class TestWebSearchTool:
         tool = WebSearchTool(use_stub=True)
         result = tool.run(query="test query")
         for item in result.output:
-            assert "title"   in item
-            assert "url"     in item
+            assert "title" in item
+            assert "url" in item
             assert "snippet" in item
 
     def test_num_results_respected(self):
@@ -187,6 +192,7 @@ class TestWebSearchTool:
 # ═══════════════════════════════════════════════════════════════════════════ #
 # CodeSandbox                                                                 #
 # ═══════════════════════════════════════════════════════════════════════════ #
+
 
 class TestCodeSandbox:
     def test_stub_mode(self):
@@ -240,6 +246,7 @@ class TestCodeSandbox:
 # MemoryReadTool / MemoryWriteTool                                            #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
+
 class TestMemoryTools:
     def test_read_stub_returns_empty_list(self):
         tool = MemoryReadTool(memory_manager=None)
@@ -271,6 +278,7 @@ class TestMemoryTools:
 
     def test_read_with_real_memory(self):
         """Minimal duck-typed memory manager stub."""
+
         class _EpisodicStub:
             def retrieve(self, query, top_k=5):
                 return [type("R", (), {"content": "past event", "metadata": {}})()]
@@ -287,6 +295,7 @@ class TestMemoryTools:
     def test_write_with_real_memory(self):
         class _EpisodicStub:
             stored = []
+
             def store(self, record):
                 self.stored.append(record)
 
@@ -303,6 +312,7 @@ class TestMemoryTools:
 # ═══════════════════════════════════════════════════════════════════════════ #
 # ActionExecutor                                                              #
 # ═══════════════════════════════════════════════════════════════════════════ #
+
 
 class TestActionExecutor:
     def test_execute_single(self):
@@ -336,10 +346,12 @@ class TestActionExecutor:
 
     def test_execute_plan_sequential(self):
         ex = _executor()
-        results = ex.execute_plan([
-            {"tool": "echo", "args": {"message": "step1"}},
-            {"tool": "echo", "args": {"message": "step2"}},
-        ])
+        results = ex.execute_plan(
+            [
+                {"tool": "echo", "args": {"message": "step1"}},
+                {"tool": "echo", "args": {"message": "step2"}},
+            ]
+        )
         assert len(results) == 2
         assert all(r.status == ToolStatus.SUCCESS for r in results)
 
@@ -350,10 +362,12 @@ class TestActionExecutor:
 
     def test_execute_plan_chaining(self):
         ex = _executor()
-        results = ex.execute_plan([
-            {"tool": "echo", "args": {"message": "hello"}},
-            {"tool": "echo", "args": {"message": "world"}},
-        ])
+        results = ex.execute_plan(
+            [
+                {"tool": "echo", "args": {"message": "hello"}},
+                {"tool": "echo", "args": {"message": "world"}},
+            ]
+        )
         assert results[1].output == "world"
 
     def test_history_is_copy(self):
@@ -368,6 +382,7 @@ class TestActionExecutor:
 # ActionLayer                                                                 #
 # ═══════════════════════════════════════════════════════════════════════════ #
 
+
 class TestActionLayer:
     def test_instantiates(self):
         layer = _layer()
@@ -379,9 +394,9 @@ class TestActionLayer:
 
     def test_available_tools_names(self):
         names = {t.name for t in _layer().available_tools()}
-        assert "web_search"   in names
-        assert "code_exec"    in names
-        assert "memory_read"  in names
+        assert "web_search" in names
+        assert "code_exec" in names
+        assert "memory_read" in names
         assert "memory_write" in names
 
     def test_execute_web_search_stub(self):
@@ -402,10 +417,12 @@ class TestActionLayer:
 
     def test_execute_plan(self):
         layer = _layer()
-        results = layer.execute_plan([
-            {"tool": "web_search",   "args": {"query": "Belize"}},
-            {"tool": "memory_write", "args": {"content": "search done"}},
-        ])
+        results = layer.execute_plan(
+            [
+                {"tool": "web_search", "args": {"query": "Belize"}},
+                {"tool": "memory_write", "args": {"content": "search done"}},
+            ]
+        )
         assert len(results) == 2
         assert all(r.status == ToolStatus.SUCCESS for r in results)
 
@@ -417,10 +434,10 @@ class TestActionLayer:
 
     def test_get_status(self):
         status = _layer().get_status()
-        assert "num_tools"    in status
-        assert "tools"        in status
+        assert "num_tools" in status
+        assert "tools" in status
         assert "success_rate" in status
-        assert "history_len"  in status
+        assert "history_len" in status
 
     def test_status_num_tools_matches(self):
         layer = _layer()

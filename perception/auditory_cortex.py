@@ -26,6 +26,7 @@ Dependencies
     pip install transformers
     pip install torchaudio soundfile   # for audio file I/O
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -43,6 +44,7 @@ _STUB_TRANSCRIPTION = "[audio input — model unavailable]"
 # Optional numpy
 try:
     import numpy as np  # type: ignore
+
     NUMPY_AVAILABLE = True
 except ImportError:
     NUMPY_AVAILABLE = False
@@ -50,12 +52,14 @@ except ImportError:
 # Optional soundfile / torchaudio for file I/O
 try:
     import soundfile as sf  # type: ignore
+
     SOUNDFILE_AVAILABLE = True
 except ImportError:
     SOUNDFILE_AVAILABLE = False
 
 try:
     import torchaudio  # type: ignore
+
     TORCHAUDIO_AVAILABLE = True
 except ImportError:
     TORCHAUDIO_AVAILABLE = False
@@ -97,7 +101,7 @@ class AuditoryCortex(AbstractCortex):
     """
 
     DEFAULT_MODEL = "openai/whisper-base"
-    WHISPER_SR    = 16_000
+    WHISPER_SR = 16_000
 
     def __init__(
         self,
@@ -109,19 +113,21 @@ class AuditoryCortex(AbstractCortex):
         stub_mode: bool = False,
         language: Optional[str] = None,
     ) -> None:
-        self.model_name   = model_name
-        self.embed_dim    = embed_dim
-        self.sample_rate  = sample_rate
+        self.model_name = model_name
+        self.embed_dim = embed_dim
+        self.sample_rate = sample_rate
         self.max_duration = max_duration
-        self.stub_mode    = stub_mode or (model_name is None)
-        self.language     = language
+        self.stub_mode = stub_mode or (model_name is None)
+        self.language = language
         self.device = (
-            "cuda" if torch.cuda.is_available() else "cpu"
-        ) if device == "auto" else device
+            ("cuda" if torch.cuda.is_available() else "cpu")
+            if device == "auto"
+            else device
+        )
 
         self._processor: Any = None
-        self._model: Any     = None
-        self._loaded         = False
+        self._model: Any = None
+        self._loaded = False
 
         logger.debug(
             f"AuditoryCortex init: model={model_name or 'STUB'} "
@@ -153,6 +159,7 @@ class AuditoryCortex(AbstractCortex):
 
         if isinstance(raw_input, bytes):
             import io
+
             if SOUNDFILE_AVAILABLE:
                 audio, sr = sf.read(io.BytesIO(raw_input), dtype="float32")
             elif TORCHAUDIO_AVAILABLE:
@@ -235,14 +242,14 @@ class AuditoryCortex(AbstractCortex):
         self._loaded = True
         try:
             from transformers import WhisperModel, WhisperProcessor  # type: ignore
+
             logger.info(f"AuditoryCortex: loading '{self.model_name}'")
             self._processor = WhisperProcessor.from_pretrained(self.model_name)
             self._model = WhisperModel.from_pretrained(self.model_name).to(self.device)
             self._model.eval()
         except Exception as exc:
             logger.warning(
-                f"AuditoryCortex: Whisper load failed ({exc}). "
-                "Activating stub mode."
+                f"AuditoryCortex: Whisper load failed ({exc}). " "Activating stub mode."
             )
             self.stub_mode = True
 
@@ -265,8 +272,8 @@ class AuditoryCortex(AbstractCortex):
             enc_out = self._model.encoder(**inputs)
 
         # Mean-pool over time dimension [1, T, hidden] → [hidden]
-        hidden = enc_out.last_hidden_state       # [1, T, hidden]
-        pooled = hidden.mean(dim=1)[0]           # [hidden]
+        hidden = enc_out.last_hidden_state  # [1, T, hidden]
+        pooled = hidden.mean(dim=1)[0]  # [hidden]
         vec = pooled.cpu().tolist()
 
         if len(vec) != self.embed_dim:
@@ -295,7 +302,9 @@ class AuditoryCortex(AbstractCortex):
             # We need to use a GenerationMixin model — load ForConditionalGeneration
             # The base WhisperModel doesn't have generate(); use AutoModelForSpeechSeq2Seq
             # This is a fallback — in _load_model we switch to the generation model
-            token_ids = self._model.generate(inputs["input_features"], **generate_kwargs)
+            token_ids = self._model.generate(
+                inputs["input_features"], **generate_kwargs
+            )
 
         return self._processor.batch_decode(token_ids, skip_special_tokens=True)[0]
 
@@ -323,12 +332,14 @@ class AuditoryCortex(AbstractCortex):
             return audio
         if TORCHAUDIO_AVAILABLE and NUMPY_AVAILABLE:
             import numpy as np
+
             t = torch.tensor(audio).unsqueeze(0)
             t = torchaudio.functional.resample(t, src_sr, dst_sr)
             return t.squeeze(0).numpy()
         # Simple skip-sample fallback (quality: poor but functional)
         if NUMPY_AVAILABLE:
             import numpy as np
+
             ratio = dst_sr / src_sr
             indices = np.round(np.arange(0, len(audio), 1 / ratio)).astype(int)
             indices = indices[indices < len(audio)]

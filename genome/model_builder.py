@@ -128,12 +128,14 @@ class MultiHeadAttention(nn.Module):
         dropout: float = 0.1,
     ):
         super().__init__()
-        assert hidden_size % num_heads == 0, "hidden_size must be divisible by num_heads"
+        assert (
+            hidden_size % num_heads == 0
+        ), "hidden_size must be divisible by num_heads"
 
         self.hidden_size = hidden_size
         self.num_heads = num_heads
         self.head_dim = hidden_size // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
 
         self.qkv = nn.Linear(hidden_size, hidden_size * 3)
         self.out_proj = nn.Linear(hidden_size, hidden_size)
@@ -180,7 +182,7 @@ class MultiQueryAttention(nn.Module):
         self.hidden_size = hidden_size
         self.num_heads = num_heads
         self.head_dim = hidden_size // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
 
         # Q has multiple heads, K/V have single head
         self.q_proj = nn.Linear(hidden_size, hidden_size)
@@ -232,14 +234,16 @@ class GroupedQueryAttention(nn.Module):
         dropout: float = 0.1,
     ):
         super().__init__()
-        assert num_heads % num_kv_heads == 0, "num_heads must be divisible by num_kv_heads"
+        assert (
+            num_heads % num_kv_heads == 0
+        ), "num_heads must be divisible by num_kv_heads"
 
         self.hidden_size = hidden_size
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads
         self.num_queries_per_kv = num_heads // num_kv_heads
         self.head_dim = hidden_size // num_heads
-        self.scale = self.head_dim ** -0.5
+        self.scale = self.head_dim**-0.5
 
         self.q_proj = nn.Linear(hidden_size, hidden_size)
         self.k_proj = nn.Linear(hidden_size, self.head_dim * num_kv_heads)
@@ -259,9 +263,13 @@ class GroupedQueryAttention(nn.Module):
         q = q.transpose(1, 2)
 
         # Project K/V with fewer heads
-        k = self.k_proj(x).reshape(batch_size, seq_len, self.num_kv_heads, self.head_dim)
+        k = self.k_proj(x).reshape(
+            batch_size, seq_len, self.num_kv_heads, self.head_dim
+        )
         k = k.transpose(1, 2)
-        v = self.v_proj(x).reshape(batch_size, seq_len, self.num_kv_heads, self.head_dim)
+        v = self.v_proj(x).reshape(
+            batch_size, seq_len, self.num_kv_heads, self.head_dim
+        )
         v = v.transpose(1, 2)
 
         # Expand K/V to match Q heads (repeat each KV head)
@@ -378,10 +386,12 @@ class MoELayer(nn.Module):
         self.router = nn.Linear(hidden_size, num_experts)
 
         # Experts
-        self.experts = nn.ModuleList([
-            FeedForward(hidden_size, intermediate_size, activation, dropout)
-            for _ in range(num_experts)
-        ])
+        self.experts = nn.ModuleList(
+            [
+                FeedForward(hidden_size, intermediate_size, activation, dropout)
+                for _ in range(num_experts)
+            ]
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size, seq_len, hidden_size = x.shape
@@ -408,7 +418,7 @@ class MoELayer(nn.Module):
             expert_prob = top_k_probs[:, i].unsqueeze(-1)
 
             for expert_id in range(self.num_experts):
-                mask = (expert_idx == expert_id)
+                mask = expert_idx == expert_id
                 if mask.any():
                     expert_input = x_flat[mask]
                     expert_output = self.experts[expert_id](expert_input)
@@ -441,11 +451,15 @@ class TransformerBlock(nn.Module):
 
         # Pre-norm (more stable for deep networks)
         self.norm1 = NormalizationFactory.create(norm_type, hidden_size)
-        self.attention = AttentionFactory.create(attention_type, hidden_size, num_heads, dropout)
+        self.attention = AttentionFactory.create(
+            attention_type, hidden_size, num_heads, dropout
+        )
 
         self.norm2 = NormalizationFactory.create(norm_type, hidden_size)
         if use_moe:
-            self.ffn = MoELayer(hidden_size, intermediate_size, num_experts, 2, activation, dropout)
+            self.ffn = MoELayer(
+                hidden_size, intermediate_size, num_experts, 2, activation, dropout
+            )
         else:
             self.ffn = FeedForward(hidden_size, intermediate_size, activation, dropout)
 
@@ -488,20 +502,27 @@ class LayerFactory:
                 hidden_size=hidden_size,
                 num_heads=layer_config.num_heads or 8,
                 intermediate_size=layer_config.hidden_size or hidden_size * 4,
-                attention_type=getattr(layer_config, 'attention_type', None) or "multihead_attention",
-                norm_type=getattr(layer_config, 'normalization', None) or LayerType.LAYER_NORM,
+                attention_type=getattr(layer_config, "attention_type", None)
+                or "multihead_attention",
+                norm_type=getattr(layer_config, "normalization", None)
+                or LayerType.LAYER_NORM,
                 activation=layer_config.activation or LayerType.GELU,
                 dropout=layer_config.dropout_rate or 0.1,
                 use_moe=False,
             )
 
-        elif layer_type == LayerType.MIXTURE_OF_EXPERTS or layer_type == "moe_transformer":
+        elif (
+            layer_type == LayerType.MIXTURE_OF_EXPERTS
+            or layer_type == "moe_transformer"
+        ):
             return TransformerBlock(
                 hidden_size=hidden_size,
                 num_heads=layer_config.num_heads or 8,
                 intermediate_size=layer_config.hidden_size or hidden_size * 4,
-                attention_type=getattr(layer_config, 'attention_type', None) or "multihead_attention",
-                norm_type=getattr(layer_config, 'normalization', None) or LayerType.LAYER_NORM,
+                attention_type=getattr(layer_config, "attention_type", None)
+                or "multihead_attention",
+                norm_type=getattr(layer_config, "normalization", None)
+                or LayerType.LAYER_NORM,
                 activation=layer_config.activation or LayerType.GELU,
                 dropout=layer_config.dropout_rate or 0.1,
                 use_moe=True,
@@ -517,14 +538,20 @@ class LayerFactory:
 
         # Attention-only layer
         elif layer_type == LayerType.MULTIHEAD_ATTENTION or layer_type == "attention":
-            attention_type = getattr(layer_config, 'attention_type', None) or "multihead_attention"
+            attention_type = (
+                getattr(layer_config, "attention_type", None) or "multihead_attention"
+            )
             num_heads = layer_config.num_heads or 8
             dropout = layer_config.dropout_rate or 0.1
-            return AttentionFactory.create(attention_type, hidden_size, num_heads, dropout)
+            return AttentionFactory.create(
+                attention_type, hidden_size, num_heads, dropout
+            )
 
         # Normalization layer
         elif layer_type == LayerType.LAYER_NORM or layer_type == "normalization":
-            norm_type = getattr(layer_config, 'normalization', None) or LayerType.LAYER_NORM
+            norm_type = (
+                getattr(layer_config, "normalization", None) or LayerType.LAYER_NORM
+            )
             return NormalizationFactory.create(norm_type, hidden_size)
 
         # Dropout layer
@@ -570,17 +597,21 @@ class GenomeModel(nn.Module):
         self.dropout = nn.Dropout(genome.dropout_rate)
 
         # Build encoder layers
-        self.encoder_layers = nn.ModuleList([
-            LayerFactory.create_layer(layer_config, self.hidden_size)
-            for layer_config in genome.encoder_layers
-        ])
+        self.encoder_layers = nn.ModuleList(
+            [
+                LayerFactory.create_layer(layer_config, self.hidden_size)
+                for layer_config in genome.encoder_layers
+            ]
+        )
 
         # Build decoder layers (if any)
         if genome.decoder_layers:
-            self.decoder_layers = nn.ModuleList([
-                LayerFactory.create_layer(layer_config, self.hidden_size)
-                for layer_config in genome.decoder_layers
-            ])
+            self.decoder_layers = nn.ModuleList(
+                [
+                    LayerFactory.create_layer(layer_config, self.hidden_size)
+                    for layer_config in genome.decoder_layers
+                ]
+            )
         else:
             self.decoder_layers = None
 
@@ -609,10 +640,14 @@ class GenomeModel(nn.Module):
             "attention_mask" in inspect.signature(layer.forward).parameters
             for layer in self.encoder_layers
         ]
-        self._decoder_accepts_mask = [
-            "attention_mask" in inspect.signature(layer.forward).parameters
-            for layer in self.decoder_layers
-        ] if self.decoder_layers else []
+        self._decoder_accepts_mask = (
+            [
+                "attention_mask" in inspect.signature(layer.forward).parameters
+                for layer in self.decoder_layers
+            ]
+            if self.decoder_layers
+            else []
+        )
 
     def forward(
         self,
@@ -651,9 +686,9 @@ class GenomeModel(nn.Module):
                     hidden_states = layer(hidden_states)
 
             # Output
-            if hasattr(self, 'output_norm') and hidden_states.dim() <= 3:
+            if hasattr(self, "output_norm") and hidden_states.dim() <= 3:
                 hidden_states = self.output_norm(hidden_states)
-            if hasattr(self, 'lm_head'):
+            if hasattr(self, "lm_head"):
                 logits = self.lm_head(hidden_states)
             else:
                 logits = hidden_states
@@ -679,7 +714,9 @@ class GenomeModel(nn.Module):
             }
 
         # Check if inputs are already embeddings (float tensors with 3 dims)
-        if len(input_ids.shape) == 3 or (input_ids.dtype == torch.float and input_ids.max() <= 1.0):
+        if len(input_ids.shape) == 3 or (
+            input_ids.dtype == torch.float and input_ids.max() <= 1.0
+        ):
             # Input is already embedded features, skip token embedding
             if len(input_ids.shape) == 2 and input_ids.shape[1] == self.hidden_size:
                 # Shape is (batch, hidden_size), add sequence dimension
@@ -695,7 +732,9 @@ class GenomeModel(nn.Module):
                 input_ids = torch.clamp(input_ids, 0, self.vocab_size - 1)
                 batch_size, seq_len = input_ids.shape
                 token_embeds = self.token_embedding(input_ids)
-                position_ids = torch.arange(seq_len, device=input_ids.device).unsqueeze(0)
+                position_ids = torch.arange(seq_len, device=input_ids.device).unsqueeze(
+                    0
+                )
                 position_embeds = self.position_embedding(position_ids)
                 hidden_states = self.dropout(token_embeds + position_embeds)
         else:
@@ -728,7 +767,9 @@ class GenomeModel(nn.Module):
 
         # Decoder layers (if any)
         if self.decoder_layers:
-            for layer, accepts_mask in zip(self.decoder_layers, self._decoder_accepts_mask):
+            for layer, accepts_mask in zip(
+                self.decoder_layers, self._decoder_accepts_mask
+            ):
                 if accepts_mask and attention_mask is not None:
                     hidden_states = layer(hidden_states, attention_mask)
                 else:
@@ -806,20 +847,31 @@ class GenomeModel(nn.Module):
 
                 # Top-k sampling
                 if top_k is not None:
-                    indices_to_remove = next_token_logits < torch.topk(next_token_logits, top_k)[0][..., -1, None]
-                    next_token_logits[indices_to_remove] = -float('inf')
+                    indices_to_remove = (
+                        next_token_logits
+                        < torch.topk(next_token_logits, top_k)[0][..., -1, None]
+                    )
+                    next_token_logits[indices_to_remove] = -float("inf")
 
                 # Top-p (nucleus) sampling
                 if top_p is not None:
-                    sorted_logits, sorted_indices = torch.sort(next_token_logits, descending=True)
-                    cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+                    sorted_logits, sorted_indices = torch.sort(
+                        next_token_logits, descending=True
+                    )
+                    cumulative_probs = torch.cumsum(
+                        F.softmax(sorted_logits, dim=-1), dim=-1
+                    )
 
                     sorted_indices_to_remove = cumulative_probs > top_p
-                    sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+                    sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[
+                        ..., :-1
+                    ].clone()
                     sorted_indices_to_remove[..., 0] = 0
 
-                    indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
-                    next_token_logits[indices_to_remove] = -float('inf')
+                    indices_to_remove = sorted_indices_to_remove.scatter(
+                        1, sorted_indices, sorted_indices_to_remove
+                    )
+                    next_token_logits[indices_to_remove] = -float("inf")
 
                 # Sample
                 probs = F.softmax(next_token_logits, dim=-1)
@@ -887,7 +939,9 @@ class ModelBuilder:
             # Check if any errors are critical (empty layers)
             critical_errors = [e for e in errors if "no encoder layers" in e.lower()]
             if critical_errors:
-                raise ValueError(f"Cannot build model from genome {genome.genome_id}: {', '.join(critical_errors)}")
+                raise ValueError(
+                    f"Cannot build model from genome {genome.genome_id}: {', '.join(critical_errors)}"
+                )
 
             logger.warning(
                 f"Genome validation warnings for {genome.genome_id}",
@@ -925,9 +979,10 @@ class ModelBuilder:
         """
         # Handle old DNA API
         from nawal.genome.dna import DNA
+
         if isinstance(genome, DNA):
             # Check if DNA has layer_genes - if so, build sequential model from them
-            if hasattr(genome, 'layer_genes') and genome.layer_genes:
+            if hasattr(genome, "layer_genes") and genome.layer_genes:
                 # Build sequential model from layer genes
                 layers = []
                 for gene in genome.layer_genes:
@@ -939,7 +994,7 @@ class ModelBuilder:
                 return model
 
             # Extract output_size from DNA for backward compatibility
-            if hasattr(genome, 'output_size') and genome.output_size > 0:
+            if hasattr(genome, "output_size") and genome.output_size > 0:
                 # Temporarily override vocab_size with DNA's output_size
                 original_vocab_size = self.vocab_size
                 self.vocab_size = genome.output_size
@@ -1056,10 +1111,17 @@ class ModelBuilder:
             # For complex layers, use LayerFactory
             # But first validate that it's a known complex type
             known_complex_types = {
-                "transformer", "transformer_encoder", "transformerencoder",
-                "transformer_decoder", "transformerdecoder",
-                "moe", "moe_transformer", "mixture_of_experts",
-                "feedforward", "attention", "normalization"
+                "transformer",
+                "transformer_encoder",
+                "transformerencoder",
+                "transformer_decoder",
+                "transformerdecoder",
+                "moe",
+                "moe_transformer",
+                "mixture_of_experts",
+                "feedforward",
+                "attention",
+                "normalization",
             }
 
             if layer_type not in known_complex_types:
@@ -1070,10 +1132,14 @@ class ModelBuilder:
 
             try:
                 arch_layer = gene.to_architecture_layer()
-                hidden_size = arch_layer.hidden_size or arch_layer.parameters.get("in_features", 768)
+                hidden_size = arch_layer.hidden_size or arch_layer.parameters.get(
+                    "in_features", 768
+                )
                 return LayerFactory.create_layer(arch_layer, hidden_size)
             except (AttributeError, KeyError, TypeError) as e:
-                raise ValueError(f"Failed to create layer of type '{layer_type}': {e}") from e
+                raise ValueError(
+                    f"Failed to create layer of type '{layer_type}': {e}"
+                ) from e
 
     def _initialize_weights(self, model: GenomeModel) -> None:
         """Initialize model weights."""
@@ -1085,9 +1151,9 @@ class ModelBuilder:
             elif isinstance(module, nn.Embedding):
                 torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
             elif isinstance(module, (nn.LayerNorm, RMSNorm)):
-                if hasattr(module, 'bias') and module.bias is not None:
+                if hasattr(module, "bias") and module.bias is not None:
                     torch.nn.init.zeros_(module.bias)
-                if hasattr(module, 'weight'):
+                if hasattr(module, "weight"):
                     torch.nn.init.ones_(module.weight)
 
     def validate_genome(self, genome: Genome) -> list[str]:

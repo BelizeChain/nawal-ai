@@ -51,15 +51,15 @@ from integration.kinich_connector import (
     QuantumEnhancedLayer,
 )
 
-
 # ===========================================================================
 # Helpers
 # ===========================================================================
 
+
 def _make_submission() -> IoTDataSubmission:
     return IoTDataSubmission(
-        device_id=b'\x01' * 32,
-        data=b'\xDE\xAD' * 10,
+        device_id=b"\x01" * 32,
+        data=b"\xde\xad" * 10,
         feed_type="sensor",
         location=(17.5, -88.2),
         timestamp=1700000000,
@@ -70,7 +70,7 @@ def _make_submission() -> IoTDataSubmission:
 
 def _make_device_info() -> IoTDeviceInfo:
     return IoTDeviceInfo(
-        device_id=b'\x01' * 32,
+        device_id=b"\x01" * 32,
         device_type=DeviceType.SENSOR,
         domain=ModelDomain.AGRITECH,
         operator="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
@@ -117,7 +117,7 @@ class TestOracleDataFetcher:
         mock_sub.query.return_value = mock_result
 
         fetcher = OracleDataFetcher()
-        info = fetcher.get_device_info(b'\x01' * 32)
+        info = fetcher.get_device_info(b"\x01" * 32)
 
         assert info is not None
         assert info.device_type == DeviceType.SENSOR
@@ -132,7 +132,7 @@ class TestOracleDataFetcher:
         mock_sub.query.return_value = mock_result
 
         fetcher = OracleDataFetcher()
-        info = fetcher.get_device_info(b'\x01' * 32)
+        info = fetcher.get_device_info(b"\x01" * 32)
         assert info is None
 
     @patch("integration.oracle_pipeline.SubstrateInterface")
@@ -142,7 +142,7 @@ class TestOracleDataFetcher:
         mock_sub.query.side_effect = Exception("connection refused")
 
         fetcher = OracleDataFetcher()
-        info = fetcher.get_device_info(b'\x01' * 32)
+        info = fetcher.get_device_info(b"\x01" * 32)
         assert info is None
 
     @patch("integration.oracle_pipeline.SubstrateInterface")
@@ -151,19 +151,22 @@ class TestOracleDataFetcher:
         mock_sub = MagicMock()
         mock_substrate_cls.return_value = mock_sub
 
-        device_id_hex = ("01" * 32)
+        device_id_hex = "01" * 32
 
         # Mock PendingSubmissions query
         pending_result = MagicMock()
         pending_result.value = [
-            (device_id_hex, {
-                "data": [0xDE, 0xAD],
-                "feed_type": "sensor",
-                "location": {"lat": 17.5, "lon": -88.2},
-                "timestamp": 1700000000,
-                "quality_metrics": {"accuracy": 95},
-                "metadata": {"v": 1},
-            }),
+            (
+                device_id_hex,
+                {
+                    "data": [0xDE, 0xAD],
+                    "feed_type": "sensor",
+                    "location": {"lat": 17.5, "lon": -88.2},
+                    "timestamp": 1700000000,
+                    "quality_metrics": {"accuracy": 95},
+                    "metadata": {"v": 1},
+                },
+            ),
         ]
 
         # Mock IoTDevices query for get_device_info
@@ -357,10 +360,12 @@ class TestResultSubmitter:
         device_info = _make_device_info()
         predictions = {"predictions": torch.ones(1)}
 
-        with patch("integration.oracle_pipeline.prepare_oracle_submission") as mock_prep:
+        with patch(
+            "integration.oracle_pipeline.prepare_oracle_submission"
+        ) as mock_prep:
             mock_prep.return_value = {
-                "device_id": b'\x01' * 32,
-                "data": b'\xDE\xAD',
+                "device_id": b"\x01" * 32,
+                "data": b"\xde\xad",
                 "feed_type": "sensor",
                 "quality_score": 95,
                 "location": None,
@@ -382,10 +387,14 @@ class TestResultSubmitter:
         mock_keypair = MagicMock()
         submitter = ResultSubmitter(keypair=mock_keypair)
 
-        with patch("integration.oracle_pipeline.prepare_oracle_submission") as mock_prep:
+        with patch(
+            "integration.oracle_pipeline.prepare_oracle_submission"
+        ) as mock_prep:
             mock_prep.return_value = {
-                "device_id": b'\x01', "data": b'', "feed_type": "s",
-                "quality_score": 0
+                "device_id": b"\x01",
+                "data": b"",
+                "feed_type": "s",
+                "quality_score": 0,
             }
             result = submitter.submit_prediction(
                 _make_submission(), {"p": torch.zeros(1)}, _make_device_info()
@@ -476,7 +485,9 @@ class TestOraclePipeline:
     @pytest.mark.asyncio
     @patch("integration.oracle_pipeline.ResultSubmitter")
     @patch("integration.oracle_pipeline.SubstrateInterface")
-    async def test_process_submission_success(self, mock_substrate_cls, mock_submitter_cls):
+    async def test_process_submission_success(
+        self, mock_substrate_cls, mock_submitter_cls
+    ):
         mock_keypair = MagicMock()
         pipeline = OraclePipeline(keypair=mock_keypair)
 
@@ -486,7 +497,10 @@ class TestOraclePipeline:
 
         # Mock preprocessor
         pipeline.preprocessor = MagicMock()
-        pipeline.preprocessor.preprocess.return_value = (torch.randn(1, 64), MagicMock())
+        pipeline.preprocessor.preprocess.return_value = (
+            torch.randn(1, 64),
+            MagicMock(),
+        )
 
         # Mock runner
         pipeline.runner = MagicMock()
@@ -502,7 +516,9 @@ class TestOraclePipeline:
     @pytest.mark.asyncio
     @patch("integration.oracle_pipeline.ResultSubmitter")
     @patch("integration.oracle_pipeline.SubstrateInterface")
-    async def test_process_submission_device_not_found(self, mock_substrate_cls, mock_submitter_cls):
+    async def test_process_submission_device_not_found(
+        self, mock_substrate_cls, mock_submitter_cls
+    ):
         mock_keypair = MagicMock()
         pipeline = OraclePipeline(keypair=mock_keypair)
         pipeline.fetcher = MagicMock()
@@ -514,7 +530,9 @@ class TestOraclePipeline:
     @pytest.mark.asyncio
     @patch("integration.oracle_pipeline.ResultSubmitter")
     @patch("integration.oracle_pipeline.SubstrateInterface")
-    async def test_process_submission_preprocess_error(self, mock_substrate_cls, mock_submitter_cls):
+    async def test_process_submission_preprocess_error(
+        self, mock_substrate_cls, mock_submitter_cls
+    ):
         mock_keypair = MagicMock()
         pipeline = OraclePipeline(keypair=mock_keypair)
 
@@ -529,19 +547,25 @@ class TestOraclePipeline:
     @pytest.mark.asyncio
     @patch("integration.oracle_pipeline.ResultSubmitter")
     @patch("integration.oracle_pipeline.SubstrateInterface")
-    async def test_process_pending_submissions(self, mock_substrate_cls, mock_submitter_cls):
+    async def test_process_pending_submissions(
+        self, mock_substrate_cls, mock_submitter_cls
+    ):
         mock_keypair = MagicMock()
         pipeline = OraclePipeline(keypair=mock_keypair)
 
         # Mock internals
         pipeline.fetcher = MagicMock()
         pipeline.fetcher.get_pending_submissions.return_value = [
-            _make_submission(), _make_submission(),
+            _make_submission(),
+            _make_submission(),
         ]
         pipeline.fetcher.get_device_info.return_value = _make_device_info()
 
         pipeline.preprocessor = MagicMock()
-        pipeline.preprocessor.preprocess.return_value = (torch.randn(1, 64), MagicMock())
+        pipeline.preprocessor.preprocess.return_value = (
+            torch.randn(1, 64),
+            MagicMock(),
+        )
 
         pipeline.runner = MagicMock()
         pipeline.runner.run_inference.return_value = {"p": torch.ones(1)}
@@ -550,7 +574,9 @@ class TestOraclePipeline:
         pipeline.submitter = MagicMock()
         pipeline.submitter.submit_prediction.return_value = "0x1"
 
-        results = await pipeline.process_pending_submissions(domain=ModelDomain.AGRITECH, limit=10)
+        results = await pipeline.process_pending_submissions(
+            domain=ModelDomain.AGRITECH, limit=10
+        )
         assert results["total"] == 2
         assert results["success"] == 2
         assert results["failed"] == 0
@@ -558,7 +584,9 @@ class TestOraclePipeline:
     @pytest.mark.asyncio
     @patch("integration.oracle_pipeline.ResultSubmitter")
     @patch("integration.oracle_pipeline.SubstrateInterface")
-    async def test_process_loop_stops_on_keyboard_interrupt(self, mock_substrate_cls, mock_submitter_cls):
+    async def test_process_loop_stops_on_keyboard_interrupt(
+        self, mock_substrate_cls, mock_submitter_cls
+    ):
         mock_keypair = MagicMock()
         pipeline = OraclePipeline(keypair=mock_keypair)
 
@@ -582,7 +610,9 @@ class TestOraclePipeline:
     @pytest.mark.asyncio
     @patch("integration.oracle_pipeline.ResultSubmitter")
     @patch("integration.oracle_pipeline.SubstrateInterface")
-    async def test_process_loop_handles_exception(self, mock_substrate_cls, mock_submitter_cls):
+    async def test_process_loop_handles_exception(
+        self, mock_substrate_cls, mock_submitter_cls
+    ):
         mock_keypair = MagicMock()
         pipeline = OraclePipeline(keypair=mock_keypair)
 
@@ -624,6 +654,7 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     def test_init_health_check_url_error(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(kinich_endpoint="http://test:8002")
@@ -643,6 +674,7 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_quantum_process_classical_fallback(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=16, quantum_dim=4)
@@ -655,9 +687,12 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_quantum_process_cache_hit(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
-        conn = KinichQuantumConnector(classical_dim=16, quantum_dim=4, enable_caching=True)
+        conn = KinichQuantumConnector(
+            classical_dim=16, quantum_dim=4, enable_caching=True
+        )
         features = np.ones((2, 16))
 
         # First call -> no cache
@@ -672,9 +707,12 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_quantum_process_cache_eviction(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
-        conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2, enable_caching=True)
+        conn = KinichQuantumConnector(
+            classical_dim=4, quantum_dim=2, enable_caching=True
+        )
         conn._cache_max_size = 2  # Tiny cache
 
         # Fill cache
@@ -689,6 +727,7 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_quantum_process_with_bridge_and_fallback(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=16, quantum_dim=4)
@@ -698,7 +737,9 @@ class TestKinichQuantumConnector:
         # _quantum_forward will fail (aiohttp not connecting)
         # Then falls back to classical
         features = np.random.randn(2, 16)
-        with patch.object(conn, "_quantum_forward", side_effect=Exception("aiohttp error")):
+        with patch.object(
+            conn, "_quantum_forward", side_effect=Exception("aiohttp error")
+        ):
             result = await conn.quantum_process(features)
         assert result.shape == (2, 16)
         assert conn.stats["fallback_calls"] >= 1
@@ -707,16 +748,22 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_quantum_process_bridge_no_fallback_raises(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(
-            classical_dim=16, quantum_dim=4, fallback_to_classical=False, enable_caching=False
+            classical_dim=16,
+            quantum_dim=4,
+            fallback_to_classical=False,
+            enable_caching=False,
         )
         conn.kinich_available = True
         conn.bridge = MagicMock()
 
         features = np.random.randn(2, 16)
-        with patch.object(conn, "_quantum_forward", side_effect=RuntimeError("quantum error")):
+        with patch.object(
+            conn, "_quantum_forward", side_effect=RuntimeError("quantum error")
+        ):
             with pytest.raises(RuntimeError, match="quantum error"):
                 await conn.quantum_process(features)
 
@@ -733,20 +780,25 @@ class TestKinichQuantumConnector:
 
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json = AsyncMock(return_value={
-            "quantum_enhanced_features": features.tolist()
-        })
+        mock_response.json = AsyncMock(
+            return_value={"quantum_enhanced_features": features.tolist()}
+        )
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
-        with patch("aiohttp.ClientSession", return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=False),
-        )):
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            ),
+        ):
             result = await conn._quantum_forward(features, "vqc")
 
         assert result.shape == (2, 16)
@@ -765,15 +817,20 @@ class TestKinichQuantumConnector:
         mock_response.text = AsyncMock(return_value="Internal Server Error")
 
         mock_session = AsyncMock()
-        mock_session.post = MagicMock(return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_response),
-            __aexit__=AsyncMock(return_value=False),
-        ))
+        mock_session.post = MagicMock(
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_response),
+                __aexit__=AsyncMock(return_value=False),
+            )
+        )
 
-        with patch("aiohttp.ClientSession", return_value=AsyncMock(
-            __aenter__=AsyncMock(return_value=mock_session),
-            __aexit__=AsyncMock(return_value=False),
-        )):
+        with patch(
+            "aiohttp.ClientSession",
+            return_value=AsyncMock(
+                __aenter__=AsyncMock(return_value=mock_session),
+                __aexit__=AsyncMock(return_value=False),
+            ),
+        ):
             with pytest.raises(RuntimeError, match="Kinich API error"):
                 await conn._quantum_forward(np.random.randn(2, 16), "vqc")
 
@@ -781,13 +838,15 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_vqc_forward(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2)
         features = np.random.randn(2, 4)
 
-        with patch.object(conn, "_quantum_forward", new_callable=AsyncMock,
-                          return_value=features) as mock_qf:
+        with patch.object(
+            conn, "_quantum_forward", new_callable=AsyncMock, return_value=features
+        ) as mock_qf:
             result = await conn._vqc_forward(features)
             mock_qf.assert_awaited_once()
 
@@ -795,6 +854,7 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_qsvm_forward(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2)
@@ -807,19 +867,22 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     async def test_qnn_forward(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2)
         features = np.random.randn(2, 4)
 
-        with patch.object(conn, "_quantum_forward", new_callable=AsyncMock,
-                          return_value=features) as mock_qf:
+        with patch.object(
+            conn, "_quantum_forward", new_callable=AsyncMock, return_value=features
+        ) as mock_qf:
             result = await conn._qnn_forward(features)
             mock_qf.assert_awaited_once()
 
     @patch("urllib.request.urlopen")
     def test_get_statistics(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2)
@@ -831,6 +894,7 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     def test_clear_cache(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2)
@@ -841,6 +905,7 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     def test_reset_statistics(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2)
@@ -851,6 +916,7 @@ class TestKinichQuantumConnector:
     @patch("urllib.request.urlopen")
     def test_repr(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         conn = KinichQuantumConnector(classical_dim=4, quantum_dim=2)
@@ -868,6 +934,7 @@ class TestQuantumEnhancedLayer:
     @patch("urllib.request.urlopen")
     def test_init(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         layer = QuantumEnhancedLayer(classical_dim=16, quantum_dim=4)
@@ -877,6 +944,7 @@ class TestQuantumEnhancedLayer:
     @patch("urllib.request.urlopen")
     def test_forward_no_running_loop(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         layer = QuantumEnhancedLayer(classical_dim=16, quantum_dim=4)
@@ -894,6 +962,7 @@ class TestQuantumEnhancedLayer:
     @patch("urllib.request.urlopen")
     def test_forward_with_running_loop(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         layer = QuantumEnhancedLayer(classical_dim=16, quantum_dim=4)
@@ -914,6 +983,7 @@ class TestQuantumEnhancedLayer:
     @patch("urllib.request.urlopen")
     def test_extra_repr(self, mock_urlopen):
         import urllib.error
+
         mock_urlopen.side_effect = urllib.error.URLError("refused")
 
         layer = QuantumEnhancedLayer(classical_dim=16, quantum_dim=4)

@@ -30,6 +30,7 @@ from .substrate_client import SubstrateClient, ExtrinsicReceipt
 
 class StorageBackend(Enum):
     """Decentralized storage backends."""
+
     IPFS = "ipfs"
     ARWEAVE = "arweave"
     LOCAL = "local"  # For testing
@@ -51,6 +52,7 @@ class GenomeMetadata:
         created_at: Creation timestamp
         size_bytes: Genome size in bytes
     """
+
     genome_id: str
     owner: str
     generation: int
@@ -68,15 +70,15 @@ class GenomeMetadata:
     def to_dict(self) -> Dict:
         """Convert to dictionary for chain storage."""
         return {
-            'genome_id': self.genome_id,
-            'owner': self.owner,
-            'generation': self.generation,
-            'fitness': int(self.fitness * 100),  # Basis points
-            'storage_backend': self.storage_backend.value,
-            'content_hash': self.content_hash,
-            'parent_ids': self.parent_ids,
-            'timestamp': int(self.created_at.timestamp()),
-            'size_bytes': self.size_bytes,
+            "genome_id": self.genome_id,
+            "owner": self.owner,
+            "generation": self.generation,
+            "fitness": int(self.fitness * 100),  # Basis points
+            "storage_backend": self.storage_backend.value,
+            "content_hash": self.content_hash,
+            "parent_ids": self.parent_ids,
+            "timestamp": int(self.created_at.timestamp()),
+            "size_bytes": self.size_bytes,
         }
 
 
@@ -135,9 +137,7 @@ class GenomeRegistry:
 
         self.local_storage_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(
-            f"GenomeRegistry initialized: backend={storage_backend.value}"
-        )
+        logger.info(f"GenomeRegistry initialized: backend={storage_backend.value}")
 
     def store_genome(
         self,
@@ -163,13 +163,12 @@ class GenomeRegistry:
             Genome metadata
         """
         logger.info(
-            f"Storing genome: generation={generation}, "
-            f"fitness={fitness:.2f}"
+            f"Storing genome: generation={generation}, " f"fitness={fitness:.2f}"
         )
 
         # Serialize genome
         genome_json = json.dumps(genome, sort_keys=True)
-        genome_bytes = genome_json.encode('utf-8')
+        genome_bytes = genome_json.encode("utf-8")
 
         # Generate genome ID (content hash)
         genome_id = hashlib.sha256(genome_bytes).hexdigest()
@@ -253,7 +252,7 @@ class GenomeRegistry:
             )
 
         # Parse genome
-        genome = json.loads(genome_bytes.decode('utf-8'))
+        genome = json.loads(genome_bytes.decode("utf-8"))
 
         logger.debug(f"Retrieved genome: {genome_id[:16]}...")
         return genome
@@ -280,14 +279,14 @@ class GenomeRegistry:
 
             metadata = GenomeMetadata(
                 genome_id=genome_id,
-                owner=data['owner'],
-                generation=data['generation'],
-                fitness=data['fitness'] / 100.0,
-                storage_backend=StorageBackend(data['storage_backend']),
-                content_hash=data['content_hash'],
-                parent_ids=data.get('parent_ids', []),
-                created_at=datetime.fromtimestamp(data['timestamp'], tz=timezone.utc),
-                size_bytes=data['size_bytes'],
+                owner=data["owner"],
+                generation=data["generation"],
+                fitness=data["fitness"] / 100.0,
+                storage_backend=StorageBackend(data["storage_backend"]),
+                content_hash=data["content_hash"],
+                parent_ids=data.get("parent_ids", []),
+                created_at=datetime.fromtimestamp(data["timestamp"], tz=timezone.utc),
+                size_bytes=data["size_bytes"],
             )
 
             return metadata
@@ -376,13 +375,14 @@ class GenomeRegistry:
         """
         try:
             import requests
+
             response = requests.post(
                 f"{self.ipfs_url}/api/v0/add",
-                files={'file': data},
+                files={"file": data},
                 timeout=30,
             )
             response.raise_for_status()
-            cid = response.json()['Hash']
+            cid = response.json()["Hash"]
             logger.debug(f"Stored on IPFS: {cid}")
             return cid
         except Exception as e:
@@ -393,9 +393,10 @@ class GenomeRegistry:
         """Retrieve data from IPFS."""
         try:
             import requests
+
             response = requests.post(
                 f"{self.ipfs_url}/api/v0/cat",
-                params={'arg': cid},
+                params={"arg": cid},
                 timeout=30,
             )
             response.raise_for_status()
@@ -447,7 +448,12 @@ class GenomeRegistry:
         """
         # Sanitize genome_id to prevent path traversal
         safe_id = Path(genome_id).name
-        if not safe_id or safe_id in ('.', '..') or '/' in genome_id or '\\' in genome_id:
+        if (
+            not safe_id
+            or safe_id in (".", "..")
+            or "/" in genome_id
+            or "\\" in genome_id
+        ):
             raise ValueError(f"Invalid genome ID: {genome_id}")
         file_path = self.local_storage_dir / f"{safe_id}.json"
         # Verify resolved path is under storage dir

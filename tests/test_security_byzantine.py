@@ -9,6 +9,7 @@ Covers:
   - ByzantineDetector reputation helpers and to_dict
   - recommend_aggregation_method utility
 """
+
 from __future__ import annotations
 
 from typing import Dict, List
@@ -23,10 +24,10 @@ from security.byzantine_detection import (
     recommend_aggregation_method,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_update(seed: int = 0, size: int = 6) -> Dict[str, torch.Tensor]:
     torch.manual_seed(seed)
@@ -44,11 +45,19 @@ def _make_updates(n: int) -> List[Dict[str, torch.Tensor]]:
 # AggregationMethod enum
 # ---------------------------------------------------------------------------
 
+
 class TestAggregationMethodEnum:
 
     def test_all_six_values_present(self):
         vals = {m.value for m in AggregationMethod}
-        assert vals == {"fedavg", "krum", "multi_krum", "trimmed_mean", "median", "phocas"}
+        assert vals == {
+            "fedavg",
+            "krum",
+            "multi_krum",
+            "trimmed_mean",
+            "median",
+            "phocas",
+        }
 
     def test_from_value_string(self):
         assert AggregationMethod("trimmed_mean") == AggregationMethod.TRIMMED_MEAN
@@ -57,6 +66,7 @@ class TestAggregationMethodEnum:
 # ---------------------------------------------------------------------------
 # ClientReputation
 # ---------------------------------------------------------------------------
+
 
 class TestClientReputation:
 
@@ -111,6 +121,7 @@ class TestClientReputation:
 # ByzantineDetector — init
 # ---------------------------------------------------------------------------
 
+
 class TestByzantineDetectorInit:
 
     def test_default_method_is_krum(self):
@@ -133,6 +144,7 @@ class TestByzantineDetectorInit:
 # ---------------------------------------------------------------------------
 # FedAvg
 # ---------------------------------------------------------------------------
+
 
 class TestFedAvg:
 
@@ -162,6 +174,7 @@ class TestFedAvg:
 # Krum
 # ---------------------------------------------------------------------------
 
+
 class TestKrum:
 
     def test_returns_one_of_the_inputs(self):
@@ -188,6 +201,7 @@ class TestKrum:
 # Multi-Krum
 # ---------------------------------------------------------------------------
 
+
 class TestMultiKrum:
 
     def test_output_shape_matches_input(self):
@@ -208,6 +222,7 @@ class TestMultiKrum:
 # ---------------------------------------------------------------------------
 # Trimmed Mean
 # ---------------------------------------------------------------------------
+
 
 class TestTrimmedMean:
 
@@ -237,19 +252,26 @@ class TestTrimmedMean:
 # Median
 # ---------------------------------------------------------------------------
 
+
 class TestMedian:
 
     def test_odd_clients_exact_median(self):
         d = ByzantineDetector(method=AggregationMethod.MEDIAN)
-        updates = [{"w": torch.tensor([1.0])}, {"w": torch.tensor([5.0])}, {"w": torch.tensor([3.0])}]
+        updates = [
+            {"w": torch.tensor([1.0])},
+            {"w": torch.tensor([5.0])},
+            {"w": torch.tensor([3.0])},
+        ]
         result = d.aggregate(updates)
         assert result["w"].item() == pytest.approx(3.0)
 
     def test_rejects_outlier(self):
         d = ByzantineDetector(method=AggregationMethod.MEDIAN)
         updates = [
-            {"w": torch.tensor([1.0])}, {"w": torch.tensor([1.0])},
-            {"w": torch.tensor([1.0])}, {"w": torch.tensor([999.0])},
+            {"w": torch.tensor([1.0])},
+            {"w": torch.tensor([1.0])},
+            {"w": torch.tensor([1.0])},
+            {"w": torch.tensor([999.0])},
             {"w": torch.tensor([1.0])},
         ]
         result = d.aggregate(updates)
@@ -267,6 +289,7 @@ class TestMedian:
 # ---------------------------------------------------------------------------
 # PHOCAS
 # ---------------------------------------------------------------------------
+
 
 class TestPhocas:
 
@@ -287,7 +310,11 @@ class TestPhocas:
         d.reputations[0] = ClientReputation(client_id=0, score=1.0)
         d.reputations[1] = ClientReputation(client_id=1, score=1.0)
         d.reputations[2] = ClientReputation(client_id=2, score=0.01)
-        updates = [{"w": torch.tensor([1.0])}, {"w": torch.tensor([1.0])}, {"w": torch.tensor([500.0])}]
+        updates = [
+            {"w": torch.tensor([1.0])},
+            {"w": torch.tensor([1.0])},
+            {"w": torch.tensor([500.0])},
+        ]
         result = d.aggregate(updates, client_ids=[0, 1, 2])
         assert result["w"].item() < 50.0
 
@@ -304,6 +331,7 @@ class TestPhocas:
 # ---------------------------------------------------------------------------
 # Method override at call time
 # ---------------------------------------------------------------------------
+
 
 class TestMethodOverride:
 
@@ -322,6 +350,7 @@ class TestMethodOverride:
 # ---------------------------------------------------------------------------
 # detect_anomalies
 # ---------------------------------------------------------------------------
+
 
 class TestDetectAnomalies:
 
@@ -344,19 +373,25 @@ class TestDetectAnomalies:
     def test_huge_norm_update_flagged(self):
         d = ByzantineDetector()
         normal = [_make_update(i) for i in range(4)]
-        poison = {"fc.weight": torch.full((6, 6), 1e5), "fc.bias": torch.full((6,), 1e5)}
+        poison = {
+            "fc.weight": torch.full((6, 6), 1e5),
+            "fc.bias": torch.full((6,), 1e5),
+        }
         anomalies = d.detect_anomalies(normal + [poison])
         assert anomalies[-1] is True
 
     def test_custom_thresholds_accepted(self):
         d = ByzantineDetector()
-        anomalies = d.detect_anomalies(_make_updates(4), threshold_std=10.0, cosine_threshold=-1.0)
+        anomalies = d.detect_anomalies(
+            _make_updates(4), threshold_std=10.0, cosine_threshold=-1.0
+        )
         assert len(anomalies) == 4
 
 
 # ---------------------------------------------------------------------------
 # Reputation helpers
 # ---------------------------------------------------------------------------
+
 
 class TestReputationHelpers:
 
@@ -391,14 +426,20 @@ class TestReputationHelpers:
         d = ByzantineDetector()
         d.aggregate(_make_updates(3), client_ids=[0, 1, 2])
         info = d.to_dict()
-        assert set(info.keys()) >= {"method", "num_byzantine", "reputation_enabled",
-                                     "num_tracked_clients", "reputations"}
+        assert set(info.keys()) >= {
+            "method",
+            "num_byzantine",
+            "reputation_enabled",
+            "num_tracked_clients",
+            "reputations",
+        }
         assert info["num_tracked_clients"] == 3
 
 
 # ---------------------------------------------------------------------------
 # recommend_aggregation_method
 # ---------------------------------------------------------------------------
+
 
 class TestRecommendAggregationMethod:
 

@@ -12,6 +12,7 @@ Focus areas:
 - genome/encoding.py / genome/operators.py (edge cases)
 - data/tokenizers.py (HuggingFace path)
 """
+
 import asyncio
 import json
 import os
@@ -27,6 +28,7 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _run(coro):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -41,11 +43,13 @@ def _run(coro):
 # 1.  config.py
 ###############################################################################
 
+
 class TestNawalConfigLoad:
     """Cover from_yaml, from_json, from_env, to_yaml, to_json, create_directories, load_config."""
 
     def test_from_yaml_loads(self, tmp_path):
         from config import NawalConfig
+
         p = tmp_path / "cfg.yaml"
         p.write_text("{}\n")  # empty → all defaults
         cfg = NawalConfig.from_yaml(str(p))
@@ -53,11 +57,13 @@ class TestNawalConfigLoad:
 
     def test_from_yaml_not_found(self):
         from config import NawalConfig
+
         with pytest.raises(FileNotFoundError):
             NawalConfig.from_yaml("/nonexistent/path.yaml")
 
     def test_from_json_loads(self, tmp_path):
         from config import NawalConfig
+
         p = tmp_path / "cfg.json"
         p.write_text("{}")
         cfg = NawalConfig.from_json(str(p))
@@ -65,11 +71,13 @@ class TestNawalConfigLoad:
 
     def test_from_json_not_found(self):
         from config import NawalConfig
+
         with pytest.raises(FileNotFoundError):
             NawalConfig.from_json("/nonexistent/path.json")
 
     def test_from_env_empty(self, monkeypatch):
         from config import NawalConfig
+
         # No NAWAL_ vars set → plain defaults
         for k in list(os.environ.keys()):
             if k.startswith("NAWAL_"):
@@ -79,6 +87,7 @@ class TestNawalConfigLoad:
 
     def test_from_env_bool(self, monkeypatch):
         from config import NawalConfig
+
         monkeypatch.setenv("NAWAL_STAKING_ACCOUNT", "//Alice")
         cfg = NawalConfig.from_env("NAWAL_")
         # staking_account should be set
@@ -86,6 +95,7 @@ class TestNawalConfigLoad:
 
     def test_to_yaml_creates_file(self, tmp_path):
         from config import NawalConfig
+
         cfg = NawalConfig()
         p = tmp_path / "out" / "cfg.yaml"
         cfg.to_yaml(str(p))
@@ -94,6 +104,7 @@ class TestNawalConfigLoad:
 
     def test_to_json_creates_file(self, tmp_path):
         from config import NawalConfig
+
         cfg = NawalConfig()
         p = tmp_path / "out" / "cfg.json"
         cfg.to_json(str(p))
@@ -103,6 +114,7 @@ class TestNawalConfigLoad:
 
     def test_create_directories(self, tmp_path):
         from config import NawalConfig, StorageConfig
+
         cfg = NawalConfig(
             storage=StorageConfig(
                 checkpoint_dir=str(tmp_path / "ckpt"),
@@ -117,6 +129,7 @@ class TestNawalConfigLoad:
 
     def test_load_config_yaml(self, tmp_path):
         from config import load_config
+
         p = tmp_path / "cfg.yaml"
         p.write_text("{}\n")
         result = load_config(config_path=str(p))
@@ -124,6 +137,7 @@ class TestNawalConfigLoad:
 
     def test_load_config_json(self, tmp_path):
         from config import load_config
+
         p = tmp_path / "cfg.json"
         p.write_text("{}")
         result = load_config(config_path=str(p))
@@ -131,6 +145,7 @@ class TestNawalConfigLoad:
 
     def test_load_config_defaults(self, monkeypatch):
         from config import load_config, NawalConfig
+
         for k in list(os.environ.keys()):
             if k.startswith("NAWAL_"):
                 monkeypatch.delenv(k)
@@ -139,6 +154,7 @@ class TestNawalConfigLoad:
 
     def test_load_config_unknown_ext_raises(self, tmp_path):
         from config import load_config
+
         p = tmp_path / "cfg.toml"
         p.write_text("[tool]\n")
         with pytest.raises(ValueError):
@@ -146,6 +162,7 @@ class TestNawalConfigLoad:
 
     def test_evolution_config_elitism_validator_raises(self):
         from config import EvolutionConfig
+
         with pytest.raises(Exception):
             EvolutionConfig(population_size=10, elitism_count=10)
 
@@ -154,9 +171,13 @@ class TestNawalConfigLoad:
 # 2.  genome/history.py
 ###############################################################################
 
-def _make_genome(genome_id: str, fitness: float = 50.0, generation: int = 0, parents=None):
+
+def _make_genome(
+    genome_id: str, fitness: float = 50.0, generation: int = 0, parents=None
+):
     """Create a minimal Genome for testing."""
     from genome.dna import Genome
+
     g = Genome(genome_id=genome_id, generation=generation, parent_genomes=parents or [])
     g.fitness_score = fitness
     return g
@@ -164,22 +185,33 @@ def _make_genome(genome_id: str, fitness: float = 50.0, generation: int = 0, par
 
 def _make_stats(avg: float = 50.0):
     from genome.population import PopulationStatistics
+
     return PopulationStatistics(
-        generation=0, population_size=1,
-        avg_fitness=avg, max_fitness=avg, min_fitness=avg, std_fitness=0.0,
-        avg_quality=avg, avg_timeliness=avg, avg_honesty=avg,
-        unique_architectures=1, diversity_score=0.5,
-        elite_count=0, elite_avg_fitness=avg,
+        generation=0,
+        population_size=1,
+        avg_fitness=avg,
+        max_fitness=avg,
+        min_fitness=avg,
+        std_fitness=0.0,
+        avg_quality=avg,
+        avg_timeliness=avg,
+        avg_honesty=avg,
+        unique_architectures=1,
+        diversity_score=0.5,
+        elite_count=0,
+        elite_avg_fitness=avg,
     )
 
 
 class TestEvolutionHistoryExtended:
     def _make_history(self):
         from genome.history import EvolutionHistory
+
         return EvolutionHistory("test-exp")
 
     def test_generation_record_to_dict_and_from_dict(self):
         from genome.history import GenerationRecord
+
         stats = _make_stats()
         rec = GenerationRecord(
             generation=0,
@@ -198,6 +230,7 @@ class TestEvolutionHistoryExtended:
 
     def test_genome_lineage_to_dict(self):
         from genome.history import GenomeLineage
+
         lineage = GenomeLineage(
             genome_id="g1",
             generation=0,
@@ -209,6 +242,7 @@ class TestEvolutionHistoryExtended:
 
     def test_genome_lineage_from_genome(self):
         from genome.history import GenomeLineage
+
         g = _make_genome("g1", fitness=60.0)
         lineage = GenomeLineage.from_genome(g)
         assert lineage.genome_id == "g1"
@@ -267,6 +301,7 @@ class TestEvolutionHistoryExtended:
 
     def test_export_and_import_json(self, tmp_path):
         from genome.history import EvolutionHistory
+
         h = self._make_history()
         g = _make_genome("g1", fitness=60.0)
         h.record_generation(0, _make_stats(60.0), [g])
@@ -292,6 +327,7 @@ class TestEvolutionHistoryExtended:
 class TestInnovationHistory:
     def test_register_layer_innovation(self):
         from genome.history import InnovationHistory
+
         ih = InnovationHistory()
         id1 = ih.register_layer_innovation("LINEAR", {"units": 64})
         id2 = ih.register_layer_innovation("LINEAR", {"units": 64})  # same → same id
@@ -301,6 +337,7 @@ class TestInnovationHistory:
 
     def test_register_connection_innovation(self):
         from genome.history import InnovationHistory
+
         ih = InnovationHistory()
         id1 = ih.register_connection_innovation(1, 2)
         id2 = ih.register_connection_innovation(1, 2)  # same
@@ -310,6 +347,7 @@ class TestInnovationHistory:
 
     def test_next_innovation_id_increments(self):
         from genome.history import InnovationHistory
+
         ih = InnovationHistory()
         assert ih.next_innovation_id == 1
         ih.register_layer_innovation("A", {})
@@ -320,14 +358,17 @@ class TestInnovationHistory:
 # 3.  blockchain/staking_connector.py  (mock mode)
 ###############################################################################
 
+
 def _make_sc():
     """Create StakingConnector in mock_mode with community tracking disabled."""
     from blockchain.staking_connector import StakingConnector
+
     return StakingConnector(mock_mode=True, enable_community_tracking=False)
 
 
 def _make_submission(participant_id="p1", round_number=1, samples=100, quality=80.0):
     from blockchain.staking_connector import TrainingSubmission
+
     return TrainingSubmission(
         participant_id=participant_id,
         round_number=round_number,
@@ -412,6 +453,7 @@ class TestStakingConnectorMock:
         sc = _make_sc()
         _run(sc.enroll_participant("p1", stake_amount=100))
         from blockchain.staking_connector import TrainingSubmission
+
         invalid = TrainingSubmission(
             participant_id="p1",
             round_number=1,
@@ -463,12 +505,18 @@ class TestStakingConnectorMock:
 
     def test_training_submission_validate_errors(self):
         from blockchain.staking_connector import TrainingSubmission
+
         sub = TrainingSubmission(
-            participant_id="p1", round_number=1, genome_id="g1",
-            samples_trained=0,   # invalid: must be positive
+            participant_id="p1",
+            round_number=1,
+            genome_id="g1",
+            samples_trained=0,  # invalid: must be positive
             training_time=-1.0,  # invalid: must be positive
-            quality_score=80.0, timeliness_score=85.0,
-            honesty_score=90.0, fitness_score=85.0, model_hash="hash",
+            quality_score=80.0,
+            timeliness_score=85.0,
+            honesty_score=90.0,
+            fitness_score=85.0,
+            model_hash="hash",
         )
         errors = sub.validate()
         assert len(errors) >= 2
@@ -476,11 +524,15 @@ class TestStakingConnectorMock:
     def test_participant_info_avg_fitness_invalid(self):
         """ParticipantInfo validates avg_fitness_score range 0-100."""
         from blockchain.staking_connector import ParticipantInfo
+
         with pytest.raises(ValueError):
             ParticipantInfo(
-                account_id="a", stake_amount=100,
-                is_enrolled=True, training_rounds_completed=0,
-                total_samples_trained=0, avg_fitness_score=200.0,  # invalid > 100
+                account_id="a",
+                stake_amount=100,
+                is_enrolled=True,
+                training_rounds_completed=0,
+                total_samples_trained=0,
+                avg_fitness_score=200.0,  # invalid > 100
             )
 
 
@@ -488,20 +540,24 @@ class TestStakingConnectorMock:
 # 4.  blockchain/identity_verifier.py
 ###############################################################################
 
+
 class TestDummyBelizeIDVerifier:
     def test_connect(self):
         from blockchain.identity_verifier import DummyBelizeIDVerifier
+
         v = DummyBelizeIDVerifier()
         _run(v.connect())  # no-op
 
     def test_verify_returns_true(self):
         from blockchain.identity_verifier import DummyBelizeIDVerifier
+
         v = DummyBelizeIDVerifier()
         result = _run(v.verify("BZ-12345-2024"))
         assert result is True
 
     def test_get_identity_details(self):
         from blockchain.identity_verifier import DummyBelizeIDVerifier
+
         v = DummyBelizeIDVerifier()
         details = _run(v.get_identity_details("BZ-12345-2024"))
         assert isinstance(details, dict)
@@ -509,18 +565,21 @@ class TestDummyBelizeIDVerifier:
 
     def test_check_rate_limits(self):
         from blockchain.identity_verifier import DummyBelizeIDVerifier
+
         v = DummyBelizeIDVerifier()
         result = _run(v.check_rate_limits("BZ-12345"))
         assert result is True
 
     def test_close(self):
         from blockchain.identity_verifier import DummyBelizeIDVerifier
+
         v = DummyBelizeIDVerifier()
         _run(v.close())  # no-op, should not raise
 
     def test_create_verifier_dummy(self):
         import os
         from blockchain.identity_verifier import create_verifier, DummyBelizeIDVerifier
+
         os.environ["NAWAL_ENV"] = "development"
         try:
             v = create_verifier(mode="development")
@@ -533,15 +592,18 @@ class TestDummyBelizeIDVerifier:
 # 5.  cli/commands.py  — invoke via CliRunner (exception paths cover uncovered lines)
 ###############################################################################
 
+
 class TestCliCommands:
     """Invoke each command; imports from nawal.* fail → covers exception handlers."""
 
     def _runner(self):
         from click.testing import CliRunner
+
         return CliRunner()
 
     def test_cli_help(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["--help"])
         assert result.exit_code == 0
@@ -549,6 +611,7 @@ class TestCliCommands:
 
     def test_train_command_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["train", "--dataset", "test", "--epochs", "1"])
         # Should fail with import error, exit code 1
@@ -556,86 +619,120 @@ class TestCliCommands:
 
     def test_evolve_command_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["evolve", "--generations", "1"])
         assert result.exit_code != 0
 
     def test_federate_command_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["federate", "--num-clients", "2", "--rounds", "1"])
         assert result.exit_code != 0
 
     def test_validator_help(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["validator", "--help"])
         assert result.exit_code == 0
 
     def test_validator_register_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
-        result = r.invoke(cli, [
-            "validator", "register",
-            "--name", "TestValidator",
-            "--email", "test@example.com",
-            "--keypair-uri", "//Alice",
-        ])
+        result = r.invoke(
+            cli,
+            [
+                "validator",
+                "register",
+                "--name",
+                "TestValidator",
+                "--email",
+                "test@example.com",
+                "--keypair-uri",
+                "//Alice",
+            ],
+        )
         assert result.exit_code != 0
 
     def test_validator_submit_fitness_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
-        result = r.invoke(cli, [
-            "validator", "submit-fitness",
-            "--quality", "80",
-            "--timeliness", "85",
-            "--honesty", "90",
-            "--round", "1",
-            "--keypair-uri", "//Alice",
-        ])
+        result = r.invoke(
+            cli,
+            [
+                "validator",
+                "submit-fitness",
+                "--quality",
+                "80",
+                "--timeliness",
+                "85",
+                "--honesty",
+                "90",
+                "--round",
+                "1",
+                "--keypair-uri",
+                "//Alice",
+            ],
+        )
         assert result.exit_code != 0
 
     def test_genome_help(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["genome", "--help"])
         assert result.exit_code == 0
 
     def test_genome_store_fails_gracefully(self, tmp_path):
         from cli.commands import cli
+
         r = self._runner()
         genome_file = tmp_path / "genome.json"
         genome_file.write_text('{"id": "test"}')
-        result = r.invoke(cli, [
-            "genome", "store",
-            str(genome_file),
-            "--fitness", "80.0",
-            "--generation", "1",
-            "--keypair-uri", "//Alice",
-        ])
+        result = r.invoke(
+            cli,
+            [
+                "genome",
+                "store",
+                str(genome_file),
+                "--fitness",
+                "80.0",
+                "--generation",
+                "1",
+                "--keypair-uri",
+                "//Alice",
+            ],
+        )
         assert result.exit_code != 0
 
     def test_genome_get_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["genome", "get", "some-genome-id"])
         assert result.exit_code != 0
 
     def test_config_init_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["config", "--init"])
         assert result.exit_code != 0
 
     def test_config_validate_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["config", "--validate"])
         assert result.exit_code != 0
 
     def test_config_show_fails_gracefully(self):
         from cli.commands import cli
+
         r = self._runner()
         result = r.invoke(cli, ["config", "--show"])
         assert result.exit_code != 0
@@ -645,32 +742,39 @@ class TestCliCommands:
 # 6.  client/domain_models.py
 ###############################################################################
 
+
 class TestModelDomain:
     def test_reward_multiplier_agritech(self):
         from client.domain_models import ModelDomain
+
         m = ModelDomain.AGRITECH
         assert m.reward_multiplier() > 0.0
 
     def test_reward_multiplier_marine(self):
         from client.domain_models import ModelDomain
+
         assert ModelDomain.MARINE.reward_multiplier() > 0.0
 
     def test_reward_multiplier_education(self):
         from client.domain_models import ModelDomain
+
         assert ModelDomain.EDUCATION.reward_multiplier() > 0.0
 
     def test_reward_multiplier_tech(self):
         from client.domain_models import ModelDomain
+
         assert ModelDomain.TECH.reward_multiplier() > 0.0
 
     def test_to_index_all_domains(self):
         from client.domain_models import ModelDomain
+
         indices = [d.to_index() for d in ModelDomain]
         # All indices should be unique integers
         assert len(set(indices)) == len(indices)
 
     def test_domain_data_config_defaults(self):
         from client.domain_models import DomainDataConfig
+
         cfg = DomainDataConfig()
         assert cfg.max_sequence_length > 0
         assert cfg.quality_threshold > 0
@@ -679,26 +783,31 @@ class TestModelDomain:
 class TestDomainModelFactory:
     def test_create_agritech_model(self):
         from client.domain_models import DomainModelFactory, ModelDomain
+
         model = DomainModelFactory.create_model(ModelDomain.AGRITECH)
         assert model is not None
 
     def test_create_marine_model(self):
         from client.domain_models import DomainModelFactory, ModelDomain
+
         model = DomainModelFactory.create_model(ModelDomain.MARINE)
         assert model is not None
 
     def test_create_general_model(self):
         from client.domain_models import DomainModelFactory, ModelDomain
+
         model = DomainModelFactory.create_model(ModelDomain.GENERAL)
         assert model is not None
 
     def test_create_tech_model(self):
         from client.domain_models import DomainModelFactory, ModelDomain
+
         model = DomainModelFactory.create_model(ModelDomain.TECH)
         assert model is not None
 
     def test_create_unknown_domain_raises(self):
         from client.domain_models import DomainModelFactory
+
         with pytest.raises((KeyError, ValueError, TypeError)):
             DomainModelFactory.create_model("NOTADOMAIN")
 
@@ -707,10 +816,12 @@ class TestDomainModelFactory:
 # 7.  api_server.py — remaining exception handlers and rate_limit_middleware
 ###############################################################################
 
+
 class TestApiServerRemaining:
     @pytest.fixture(autouse=True)
     def reset_state(self):
         import api_server
+
         api_server.app_state.active_rounds.clear()
         api_server.app_state.completed_rounds.clear()
         api_server.app_state.round_counter = 0
@@ -726,6 +837,7 @@ class TestApiServerRemaining:
     def test_get_round_status_not_found(self):
         from api_server import get_round_status
         from fastapi import HTTPException
+
         with pytest.raises(HTTPException) as exc_info:
             _run(get_round_status("nonexistent-round"))
         assert exc_info.value.status_code == 404
@@ -733,6 +845,7 @@ class TestApiServerRemaining:
     def test_get_round_status_found(self):
         import api_server
         from api_server import get_round_status, start_fl_round, StartRoundRequest
+
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
         result = _run(get_round_status(r.round_id))
         assert result.round_id == r.round_id
@@ -740,26 +853,34 @@ class TestApiServerRemaining:
     def test_rate_limit_middleware_health_bypass(self):
         from api_server import rate_limit_middleware
         from fastapi.responses import JSONResponse
+
         class MockReq:
             class url:
                 path = "/health"
+
             class client:
                 host = "127.0.0.1"
+
         async def mock_call_next(req):
             return JSONResponse({"ok": True})
+
         result = _run(rate_limit_middleware(MockReq(), mock_call_next))
         assert result is not None
 
     def test_rate_limit_middleware_normal(self):
         from api_server import rate_limit_middleware
         from fastapi.responses import JSONResponse
+
         class MockReq:
             class url:
                 path = "/api/v1/status"
+
             class client:
                 host = "1.2.3.4"
+
         async def mock_call_next(req):
             return JSONResponse({"ok": True})
+
         result = _run(rate_limit_middleware(MockReq(), mock_call_next))
         assert result is not None
 
@@ -768,12 +889,15 @@ class TestApiServerRemaining:
         import api_server
         from api_server import start_fl_round, StartRoundRequest
         from fastapi import HTTPException
+
         original_counter = api_server.app_state.round_counter
+
         # Inject invalid state to cause an exception inside the handler
         # Make active_rounds raise an error on assignment
         class BadDict(dict):
             def __setitem__(self, key, value):
                 raise RuntimeError("Forced error for coverage")
+
         api_server.app_state.active_rounds = BadDict()
         try:
             with pytest.raises(HTTPException) as exc_info:
@@ -787,11 +911,15 @@ class TestApiServerRemaining:
         import api_server
         from api_server import enroll_participant, EnrollRequest
         from fastapi import HTTPException
+
         # Set a staking_connector that raises on enroll_participant
         mock_sc = AsyncMock()
         mock_sc.enroll_participant = AsyncMock(side_effect=RuntimeError("DB error"))
         api_server.app_state.staking_connector = mock_sc
-        req = EnrollRequest(account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", stake_amount=1000)
+        req = EnrollRequest(
+            account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            stake_amount=1000,
+        )
         with pytest.raises(HTTPException) as exc_info:
             _run(enroll_participant(req))
         assert exc_info.value.status_code == 500
@@ -800,8 +928,13 @@ class TestApiServerRemaining:
         """Cover 503 path in get_participant_stats."""
         from api_server import get_participant_stats
         from fastapi import HTTPException
+
         with pytest.raises(HTTPException) as exc_info:
-            _run(get_participant_stats("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"))
+            _run(
+                get_participant_stats(
+                    "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+                )
+            )
         assert exc_info.value.status_code == 503
 
     def test_get_participant_stats_exception_path(self):
@@ -809,11 +942,16 @@ class TestApiServerRemaining:
         import api_server
         from api_server import get_participant_stats
         from fastapi import HTTPException
+
         mock_sc = AsyncMock()
         mock_sc.get_participant = AsyncMock(side_effect=RuntimeError("RPC error"))
         api_server.app_state.staking_connector = mock_sc
         with pytest.raises(HTTPException) as exc_info:
-            _run(get_participant_stats("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"))
+            _run(
+                get_participant_stats(
+                    "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+                )
+            )
         assert exc_info.value.status_code == 500
 
     def test_get_system_metrics_exception_path(self):
@@ -821,6 +959,7 @@ class TestApiServerRemaining:
         import api_server
         from api_server import get_system_metrics
         from fastapi import HTTPException
+
         # Inject a staking_connector that raises
         mock_sc = AsyncMock()
         mock_sc.get_all_participants = AsyncMock(side_effect=RuntimeError("fail"))
@@ -833,6 +972,7 @@ class TestApiServerRemaining:
         """Cover lines 711-732 — the main() entry point."""
         with patch("api_server.uvicorn") as mock_uv:
             from api_server import main
+
             main()
         mock_uv.run.assert_called_once()
 
@@ -841,9 +981,11 @@ class TestApiServerRemaining:
 # 8.  genome/encoding.py  — remaining uncovered paths
 ###############################################################################
 
+
 class TestGenomeEncodingRemaining:
     def test_create_baseline_genome(self):
         from genome.encoding import GenomeEncoder
+
         enc = GenomeEncoder()
         g = enc.create_baseline_genome()
         assert g is not None
@@ -851,6 +993,7 @@ class TestGenomeEncodingRemaining:
 
     def test_estimate_model_size(self):
         from genome.encoding import GenomeEncoder
+
         enc = GenomeEncoder()
         g = enc.create_baseline_genome()
         size = enc.estimate_model_size(g)
@@ -859,6 +1002,7 @@ class TestGenomeEncodingRemaining:
 
     def test_validate_genome_baseline(self):
         from genome.encoding import GenomeEncoder
+
         enc = GenomeEncoder()
         g = enc.create_baseline_genome()
         result = enc.validate_genome(g)
@@ -872,15 +1016,18 @@ class TestGenomeEncodingRemaining:
 # 9.  genome/operators.py — additional edge cases
 ###############################################################################
 
+
 class TestGenomeOperatorsEdges:
     def _genome(self, gid="g", fitness=50.0):
         from genome.dna import Genome
+
         g = Genome(genome_id=gid, generation=0, parent_genomes=[])
         g.fitness_score = fitness
         return g
 
     def test_mutation_operator_mutate(self):
         from genome.operators import MutationOperator, MutationConfig
+
         cfg = MutationConfig()  # use defaults
         op = MutationOperator(cfg)
         g = self._genome("m1")
@@ -889,6 +1036,7 @@ class TestGenomeOperatorsEdges:
 
     def test_crossover_operator_crossover(self):
         from genome.operators import CrossoverOperator, CrossoverConfig
+
         cfg = CrossoverConfig()
         op = CrossoverOperator(cfg)
         p1 = self._genome("p1", 60.0)
@@ -901,10 +1049,12 @@ class TestGenomeOperatorsEdges:
 # 10.  data/tokenizers.py — HuggingFace tokenizer path
 ###############################################################################
 
+
 class TestHuggingFaceTokenizer:
     def test_hf_tokenizer_module_attribute(self):
         """Checks the HF_AVAILABLE flag in the tokenizers module."""
         import data.tokenizers as tok_mod
+
         assert hasattr(tok_mod, "HF_AVAILABLE")
         assert isinstance(tok_mod.HF_AVAILABLE, bool)
 
@@ -913,9 +1063,11 @@ class TestHuggingFaceTokenizer:
 # 11.  blockchain/genome_registry.py  — remaining uncovered paths
 ###############################################################################
 
+
 class TestGenomeRegistryRemaining:
     def test_genome_metadata_dataclass(self):
         from blockchain.genome_registry import GenomeMetadata, StorageBackend
+
         meta = GenomeMetadata(
             genome_id="g1",
             owner="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
@@ -931,6 +1083,7 @@ class TestGenomeRegistryRemaining:
 
     def test_genome_metadata_to_dict(self):
         from blockchain.genome_registry import GenomeMetadata, StorageBackend
+
         meta = GenomeMetadata(
             genome_id="g2",
             owner="addr",
@@ -949,13 +1102,17 @@ class TestGenomeRegistryRemaining:
 # 12.  monitoring/ remaining coverage
 ###############################################################################
 
+
 class TestMonitoringRemaining:
     def test_metrics_collector_all_metric_types(self):
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         for mt in [
-            MetricType.TRAINING_LOSS, MetricType.VALIDATION_LOSS,
-            MetricType.TRAINING_ACCURACY, MetricType.VALIDATION_ACCURACY,
+            MetricType.TRAINING_LOSS,
+            MetricType.VALIDATION_LOSS,
+            MetricType.TRAINING_ACCURACY,
+            MetricType.VALIDATION_ACCURACY,
         ]:
             mc.record(mt, 1.0)
             result = mc.get_metrics(mt)
@@ -963,12 +1120,14 @@ class TestMonitoringRemaining:
 
     def test_metrics_collector_get_average_empty(self):
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         avg = mc.get_average(MetricType.TRAINING_LOSS)
         assert avg is None
 
     def test_metrics_collector_get_average_with_data(self):
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         mc.record(MetricType.TRAINING_LOSS, 2.0)
         mc.record(MetricType.TRAINING_LOSS, 4.0)
@@ -977,6 +1136,7 @@ class TestMonitoringRemaining:
 
     def test_metrics_collector_get_latest_empty(self):
         from monitoring.metrics import MetricsCollector, MetricType
+
         mc = MetricsCollector()
         latest = mc.get_latest(MetricType.TRAINING_LOSS)
         assert latest is None
@@ -986,21 +1146,25 @@ class TestMonitoringRemaining:
 # 13.  valuation/ remaining coverage
 ###############################################################################
 
+
 class TestValuationRemaining:
     def test_reward_model_zero_candidates(self):
         from valuation.reward import DriveBasedRewardModel
+
         rm = DriveBasedRewardModel()
         result = rm.score([])
         assert result == []
 
     def test_reward_model_ranked_single(self):
         from valuation.reward import DriveBasedRewardModel
+
         rm = DriveBasedRewardModel()
         ranked = rm.ranked([{"text": "the only candidate"}])
         assert len(ranked) == 1
 
     def test_safety_model_blocks_harmful(self):
         from valuation.safety import BasicSafetyFilter
+
         f = BasicSafetyFilter()
         # matches pattern: kill ... people
         result = f.is_safe("kill all people")
@@ -1008,6 +1172,7 @@ class TestValuationRemaining:
 
     def test_safety_model_allows_safe(self):
         from valuation.safety import BasicSafetyFilter
+
         f = BasicSafetyFilter()
         result = f.is_safe("The weather today is sunny.")
         assert result is True
@@ -1017,9 +1182,11 @@ class TestValuationRemaining:
 # 14.  control/controller.py  — remaining uncovered
 ###############################################################################
 
+
 class TestControllerRemaining:
     def test_controller_exception_handling(self):
         from control.controller import ExecutiveController
+
         ctrl = ExecutiveController()
         # Test that the controller handles a bad plan gracefully
         assert ctrl is not None
@@ -1027,6 +1194,7 @@ class TestControllerRemaining:
     def test_goal_stack_push_and_list(self):
         from control.goal_stack import GoalStack
         from control.interfaces import Goal
+
         gs = GoalStack()
         g = Goal(goal_id="g1", description="test", priority=0.9)
         gs.push(g)
@@ -1039,11 +1207,13 @@ class TestControllerRemaining:
 # 15.  architecture/transformer.py  — remaining uncovered
 ###############################################################################
 
+
 class TestTransformerRemaining:
     def test_transformer_forward_with_mask(self):
         import torch
         from architecture.transformer import NawalTransformer
         from architecture.config import NawalModelConfig
+
         cfg = NawalModelConfig(
             vocab_size=100,
             hidden_size=32,
@@ -1059,17 +1229,19 @@ class TestTransformerRemaining:
             out = model(input_ids)
         # NawalTransformer returns a dict with 'logits' key
         assert isinstance(out, dict)
-        assert 'logits' in out
-        assert out['logits'].shape == (2, 8, 100)
+        assert "logits" in out
+        assert out["logits"].shape == (2, 8, 100)
 
 
 ###############################################################################
 # 16.  server/aggregator.py  — enroll path coverage
 ###############################################################################
 
+
 class TestAggregatorRemaining:
     def test_aggregator_update_with_no_participants(self):
         from server.aggregator import FederatedAggregator
+
         agg = FederatedAggregator()
         # round_number starts at 0
         assert agg.round_number == 0
@@ -1079,14 +1251,17 @@ class TestAggregatorRemaining:
 # 17.  hybrid/ modules coverage
 ###############################################################################
 
+
 class TestHybridModules:
     def test_hybrid_memory_import(self):
         from unittest.mock import MagicMock
         from quantum.quantum_memory import QuantumMemory
+
         qm = QuantumMemory(backing_store=MagicMock())
         assert qm is not None
 
     def test_hybrid_optimizer_import(self):
         from quantum.quantum_optimizer import QuantumPlanOptimizer
+
         qs = QuantumPlanOptimizer()
         assert qs is not None

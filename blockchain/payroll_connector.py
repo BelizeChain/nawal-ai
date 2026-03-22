@@ -41,6 +41,7 @@ from cryptography.hazmat.backends import default_backend
 try:
     from substrateinterface import SubstrateInterface, Keypair
     from substrateinterface.exceptions import SubstrateRequestException
+
     SUBSTRATE_AVAILABLE = True
 except ImportError:
     SUBSTRATE_AVAILABLE = False
@@ -59,6 +60,7 @@ PAYROLL_PLANCK_PER_DALLA = 10**8
 
 class PayrollStatus(Enum):
     """Status of payroll submission."""
+
     PENDING = "pending"
     VERIFIED = "verified"
     PROCESSED = "processed"
@@ -68,6 +70,7 @@ class PayrollStatus(Enum):
 
 class EmployeeType(Enum):
     """Type of employee."""
+
     GOVERNMENT = "government"
     PRIVATE = "private"
     CONTRACTOR = "contractor"
@@ -98,9 +101,16 @@ class PayrollEntry:
             raise ValueError("Net salary cannot be negative")
 
         # Validate calculation
-        expected_net = self.gross_salary - self.tax_withholding - self.social_security - self.pension_contribution
+        expected_net = (
+            self.gross_salary
+            - self.tax_withholding
+            - self.social_security
+            - self.pension_contribution
+        )
         if abs(expected_net - self.net_salary) > 1:  # Allow 1 Planck rounding error
-            raise ValueError(f"Net salary mismatch: expected {expected_net}, got {self.net_salary}")
+            raise ValueError(
+                f"Net salary mismatch: expected {expected_net}, got {self.net_salary}"
+            )
 
 
 @dataclass
@@ -118,7 +128,9 @@ class PayrollSubmission:
     entries: List[PayrollEntry]
     zk_proof: str  # Zero-knowledge proof of correctness
     merkle_root: str  # Merkle root of all entries
-    timestamp: float = field(default_factory=lambda: datetime.now(timezone.utc).timestamp())
+    timestamp: float = field(
+        default_factory=lambda: datetime.now(timezone.utc).timestamp()
+    )
     status: PayrollStatus = PayrollStatus.PENDING
 
     def validate(self) -> List[str]:
@@ -126,7 +138,9 @@ class PayrollSubmission:
         errors = []
 
         if self.employee_count != len(self.entries):
-            errors.append(f"Employee count mismatch: {self.employee_count} vs {len(self.entries)}")
+            errors.append(
+                f"Employee count mismatch: {self.employee_count} vs {len(self.entries)}"
+            )
 
         # Validate totals
         calc_gross = sum(e.gross_salary for e in self.entries)
@@ -184,8 +198,15 @@ class PayrollProof:
         except (json.JSONDecodeError, TypeError):
             return False
 
-        required_keys = {"version", "scheme", "nonce", "entry_commitments",
-                         "aggregate_commitment", "entry_count", "merkle_binding"}
+        required_keys = {
+            "version",
+            "scheme",
+            "nonce",
+            "entry_commitments",
+            "aggregate_commitment",
+            "entry_count",
+            "merkle_binding",
+        }
         if not required_keys.issubset(proof.keys()):
             return False
 
@@ -198,9 +219,7 @@ class PayrollProof:
 
         # Verify aggregate_commitment = SHA256(sorted entry commitments)
         sorted_commits = sorted(entry_commits)
-        expected_agg = hashlib.sha256(
-            "".join(sorted_commits).encode()
-        ).hexdigest()
+        expected_agg = hashlib.sha256("".join(sorted_commits).encode()).hexdigest()
         if proof.get("aggregate_commitment") != expected_agg:
             return False
 
@@ -309,7 +328,9 @@ class PayrollConnector:
         try:
             self.substrate = SubstrateInterface(url=self.websocket_url)
             self._connected = True
-            logger.info(f"Connected to BelizeChain Payroll pallet at {self.websocket_url}")
+            logger.info(
+                f"Connected to BelizeChain Payroll pallet at {self.websocket_url}"
+            )
             return True
 
         except Exception as e:
@@ -416,7 +437,9 @@ class PayrollConnector:
                     logger.info(f"Payroll {submission_id} submitted successfully")
                 else:
                     submission.status = PayrollStatus.FAILED
-                    raise RuntimeError(f"Payroll submission failed: {receipt.error_message}")
+                    raise RuntimeError(
+                        f"Payroll submission failed: {receipt.error_message}"
+                    )
 
             except SubstrateRequestException as e:
                 logger.error(f"Blockchain error: {e}")
@@ -685,6 +708,7 @@ class PayrollConnector:
 
         # Per-entry HMAC-SHA256 commitments (keyed by nonce)
         import hmac as _hmac
+
         entry_commitments: list[str] = []
         for entry in entries:
             msg = (
@@ -692,7 +716,9 @@ class PayrollConnector:
                 f"{entry.net_salary}|{entry.payment_period}"
             ).encode()
             commit = _hmac.new(
-                nonce.encode(), msg, hashlib.sha256,
+                nonce.encode(),
+                msg,
+                hashlib.sha256,
             ).hexdigest()
             entry_commitments.append(commit)
 
@@ -746,7 +772,10 @@ class PayrollConnector:
         if tax_brackets is None:
             tax_brackets = [
                 {"threshold": 0, "rate": 0.0},
-                {"threshold": 26_000 * PAYROLL_PLANCK_PER_DALLA, "rate": 0.25},  # 26,000 DALLA standard deduction
+                {
+                    "threshold": 26_000 * PAYROLL_PLANCK_PER_DALLA,
+                    "rate": 0.25,
+                },  # 26,000 DALLA standard deduction
             ]
 
         tax = 0

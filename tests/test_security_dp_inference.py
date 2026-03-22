@@ -7,10 +7,10 @@ import torch
 
 from security.dp_inference import DPInferenceGuard
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_output(shape=(4,), value=1.0) -> torch.Tensor:
     return torch.full(shape, value, dtype=torch.float32)
@@ -19,6 +19,7 @@ def _make_output(shape=(4,), value=1.0) -> torch.Tensor:
 # ---------------------------------------------------------------------------
 # DPInferenceGuard — __init__
 # ---------------------------------------------------------------------------
+
 
 class TestDPInferenceGuardInit:
 
@@ -48,6 +49,7 @@ class TestDPInferenceGuardInit:
 # ---------------------------------------------------------------------------
 # DPInferenceGuard — _add_laplace_noise
 # ---------------------------------------------------------------------------
+
 
 class TestAddLaplaceNoise:
 
@@ -98,6 +100,7 @@ class TestAddLaplaceNoise:
 # DPInferenceGuard — protect_output
 # ---------------------------------------------------------------------------
 
+
 class TestProtectOutput:
 
     def test_same_shape_as_input(self):
@@ -134,6 +137,7 @@ class TestProtectOutput:
 # ---------------------------------------------------------------------------
 # DPInferenceGuard — inference_context
 # ---------------------------------------------------------------------------
+
 
 class TestInferenceContext:
 
@@ -185,6 +189,7 @@ class TestInferenceContext:
 # DPInferenceGuard — is_active property
 # ---------------------------------------------------------------------------
 
+
 class TestIsActiveProperty:
 
     def test_false_on_fresh_instance(self):
@@ -203,6 +208,6 @@ class TestIsActiveProperty:
         """is_active uses getattr with default False when _active not set."""
         guard = DPInferenceGuard()
         # Before any context, _active attribute may not exist — should still return False
-        if hasattr(guard, '_active'):
+        if hasattr(guard, "_active"):
             del guard._active
         assert guard.is_active is False

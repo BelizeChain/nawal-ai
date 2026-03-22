@@ -33,6 +33,7 @@ Typical usage in api_server.py or orchestrator.py::
     })
     ml.check_and_repair()   # auto-repairs if drifted
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -54,10 +55,10 @@ from maintenance.output_filter import OutputFilter
 from maintenance.drift_detector import DriftDetector
 from maintenance.self_repair import SelfRepair
 
-
 # --------------------------------------------------------------------------- #
 # MaintenanceLayer                                                              #
 # --------------------------------------------------------------------------- #
+
 
 class MaintenanceLayer:
     """
@@ -85,7 +86,7 @@ class MaintenanceLayer:
         drift_window: int = 100,
     ) -> None:
         self.input_screener = InputScreener()
-        self.output_filter  = OutputFilter()
+        self.output_filter = OutputFilter()
         self.drift_detector = DriftDetector(
             thresholds=drift_thresholds,
             window_size=drift_window,
@@ -100,7 +101,7 @@ class MaintenanceLayer:
 
         # Telemetry for anomaly detector (lazily fitted)
         self._telemetry_buffer: List[np.ndarray] = []
-        self._anomaly_fitted   = False
+        self._anomaly_fitted = False
 
         logger.info(
             f"MaintenanceLayer ready: checkpoint_path={checkpoint_path} "
@@ -198,11 +199,11 @@ class MaintenanceLayer:
         """Return a status summary dict for monitoring dashboards."""
         drift_report = self.drift_detector.check()
         return {
-            "drift_score":        drift_report.drift_score,
-            "is_drifted":         drift_report.is_drifted,
-            "drift_alerts":       drift_report.alerts,
-            "repair_count":       self.self_repair.repair_count,
-            "observation_count":  self.drift_detector.observation_count,
-            "anomaly_detector":   "fitted" if self._anomaly_fitted else "pending",
-            "input_patterns":     self.input_screener.pattern_count,
+            "drift_score": drift_report.drift_score,
+            "is_drifted": drift_report.is_drifted,
+            "drift_alerts": drift_report.alerts,
+            "repair_count": self.self_repair.repair_count,
+            "observation_count": self.drift_detector.observation_count,
+            "anomaly_detector": "fitted" if self._anomaly_fitted else "pending",
+            "input_patterns": self.input_screener.pattern_count,
         }

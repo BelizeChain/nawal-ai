@@ -49,7 +49,9 @@ class ConfidenceScorer:
         # Supported Belizean languages (higher confidence)
         self.native_languages = ["en", "es", "bzj", "cab", "mop"]
 
-        logger.info(f"Initialized ConfidenceScorer with threshold={confidence_threshold}")
+        logger.info(
+            f"Initialized ConfidenceScorer with threshold={confidence_threshold}"
+        )
 
     def compute_entropy(self, logits: torch.Tensor) -> float:
         """
@@ -113,7 +115,7 @@ class ConfidenceScorer:
         loss = F.cross_entropy(
             shift_logits.view(-1, shift_logits.size(-1)),
             shift_labels.view(-1),
-            reduction='none',
+            reduction="none",
         ).view(shift_labels.size())
 
         # Apply attention mask to ignore padding tokens
@@ -134,7 +136,9 @@ class ConfidenceScorer:
 
         return confidence
 
-    def compute_length_confidence(self, sequence_length: int, max_length: int = 1024) -> float:
+    def compute_length_confidence(
+        self, sequence_length: int, max_length: int = 1024
+    ) -> float:
         """
         Compute confidence based on sequence length
 
@@ -209,10 +213,10 @@ class ConfidenceScorer:
 
         # Weighted combination
         overall = (
-            self.entropy_weight * entropy_score +
-            self.perplexity_weight * perplexity_score +
-            self.length_weight * length_score +
-            self.language_weight * language_score
+            self.entropy_weight * entropy_score
+            + self.perplexity_weight * perplexity_score
+            + self.length_weight * length_score
+            + self.language_weight * language_score
         )
 
         # Decision: use Nawal if confidence >= threshold
@@ -239,4 +243,6 @@ class ConfidenceScorer:
         """
         old_threshold = self.threshold
         self.threshold = max(0.0, min(1.0, new_threshold))
-        logger.info(f"Updated confidence threshold: {old_threshold:.3f} -> {self.threshold:.3f}")
+        logger.info(
+            f"Updated confidence threshold: {old_threshold:.3f} -> {self.threshold:.3f}"
+        )

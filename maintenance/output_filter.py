@@ -21,6 +21,7 @@ The filter is *conservative*: it prefers false positives over missing
 genuinely harmful content.  Low-severity flags annotate the response for
 downstream auditing but do not block it.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,7 +39,14 @@ from maintenance.interfaces import (
 try:
     from maintenance.input_screener import _max_risk
 except ImportError:
-    _RISK_ORDER = [RiskLevel.NONE, RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH, RiskLevel.BLOCKED]
+    _RISK_ORDER = [
+        RiskLevel.NONE,
+        RiskLevel.LOW,
+        RiskLevel.MEDIUM,
+        RiskLevel.HIGH,
+        RiskLevel.BLOCKED,
+    ]
+
     def _max_risk(a: RiskLevel, b: RiskLevel) -> RiskLevel:  # type: ignore[misc]
         return a if _RISK_ORDER.index(a) >= _RISK_ORDER.index(b) else b
 
@@ -77,8 +85,7 @@ _HARM_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
     ),
     # Private keys
     (
-        r"-----BEGIN\s+(RSA|EC|PRIVATE)\s+KEY-----|"
-        r"0x[a-fA-F0-9]{40,}",
+        r"-----BEGIN\s+(RSA|EC|PRIVATE)\s+KEY-----|" r"0x[a-fA-F0-9]{40,}",
         "private_key_leak",
         RiskLevel.BLOCKED,
     ),
@@ -98,14 +105,21 @@ _HARM_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
 ]
 
 _HALLUCINATION_HINTS: List[Tuple[str, str, RiskLevel]] = [
-    (r"\[source:\s*N/A\]",                                     "hallucination_na_source", RiskLevel.LOW),
-    (r"\(as of\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\)",
-     "stale_date_claim", RiskLevel.LOW),
-    (r"according to [A-Z][a-z]+ et al\.,\s*\d{4}",            "ungrounded_citation",     RiskLevel.LOW),
+    (r"\[source:\s*N/A\]", "hallucination_na_source", RiskLevel.LOW),
+    (
+        r"\(as of\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\)",
+        "stale_date_claim",
+        RiskLevel.LOW,
+    ),
+    (
+        r"according to [A-Z][a-z]+ et al\.,\s*\d{4}",
+        "ungrounded_citation",
+        RiskLevel.LOW,
+    ),
 ]
 
 _PII_OUTPUT: List[Tuple[str, str, RiskLevel]] = [
-    (r"\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b",  "ssn_in_output",    RiskLevel.HIGH),
+    (r"\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b", "ssn_in_output", RiskLevel.HIGH),
     (r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b", "cc_in_output", RiskLevel.HIGH),
 ]
 
@@ -120,6 +134,7 @@ _REFUSAL_PHRASES = re.compile(
 # --------------------------------------------------------------------------- #
 # OutputFilter                                                                  #
 # --------------------------------------------------------------------------- #
+
 
 class OutputFilter(AbstractOutputFilter):
     """
@@ -148,8 +163,7 @@ class OutputFilter(AbstractOutputFilter):
             for p, lbl, lvl in _HARM_PATTERNS + (extra_patterns or [])
         ]
         self._pii: List[Tuple[re.Pattern, str, RiskLevel]] = [
-            (re.compile(p, re.IGNORECASE), lbl, lvl)
-            for p, lbl, lvl in _PII_OUTPUT
+            (re.compile(p, re.IGNORECASE), lbl, lvl) for p, lbl, lvl in _PII_OUTPUT
         ]
         self._hints: List[Tuple[re.Pattern, str, RiskLevel]] = [
             (re.compile(p, re.IGNORECASE), lbl, lvl)
@@ -173,8 +187,8 @@ class OutputFilter(AbstractOutputFilter):
             FilterResult — is_safe=False means the response must not be delivered.
         """
         flags: List[str] = []
-        max_level        = RiskLevel.NONE
-        filtered         = response
+        max_level = RiskLevel.NONE
+        filtered = response
 
         # Skip further checks if output is a model self-refusal
         if _REFUSAL_PHRASES.search(response):
@@ -202,7 +216,7 @@ class OutputFilter(AbstractOutputFilter):
         if len(response) > self._max_len:
             flags.append("excessive_output_length")
             max_level = _max_risk(max_level, RiskLevel.HIGH)
-            filtered  = response[: self._max_len] + " [output truncated]"
+            filtered = response[: self._max_len] + " [output truncated]"
 
         # 4. Hallucination hints (LOW only — doesn't block)
         if self._hallucination_hints:
@@ -230,7 +244,9 @@ class OutputFilter(AbstractOutputFilter):
         """Quick boolean safety check (passes an empty prompt)."""
         return self.filter("", response).is_safe
 
-    def add_pattern(self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH) -> None:
+    def add_pattern(
+        self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH
+    ) -> None:
         """Register an additional harm pattern at runtime.
 
         *pattern* may be a raw string or a pre-compiled ``re.Pattern``.

@@ -37,6 +37,7 @@ Phase 5: Replace ``_quantum_retrieve()`` body with live Kinich HTTP call
          once the node is provisioned.  The ``retrieve()`` public API is
          unchanged.
 """
+
 from __future__ import annotations
 
 import math
@@ -50,7 +51,6 @@ from loguru import logger
 
 from memory.interfaces import AbstractMemory, MemoryRecord
 
-
 # --------------------------------------------------------------------------- #
 # Constants                                                                    #
 # --------------------------------------------------------------------------- #
@@ -62,6 +62,7 @@ QUANTUM_THRESHOLD = 1_000
 # --------------------------------------------------------------------------- #
 # QuantumMemory                                                                #
 # --------------------------------------------------------------------------- #
+
 
 class QuantumMemory:
     """
@@ -89,17 +90,17 @@ class QuantumMemory:
         simulation_mode: bool = False,
         quantum_threshold: int = QUANTUM_THRESHOLD,
     ) -> None:
-        self._store               = backing_store
-        self._connector           = connector
+        self._store = backing_store
+        self._connector = connector
         self.fallback_to_classical = fallback_to_classical
-        self.simulation_mode      = simulation_mode
-        self.quantum_threshold    = quantum_threshold
+        self.simulation_mode = simulation_mode
+        self.quantum_threshold = quantum_threshold
 
         self.stats: Dict[str, int] = {
-            "quantum_calls":    0,
-            "simulated_calls":  0,
-            "classical_calls":  0,
-            "cache_hits":       0,
+            "quantum_calls": 0,
+            "simulated_calls": 0,
+            "classical_calls": 0,
+            "cache_hits": 0,
         }
 
         logger.info(
@@ -140,8 +141,8 @@ class QuantumMemory:
 
         # Classical always wins for small corpora
         corpus_size = self._corpus_size()
-        use_quantum  = self._should_use_quantum(corpus_size)
-        use_sim      = self.simulation_mode and not use_quantum
+        use_quantum = self._should_use_quantum(corpus_size)
+        use_sim = self.simulation_mode and not use_quantum
 
         if use_quantum:
             results = self._quantum_retrieve(query_embedding, top_k, filters)
@@ -204,9 +205,7 @@ class QuantumMemory:
         filters: Optional[Dict[str, Any]],
     ) -> List[MemoryRecord]:
         """Standard cosine-similarity top-k via backing store."""
-        return self._store.retrieve(
-            query_embedding=query, top_k=top_k, filters=filters
-        )
+        return self._store.retrieve(query_embedding=query, top_k=top_k, filters=filters)
 
     def _simulated_grover_retrieve(
         self,
@@ -261,7 +260,7 @@ class QuantumMemory:
         diffused = 2.0 * mean_a - amps_arr
 
         # Probabilities: square of diffused amplitudes (renormalized)
-        probs = diffused ** 2
+        probs = diffused**2
         total = probs.sum()
         if total > 0:
             probs /= total
@@ -282,10 +281,14 @@ class QuantumMemory:
         PhaseHook — Phase 5: implement real Kinich HTTP call here.
         For now, delegates to simulated Grover.
         """
-        if self._connector is not None and getattr(self._connector, "kinich_available", False):
+        if self._connector is not None and getattr(
+            self._connector, "kinich_available", False
+        ):
             # DESIGN NOTE (Phase 5): replace simulated Grover with
             # connector.quantum_process(query, top_k, filters) when Kinich is live.
-            logger.debug("QuantumMemory: Kinich connected — using simulated path (live TBD)")
+            logger.debug(
+                "QuantumMemory: Kinich connected — using simulated path (live TBD)"
+            )
         return self._simulated_grover_retrieve(query, top_k, filters)
 
     # ------------------------------------------------------------------ #

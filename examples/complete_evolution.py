@@ -23,12 +23,12 @@ async def main():
     print("NAWAL COMPLETE EVOLUTION EXAMPLE")
     print("=" * 80)
     print()
-    
+
     # ==========================================================================
     # STEP 1: Load Configuration
     # ==========================================================================
     print("📋 Step 1: Loading configuration...")
-    
+
     # Load from YAML file (or use defaults)
     try:
         config = load_config("nawal/config.dev.yaml")
@@ -36,41 +36,41 @@ async def main():
     except FileNotFoundError:
         config = NawalConfig()
         print("   ℹ️  Using default configuration")
-    
+
     print(f"   Population: {config.evolution.population_size}")
     print(f"   Generations: {config.evolution.num_generations}")
     print(f"   Environment: {config.environment}")
     print()
-    
+
     # ==========================================================================
     # STEP 2: Create Training Data
     # ==========================================================================
     print("📊 Step 2: Creating training data...")
-    
+
     # Create dummy data (in production, use real datasets)
     num_train_samples = 500
     num_val_samples = 100
     seq_length = 128
     vocab_size = config.model.vocab_size
-    
+
     # Training data
     train_input_ids = torch.randint(0, vocab_size, (num_train_samples, seq_length))
     train_dataset = TensorDataset(train_input_ids)
-    
+
     def collate_fn(batch):
         input_ids = batch[0]
         return {
             "input_ids": input_ids,
             "labels": input_ids,
         }
-    
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.training.batch_size,
         shuffle=True,
         collate_fn=collate_fn,
     )
-    
+
     # Validation data
     val_input_ids = torch.randint(0, vocab_size, (num_val_samples, seq_length))
     val_dataset = TensorDataset(val_input_ids)
@@ -80,49 +80,49 @@ async def main():
         shuffle=False,
         collate_fn=collate_fn,
     )
-    
+
     print(f"   Training samples: {num_train_samples}")
     print(f"   Validation samples: {num_val_samples}")
     print(f"   Sequence length: {seq_length}")
     print()
-    
+
     # ==========================================================================
     # STEP 3: Initialize Orchestrator
     # ==========================================================================
     print("🎭 Step 3: Initializing Evolution Orchestrator...")
-    
+
     orchestrator = EvolutionOrchestrator(
         config=config,
         train_loader=train_loader,
         val_loader=val_loader,
     )
-    
+
     print(f"   Population initialized: {len(orchestrator.population.genomes)} genomes")
     print(f"   Target generations: {config.evolution.num_generations}")
     print(f"   Checkpoint dir: {config.storage.checkpoint_dir}")
     print()
-    
+
     # ==========================================================================
     # STEP 4: Run Evolution
     # ==========================================================================
     print("🧬 Step 4: Starting evolution...")
     print()
     print("-" * 80)
-    
+
     # Run evolution (this will take time!)
     best_genome = await orchestrator.evolve()
-    
+
     print("-" * 80)
     print()
-    
+
     # ==========================================================================
     # STEP 5: Results
     # ==========================================================================
     print("📈 Step 5: Evolution Results")
     print()
-    
+
     stats = orchestrator.get_statistics()
-    
+
     print(f"   Generations Completed: {stats['generations']}")
     print(f"   Best Fitness: {stats['best_fitness']:.2f}/100")
     print(f"   Final Avg Fitness: {stats['avg_fitness']:.2f}/100")
@@ -130,25 +130,25 @@ async def main():
     print(f"   Total Training Time: {stats['total_training_time']:.1f}s")
     print(f"   Avg Generation Time: {stats['avg_generation_time']:.1f}s")
     print()
-    
+
     print("   Best Genome:")
     print(f"   - Genome ID: {best_genome.genome_id}")
     print(f"   - Hidden Size: {best_genome.hidden_size}")
     print(f"   - Num Layers: {len(best_genome.encoder_layers)}")
     print(f"   - Fitness: {best_genome.fitness:.2f}/100")
     print()
-    
+
     # ==========================================================================
     # STEP 6: Fitness History
     # ==========================================================================
     print("📊 Step 6: Fitness History")
     print()
-    
-    fitness_history = stats['fitness_history']
-    
+
+    fitness_history = stats["fitness_history"]
+
     print("   Generation | Best Fitness | Avg Fitness | Diversity")
     print("   " + "-" * 60)
-    
+
     for i, state in enumerate(orchestrator.generation_history[:10]):  # First 10
         print(
             f"   {state.generation + 1:>10} | "
@@ -156,10 +156,10 @@ async def main():
             f"{state.avg_fitness:>11.2f} | "
             f"{state.diversity:>9.2f}"
         )
-    
+
     if len(orchestrator.generation_history) > 10:
         print("   " + " " * 10 + "...")
-        
+
         # Last 5
         for state in orchestrator.generation_history[-5:]:
             print(
@@ -168,26 +168,28 @@ async def main():
                 f"{state.avg_fitness:>11.2f} | "
                 f"{state.diversity:>9.2f}"
             )
-    
+
     print()
-    
+
     # ==========================================================================
     # STEP 7: Improvement Analysis
     # ==========================================================================
     print("📈 Step 7: Improvement Analysis")
     print()
-    
+
     if len(fitness_history) > 0:
         initial_fitness = fitness_history[0]
         final_fitness = fitness_history[-1]
         improvement = final_fitness - initial_fitness
-        improvement_pct = (improvement / initial_fitness * 100) if initial_fitness > 0 else 0
-        
+        improvement_pct = (
+            (improvement / initial_fitness * 100) if initial_fitness > 0 else 0
+        )
+
         print(f"   Initial Fitness: {initial_fitness:.2f}/100")
         print(f"   Final Fitness: {final_fitness:.2f}/100")
         print(f"   Improvement: {improvement:+.2f} ({improvement_pct:+.1f}%)")
         print()
-        
+
         # Find best generation
         best_gen = max(
             enumerate(fitness_history),
@@ -196,19 +198,19 @@ async def main():
         print(f"   Best Generation: {best_gen[0] + 1}")
         print(f"   Best Fitness: {best_gen[1]:.2f}/100")
         print()
-    
+
     # ==========================================================================
     # STEP 8: Checkpoints
     # ==========================================================================
     print("💾 Step 8: Saved Checkpoints")
     print()
-    
+
     checkpoint_dir = config.storage.checkpoint_dir
     if checkpoint_dir.exists():
         checkpoints = sorted(checkpoint_dir.glob("*.pt"))
         print(f"   Checkpoint directory: {checkpoint_dir}")
         print(f"   Total checkpoints: {len(checkpoints)}")
-        
+
         if checkpoints:
             print("   Files:")
             for cp in checkpoints[-5:]:  # Last 5
@@ -216,9 +218,9 @@ async def main():
                 print(f"   - {cp.name} ({size_mb:.1f} MB)")
     else:
         print("   No checkpoints saved")
-    
+
     print()
-    
+
     # ==========================================================================
     # COMPLETE!
     # ==========================================================================

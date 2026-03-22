@@ -25,6 +25,7 @@ Usage::
     print(result.contradictions) # [(0,2,"population…"), (1,2,"population…")]
     best = cc.most_consistent(candidates)
 """
+
 from __future__ import annotations
 
 import re
@@ -33,10 +34,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
-
 # --------------------------------------------------------------------------- #
 # Data structures                                                              #
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class ContradictionPair:
@@ -49,6 +50,7 @@ class ContradictionPair:
         claim_b      : The conflicting claim from candidate B.
         reason       : Human-readable explanation.
     """
+
     idx_a: int
     idx_b: int
     claim_a: str
@@ -67,6 +69,7 @@ class ConsistencyResult:
         claim_map      : Per-candidate claim list (for inspection).
         most_supported : Index of the candidate with most agreement.
     """
+
     score: float
     contradictions: List[ContradictionPair] = field(default_factory=list)
     claim_map: List[List[str]] = field(default_factory=list)
@@ -76,6 +79,7 @@ class ConsistencyResult:
 # --------------------------------------------------------------------------- #
 # ConsistencyChecker                                                           #
 # --------------------------------------------------------------------------- #
+
 
 class ConsistencyChecker:
     """
@@ -138,14 +142,18 @@ class ConsistencyChecker:
             for j in range(i + 1, n):
                 for ci in claim_map[i]:
                     for cj in claim_map[j]:
-                        if self._claims_overlap(ci, cj) and self._claims_contradict(ci, cj):
-                            contradictions.append(ContradictionPair(
-                                idx_a=i,
-                                idx_b=j,
-                                claim_a=ci,
-                                claim_b=cj,
-                                reason=self._describe_contradiction(ci, cj),
-                            ))
+                        if self._claims_overlap(ci, cj) and self._claims_contradict(
+                            ci, cj
+                        ):
+                            contradictions.append(
+                                ContradictionPair(
+                                    idx_a=i,
+                                    idx_b=j,
+                                    claim_a=ci,
+                                    claim_b=cj,
+                                    reason=self._describe_contradiction(ci, cj),
+                                )
+                            )
 
         # Step 3: Consistency score
         total_pairs = n * (n - 1) // 2
@@ -207,9 +215,11 @@ class ConsistencyChecker:
             if not sent:
                 continue
             # Keep sentences with numbers, proper nouns, or negation
-            has_number   = bool(re.search(r"\b\d[\d,\.]*\b", sent))
-            has_np       = bool(re.search(r"\b[A-Z][a-z]{3,}\b", sent))
-            has_negation = bool(re.search(r"\b(not|never|no|neither|nor|none)\b", sent, re.I))
+            has_number = bool(re.search(r"\b\d[\d,\.]*\b", sent))
+            has_np = bool(re.search(r"\b[A-Z][a-z]{3,}\b", sent))
+            has_negation = bool(
+                re.search(r"\b(not|never|no|neither|nor|none)\b", sent, re.I)
+            )
             if has_number or has_np or has_negation:
                 claims.append(sent)
 
@@ -251,8 +261,12 @@ class ConsistencyChecker:
         neg_b = bool(re.search(r"\b(not|never|no)\b", b, re.I))
         if neg_a != neg_b:
             # One negates something the other affirms; rough test
-            core_a = re.sub(r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", a.lower())
-            core_b = re.sub(r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", b.lower())
+            core_a = re.sub(
+                r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", a.lower()
+            )
+            core_b = re.sub(
+                r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", b.lower()
+            )
             tok_a = set(core_a.split())
             tok_b = set(core_b.split())
             shared = len(tok_a & tok_b)
@@ -270,12 +284,67 @@ class ConsistencyChecker:
 
 
 # Common English stop-words
-_STOPWORDS = frozenset({
-    "a", "an", "the", "is", "it", "in", "on", "at", "to", "for", "of",
-    "and", "or", "but", "not", "no", "with", "by", "from", "as", "be",
-    "was", "are", "were", "has", "have", "had", "do", "does", "did",
-    "will", "would", "could", "should", "may", "might", "can", "this",
-    "that", "these", "those", "i", "me", "my", "we", "you", "he", "she",
-    "they", "them", "their", "its", "about", "which", "who", "what",
-    "when", "where", "there", "here",
-})
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "is",
+        "it",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "and",
+        "or",
+        "but",
+        "not",
+        "no",
+        "with",
+        "by",
+        "from",
+        "as",
+        "be",
+        "was",
+        "are",
+        "were",
+        "has",
+        "have",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "me",
+        "my",
+        "we",
+        "you",
+        "he",
+        "she",
+        "they",
+        "them",
+        "their",
+        "its",
+        "about",
+        "which",
+        "who",
+        "what",
+        "when",
+        "where",
+        "there",
+        "here",
+    }
+)

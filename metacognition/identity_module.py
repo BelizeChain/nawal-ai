@@ -31,6 +31,7 @@ Usage::
 
     identity.save()
 """
+
 from __future__ import annotations
 
 import json
@@ -42,10 +43,10 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-
 # --------------------------------------------------------------------------- #
 # Data structures                                                              #
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class AgentProfile:
@@ -54,6 +55,7 @@ class AgentProfile:
 
     All fields are serialisable so the profile can be persisted and reloaded.
     """
+
     name: str = "Nawal"
     role: str = (
         "Belize's sovereign AI assistant — specialised in agriculture, "
@@ -61,30 +63,36 @@ class AgentProfile:
     )
     version: str = "2.0.0-brain"
     sovereign: str = "BelizeChain"
-    values: List[str] = field(default_factory=lambda: [
-        "Accuracy over speed",
-        "Safety and harmlessness",
-        "Respect for Belizean sovereignty and culture",
-        "Transparency about limitations",
-        "Curiosity and lifelong learning",
-    ])
-    capabilities: List[str] = field(default_factory=lambda: [
-        "Text generation and dialogue",
-        "Domain expertise: AgriTech, Marine, Education, Tech",
-        "Multi-language: English, Spanish, Kriol, Garifuna, Maya",
-        "Memory retrieval (episodic + semantic)",
-        "Goal-driven planning and tool use",
-        "Federated learning and genome evolution (self-improvement)",
-    ])
-    limitations: List[str] = field(default_factory=lambda: [
-        "Cannot perceive images or audio (Phase 5 future capability)",
-        "Context window limit: 2048 tokens per session",
-        "Quantum acceleration: pending live Kinich node",
-        "No real-time internet access (RAG-based knowledge only)",
-    ])
-    languages: List[str] = field(default_factory=lambda: [
-        "English", "Spanish", "Kriol", "Garifuna", "Maya"
-    ])
+    values: List[str] = field(
+        default_factory=lambda: [
+            "Accuracy over speed",
+            "Safety and harmlessness",
+            "Respect for Belizean sovereignty and culture",
+            "Transparency about limitations",
+            "Curiosity and lifelong learning",
+        ]
+    )
+    capabilities: List[str] = field(
+        default_factory=lambda: [
+            "Text generation and dialogue",
+            "Domain expertise: AgriTech, Marine, Education, Tech",
+            "Multi-language: English, Spanish, Kriol, Garifuna, Maya",
+            "Memory retrieval (episodic + semantic)",
+            "Goal-driven planning and tool use",
+            "Federated learning and genome evolution (self-improvement)",
+        ]
+    )
+    limitations: List[str] = field(
+        default_factory=lambda: [
+            "Cannot perceive images or audio (Phase 5 future capability)",
+            "Context window limit: 2048 tokens per session",
+            "Quantum acceleration: pending live Kinich node",
+            "No real-time internet access (RAG-based knowledge only)",
+        ]
+    )
+    languages: List[str] = field(
+        default_factory=lambda: ["English", "Spanish", "Kriol", "Garifuna", "Maya"]
+    )
     style: str = (
         "Concise and helpful. Uses plain language. Respectful of local context. "
         "Honest about uncertainty."
@@ -104,6 +112,7 @@ class DecisionRecord:
         confidence  : Confidence score at decision time.
         notes       : Optional free-form metadata.
     """
+
     record_id: str
     timestamp: float
     goal: str
@@ -115,6 +124,7 @@ class DecisionRecord:
 # --------------------------------------------------------------------------- #
 # IdentityModule                                                               #
 # --------------------------------------------------------------------------- #
+
 
 class IdentityModule:
     """
@@ -139,7 +149,7 @@ class IdentityModule:
 
         # In-memory capability overrides (runtime additions)
         self._runtime_capabilities: List[str] = []
-        self._runtime_limitations:  List[str] = []
+        self._runtime_limitations: List[str] = []
 
     # ------------------------------------------------------------------ #
     # Profile API                                                          #
@@ -206,10 +216,8 @@ class IdentityModule:
         self._history.append(record)
         # Trim history to max_history
         if len(self._history) > self._max_history:
-            self._history = self._history[-self._max_history:]
-        logger.debug(
-            f"IdentityModule recorded decision: {goal!r} → {outcome}"
-        )
+            self._history = self._history[-self._max_history :]
+        logger.debug(f"IdentityModule recorded decision: {goal!r} → {outcome}")
         return record
 
     def recent_decisions(self, last_n: int = 10) -> List[DecisionRecord]:
@@ -224,9 +232,7 @@ class IdentityModule:
         recent = self._history[-last_n:]
         if not recent:
             return 0.0
-        successes = sum(
-            1 for r in recent if r.outcome in ("success", "partial")
-        )
+        successes = sum(1 for r in recent if r.outcome in ("success", "partial"))
         return round(successes / len(recent), 4)
 
     def avg_confidence(self, last_n: int = 50) -> float:
@@ -246,11 +252,11 @@ class IdentityModule:
         into the LLM context window.
         """
         p = self._profile
-        caps   = "\n".join(f"  - {c}" for c in self.all_capabilities())
+        caps = "\n".join(f"  - {c}" for c in self.all_capabilities())
         limits = "\n".join(f"  - {l}" for l in self.all_limitations())
         values = "\n".join(f"  - {v}" for v in p.values)
-        sr     = self.success_rate()
-        ac     = self.avg_confidence()
+        sr = self.success_rate()
+        ac = self.avg_confidence()
 
         return (
             f"You are {p.name} — {p.role}\n"
@@ -295,10 +301,10 @@ class IdentityModule:
         try:
             self._persist_path.parent.mkdir(parents=True, exist_ok=True)
             state = {
-                "profile":  asdict(self._profile),
-                "history":  [asdict(r) for r in self._history],
+                "profile": asdict(self._profile),
+                "history": [asdict(r) for r in self._history],
                 "runtime_capabilities": self._runtime_capabilities,
-                "runtime_limitations":  self._runtime_limitations,
+                "runtime_limitations": self._runtime_limitations,
             }
             self._persist_path.write_text(
                 json.dumps(state, indent=2, ensure_ascii=False),
@@ -326,11 +332,9 @@ class IdentityModule:
                 if hasattr(self._profile, k):
                     setattr(self._profile, k, v)
             # Restore history
-            self._history = [
-                DecisionRecord(**r) for r in raw.get("history", [])
-            ]
+            self._history = [DecisionRecord(**r) for r in raw.get("history", [])]
             self._runtime_capabilities = raw.get("runtime_capabilities", [])
-            self._runtime_limitations  = raw.get("runtime_limitations", [])
+            self._runtime_limitations = raw.get("runtime_limitations", [])
             logger.info(
                 f"IdentityModule loaded from {self._persist_path} "
                 f"({len(self._history)} records)"

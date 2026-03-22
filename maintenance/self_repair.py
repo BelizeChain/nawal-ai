@@ -33,6 +33,7 @@ Integration hooks
 ``alert_callback``
     If provided, called with the DriftReport on every triggered repair.
 """
+
 from __future__ import annotations
 
 import time
@@ -48,10 +49,10 @@ from maintenance.interfaces import (
     RepairStrategy,
 )
 
-
 # --------------------------------------------------------------------------- #
 # SelfRepair                                                                    #
 # --------------------------------------------------------------------------- #
+
 
 class SelfRepair(AbstractSelfRepair):
     """
@@ -76,10 +77,10 @@ class SelfRepair(AbstractSelfRepair):
         max_retries: int = 5,
     ) -> None:
         self._checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
-        self._episodic        = episodic_memory
-        self._alert_cb        = alert_callback
-        self._auto_repair     = auto_repair
-        self._max_retries     = max_retries
+        self._episodic = episodic_memory
+        self._alert_cb = alert_callback
+        self._auto_repair = auto_repair
+        self._max_retries = max_retries
         self._consecutive_failures: int = 0
         self._repair_history: list[Dict[str, Any]] = []
 
@@ -115,7 +116,10 @@ class SelfRepair(AbstractSelfRepair):
             strategy = RepairStrategy.ALERT
 
         # Guard: after max_retries consecutive failures, escalate to ALERT
-        if self._consecutive_failures >= self._max_retries and strategy != RepairStrategy.ALERT:
+        if (
+            self._consecutive_failures >= self._max_retries
+            and strategy != RepairStrategy.ALERT
+        ):
             logger.error(
                 f"SelfRepair: {self._consecutive_failures} consecutive failures — "
                 f"escalating to ALERT-only (operator intervention required)"
@@ -146,11 +150,13 @@ class SelfRepair(AbstractSelfRepair):
             except Exception as exc:
                 logger.warning(f"SelfRepair: alert_callback raised {exc}")
 
-        self._repair_history.append({
-            "strategy":  strategy.value,
-            "success":   result.success,
-            "timestamp": time.time(),
-        })
+        self._repair_history.append(
+            {
+                "strategy": strategy.value,
+                "success": result.success,
+                "timestamp": time.time(),
+            }
+        )
 
         # Track consecutive failures for escalation guard
         if result.success:
@@ -253,6 +259,7 @@ class SelfRepair(AbstractSelfRepair):
             return
         try:
             from memory.interfaces import MemoryRecord
+
             rec = MemoryRecord(
                 key=f"repair_{int(time.time())}",
                 content=(
@@ -261,8 +268,8 @@ class SelfRepair(AbstractSelfRepair):
                     f"alerts={report.alerts if report else []}"
                 ),
                 metadata={
-                    "strategy":   result.strategy.value,
-                    "success":    result.success,
+                    "strategy": result.strategy.value,
+                    "success": result.success,
                     "checkpoint": result.checkpoint_restored,
                 },
             )

@@ -16,6 +16,7 @@ import json
 # Optional YAML library
 try:
     import yaml
+
     YAML_AVAILABLE = True
 except ImportError:
     YAML_AVAILABLE = False
@@ -55,7 +56,9 @@ class ConfigManager:
 
         if suffix in [".yaml", ".yml"]:
             if not YAML_AVAILABLE:
-                raise ImportError("PyYAML required for YAML configs. Install: pip install pyyaml")
+                raise ImportError(
+                    "PyYAML required for YAML configs. Install: pip install pyyaml"
+                )
 
             with open(config_path, "r") as f:
                 config = yaml.safe_load(f)
@@ -125,7 +128,6 @@ class ConfigManager:
         """
         return {
             "profile": "dev",
-
             # Training configuration
             "training": {
                 "epochs": 10,
@@ -135,7 +137,6 @@ class ConfigManager:
                 "checkpoint_dir": "./checkpoints",
                 "save_interval": 1,
             },
-
             # Evolution configuration
             "evolution": {
                 "num_generations": 20,
@@ -147,7 +148,6 @@ class ConfigManager:
                 "elitism_count": 2,
                 "checkpoint_dir": "./evolution",
             },
-
             # Federated learning configuration
             "federated": {
                 "num_clients": 10,
@@ -159,7 +159,6 @@ class ConfigManager:
                 "host": "127.0.0.1",  # Localhost by default for security
                 "port": 8080,
             },
-
             # Blockchain configuration
             "blockchain": {
                 "chain": "local",
@@ -168,7 +167,6 @@ class ConfigManager:
                 "timeout": 30,
                 "max_retries": 3,
             },
-
             # Data configuration
             "data": {
                 "dataset": "wikitext-2",
@@ -178,7 +176,6 @@ class ConfigManager:
                 "seed": 42,
                 "cache_dir": "./data_cache",
             },
-
             # Model configuration
             "model": {
                 "architecture": "transformer",
@@ -187,7 +184,6 @@ class ConfigManager:
                 "num_heads": 8,
                 "dropout": 0.1,
             },
-
             # Security configuration
             "security": {
                 "differential_privacy": {
@@ -206,7 +202,6 @@ class ConfigManager:
                     "byzantine_threshold": 0.3,
                 },
             },
-
             # Monitoring configuration
             "monitoring": {
                 "prometheus_enabled": False,
@@ -330,7 +325,9 @@ class ConfigManager:
             ValueError: If profile is invalid
         """
         if profile not in self.profiles:
-            raise ValueError(f"Invalid profile: {profile}. Must be one of: {self.profiles}")
+            raise ValueError(
+                f"Invalid profile: {profile}. Must be one of: {self.profiles}"
+            )
 
         config = self._get_default_config()
         config["profile"] = profile
@@ -372,7 +369,9 @@ class ConfigManager:
             ValueError: If profile is invalid
         """
         if profile not in self.profiles:
-            raise ValueError(f"Invalid profile: {profile}. Must be one of: {self.profiles}")
+            raise ValueError(
+                f"Invalid profile: {profile}. Must be one of: {self.profiles}"
+            )
 
         self.active_profile = profile
         os.environ["NAWAL_PROFILE"] = profile

@@ -9,6 +9,7 @@ Covers:
 All Nawal model and DeepSeek teacher calls are mocked so these tests
 run entirely in-process with no GPU or network.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,10 +26,10 @@ import torch.nn.functional as F
 from hybrid.confidence import ConfidenceScorer
 from hybrid.router import IntelligentRouter
 
-
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def scorer() -> ConfidenceScorer:
@@ -48,7 +49,7 @@ def router(tmp_path) -> IntelligentRouter:
 def _peaked_logits(vocab_size: int = 100) -> torch.Tensor:
     """Logits where one token has a huge mass — high confidence."""
     logits = torch.zeros(1, vocab_size)
-    logits[0, 0] = 50.0   # overwhelming mass on token 0
+    logits[0, 0] = 50.0  # overwhelming mass on token 0
     return logits
 
 
@@ -72,6 +73,7 @@ def _make_confidence_scores(overall: float) -> Dict[str, float]:
 # ConfidenceScorer — Entropy
 # ============================================================================
 
+
 class TestConfidenceScorerEntropy:
     """Test entropy-based confidence computation."""
 
@@ -79,7 +81,9 @@ class TestConfidenceScorerEntropy:
         """Highly peaked distribution → near-1 confidence."""
         logits = _peaked_logits()
         conf = scorer.compute_entropy(logits)
-        assert conf > 0.9, f"Peaked logits should give very high confidence, got {conf:.4f}"
+        assert (
+            conf > 0.9
+        ), f"Peaked logits should give very high confidence, got {conf:.4f}"
 
     def test_uniform_logits_low_confidence(self, scorer):
         """Uniform distribution → near-0 confidence (maximum entropy)."""
@@ -97,7 +101,7 @@ class TestConfidenceScorerEntropy:
     def test_3d_batch_input(self, scorer):
         """3-D logits [batch, seq, vocab] — use last token position."""
         logits_3d = torch.zeros(2, 10, 100)
-        logits_3d[:, -1, 0] = 50.0   # peaked at last position
+        logits_3d[:, -1, 0] = 50.0  # peaked at last position
         conf = scorer.compute_entropy(logits_3d)
         assert conf > 0.9
 
@@ -107,12 +111,15 @@ class TestConfidenceScorerEntropy:
             logits = torch.zeros(1, vocab)
             logits[0, 0] = 50.0
             conf = scorer.compute_entropy(logits)
-            assert conf > 0.9, f"Vocab={vocab}: expected high confidence, got {conf:.4f}"
+            assert (
+                conf > 0.9
+            ), f"Vocab={vocab}: expected high confidence, got {conf:.4f}"
 
 
 # ============================================================================
 # ConfidenceScorer — Perplexity
 # ============================================================================
+
 
 class TestConfidenceScorerPerplexity:
     """Test perplexity-based confidence computation."""
@@ -128,18 +135,22 @@ class TestConfidenceScorerPerplexity:
         # targets already == 0
 
         conf = scorer.compute_perplexity(logits, targets)
-        assert conf > 0.8, f"Perfect prediction should give high perplexity confidence, got {conf:.4f}"
+        assert (
+            conf > 0.8
+        ), f"Perfect prediction should give high perplexity confidence, got {conf:.4f}"
 
     def test_wrong_predictions_lower_confidence(self, scorer):
         """When student predicts wrong tokens, confidence is lower."""
         vocab_size = 50
         batch, seq = 2, 8
         logits = torch.zeros(batch, seq, vocab_size)
-        logits[:, :, 0] = 10.0          # strongly predicts token 0
+        logits[:, :, 0] = 10.0  # strongly predicts token 0
         targets = torch.ones(batch, seq, dtype=torch.long)  # but target is token 1
 
         conf = scorer.compute_perplexity(logits, targets)
-        assert conf < 0.5, f"Wrong predictions should give lower confidence, got {conf:.4f}"
+        assert (
+            conf < 0.5
+        ), f"Wrong predictions should give lower confidence, got {conf:.4f}"
 
     def test_perplexity_confidence_bounded(self, scorer):
         """Perplexity confidence must be in [0, 1]."""
@@ -152,6 +163,7 @@ class TestConfidenceScorerPerplexity:
 # ============================================================================
 # ConfidenceScorer — Length
 # ============================================================================
+
 
 class TestConfidenceScorerLength:
     """Test length-based confidence computation."""
@@ -182,6 +194,7 @@ class TestConfidenceScorerLength:
 # ConfidenceScorer — Language
 # ============================================================================
 
+
 class TestConfidenceScorerLanguage:
     """Test language-based confidence computation."""
 
@@ -204,13 +217,21 @@ class TestConfidenceScorerLanguage:
 # ConfidenceScorer — Full composite score
 # ============================================================================
 
+
 class TestConfidenceScorerComposite:
     """Test full compute_confidence() output."""
 
     def test_returns_all_keys(self, scorer):
         logits = _peaked_logits()
         result = scorer.compute_confidence(logits, detected_language="en")
-        for key in ["overall", "entropy", "perplexity", "length", "language", "should_use_nawal"]:
+        for key in [
+            "overall",
+            "entropy",
+            "perplexity",
+            "length",
+            "language",
+            "should_use_nawal",
+        ]:
             assert key in result, f"Missing key: {key}"
 
     def test_overall_bounded(self, scorer):
@@ -242,7 +263,9 @@ class TestConfidenceScorerComposite:
         logits = torch.zeros(1, 8, vocab_size)
         logits[:, :, 0] = 5.0
         input_ids = torch.zeros(1, 8, dtype=torch.long)
-        result = scorer.compute_confidence(logits, input_ids=input_ids, detected_language="en")
+        result = scorer.compute_confidence(
+            logits, input_ids=input_ids, detected_language="en"
+        )
         # perplexity sub-score should be computed (not 0.5 default)
         assert result["perplexity"] != 0.5
 
@@ -257,13 +280,16 @@ class TestConfidenceScorerComposite:
     def test_weights_sum_to_1(self):
         """Default weights should sum to 1.0."""
         s = ConfidenceScorer()
-        total = s.entropy_weight + s.perplexity_weight + s.length_weight + s.language_weight
+        total = (
+            s.entropy_weight + s.perplexity_weight + s.length_weight + s.language_weight
+        )
         assert abs(total - 1.0) < 1e-6, f"Weights sum to {total}, expected 1.0"
 
 
 # ============================================================================
 # IntelligentRouter — Routing decisions
 # ============================================================================
+
 
 class TestIntelligentRouterRouting:
     """Test routing decisions."""
@@ -301,6 +327,7 @@ class TestIntelligentRouterRouting:
 # ============================================================================
 # IntelligentRouter — Statistics
 # ============================================================================
+
 
 class TestIntelligentRouterStatistics:
     """Test statistics tracking."""
@@ -372,6 +399,7 @@ class TestIntelligentRouterStatistics:
 # IntelligentRouter — Fallback logging
 # ============================================================================
 
+
 class TestIntelligentRouterFallbackLogging:
     """Test that fallback queries are written to JSONL."""
 
@@ -441,7 +469,10 @@ class TestIntelligentRouterFallbackLogging:
 # HybridNawalEngine — with mocked Nawal and teacher
 # ============================================================================
 
-def _make_mock_nawal(vocab_size: int = 100, seq_len: int = 5, confidence: str = "high") -> MagicMock:
+
+def _make_mock_nawal(
+    vocab_size: int = 100, seq_len: int = 5, confidence: str = "high"
+) -> MagicMock:
     """Build a minimal mock Nawal that satisfies HybridNawalEngine's API."""
     mock = MagicMock()
 
@@ -484,6 +515,7 @@ class TestHybridNawalEngineInit:
         """Engine starts without pre-loading teacher."""
         nawal = _make_mock_nawal()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal, auto_load_teacher=False)
         assert engine.teacher is None
         assert engine.nawal is nawal
@@ -492,6 +524,7 @@ class TestHybridNawalEngineInit:
         nawal = _make_mock_nawal()
         teacher = _make_mock_teacher()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             teacher_model=teacher,
@@ -501,12 +534,14 @@ class TestHybridNawalEngineInit:
     def test_confidence_scorer_created(self):
         nawal = _make_mock_nawal()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal)
         assert isinstance(engine.confidence_scorer, ConfidenceScorer)
 
     def test_router_created(self):
         nawal = _make_mock_nawal()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal)
         assert isinstance(engine.router, IntelligentRouter)
 
@@ -518,6 +553,7 @@ class TestHybridNawalEngineGenerate:
         """Peaked logits → routes to Nawal, Nawal.generate called."""
         nawal = _make_mock_nawal(confidence="high")
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             confidence_threshold=0.1,  # low threshold so peaked logits pass
@@ -532,6 +568,7 @@ class TestHybridNawalEngineGenerate:
         nawal = _make_mock_nawal(confidence="low")
         teacher = _make_mock_teacher()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             teacher_model=teacher,
@@ -545,6 +582,7 @@ class TestHybridNawalEngineGenerate:
     def test_response_contains_required_keys(self):
         nawal = _make_mock_nawal(confidence="high")
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             confidence_threshold=0.0,
@@ -557,6 +595,7 @@ class TestHybridNawalEngineGenerate:
     def test_confidence_is_float_in_range(self):
         nawal = _make_mock_nawal(confidence="high")
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             confidence_threshold=0.0,
@@ -569,6 +608,7 @@ class TestHybridNawalEngineGenerate:
     def test_latency_ms_positive(self):
         nawal = _make_mock_nawal(confidence="high")
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             confidence_threshold=0.0,
@@ -586,6 +626,7 @@ class TestHybridNawalEngineLazyTeacher:
         nawal = _make_mock_nawal(confidence="low")
         teacher = _make_mock_teacher()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             confidence_threshold=0.99,  # always fallback
@@ -606,6 +647,7 @@ class TestHybridNawalEngineStatistics:
     def test_get_statistics_structure(self):
         nawal = _make_mock_nawal()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal)
         stats = engine.get_statistics()
         assert "routing" in stats
@@ -615,6 +657,7 @@ class TestHybridNawalEngineStatistics:
     def test_statistics_sovereignty_rate_starts_zero(self):
         nawal = _make_mock_nawal()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal)
         stats = engine.get_statistics()
         assert stats["routing"]["sovereignty_rate"] == 0.0
@@ -622,6 +665,7 @@ class TestHybridNawalEngineStatistics:
     def test_update_threshold_propagates_to_both(self):
         nawal = _make_mock_nawal()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal, confidence_threshold=0.75)
         engine.update_threshold(0.9)
         assert engine.confidence_scorer.threshold == 0.9
@@ -630,6 +674,7 @@ class TestHybridNawalEngineStatistics:
     def test_teacher_loaded_flag_false(self):
         nawal = _make_mock_nawal()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal, auto_load_teacher=False)
         assert engine.get_statistics()["teacher_loaded"] is False
 
@@ -637,6 +682,7 @@ class TestHybridNawalEngineStatistics:
         nawal = _make_mock_nawal()
         teacher = _make_mock_teacher()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(nawal_model=nawal, teacher_model=teacher)
         assert engine.get_statistics()["teacher_loaded"] is True
 
@@ -647,6 +693,7 @@ class TestHybridNawalEngineSovereigntyTracking:
     def test_sovereignty_improves_with_nawal_decisions(self):
         nawal = _make_mock_nawal(confidence="high")
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             confidence_threshold=0.0,  # always Nawal
@@ -662,6 +709,7 @@ class TestHybridNawalEngineSovereigntyTracking:
         nawal = _make_mock_nawal(confidence="high")
         teacher = _make_mock_teacher()
         from hybrid.engine import HybridNawalEngine
+
         engine = HybridNawalEngine(
             nawal_model=nawal,
             teacher_model=teacher,

@@ -15,6 +15,7 @@ Typical use:
 Phase 4 note: a QuantumHippocampus overlay will not extend WorkingMemory —
 quantum search is reserved for the much-larger EpisodicMemory store.
 """
+
 from __future__ import annotations
 
 import math
@@ -70,7 +71,9 @@ class WorkingMemory(AbstractMemory):
             logger.debug(f"WorkingMemory evicted key={evicted_key!r} (buffer full)")
 
         self._store[record.key] = record
-        logger.debug(f"WorkingMemory stored key={record.key!r}  size={len(self._store)}")
+        logger.debug(
+            f"WorkingMemory stored key={record.key!r}  size={len(self._store)}"
+        )
 
     def retrieve(
         self,
@@ -99,7 +102,9 @@ class WorkingMemory(AbstractMemory):
         scored: list[tuple[float, MemoryRecord]] = []
         for record in candidates:
             if record.embedding is not None:
-                scored.append((_cosine(q, np.asarray(record.embedding, dtype=np.float32)), record))
+                scored.append(
+                    (_cosine(q, np.asarray(record.embedding, dtype=np.float32)), record)
+                )
             else:
                 scored.append((0.0, record))
 
@@ -187,6 +192,7 @@ class WorkingMemory(AbstractMemory):
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
+
 
 def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
     """Cosine similarity in [−1, 1]. Returns 0.0 if either vector is zero."""

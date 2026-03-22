@@ -14,6 +14,7 @@ Usage::
     result = sb.run(code="print(2 + 2)")
     assert result.output["stdout"] == "4\\n"
 """
+
 from __future__ import annotations
 
 import io
@@ -25,13 +26,19 @@ from typing import Any, Dict, Optional
 
 from loguru import logger
 
-from action.interfaces import AbstractTool, ToolCategory, ToolResult, ToolSpec, ToolStatus
-
+from action.interfaces import (
+    AbstractTool,
+    ToolCategory,
+    ToolResult,
+    ToolSpec,
+    ToolStatus,
+)
 
 # RestrictedPython import — optional; fall back to plain exec if absent
 try:
     from RestrictedPython import compile_restricted, safe_globals  # type: ignore
     from RestrictedPython import PrintCollector  # type: ignore
+
     _RESTRICTED_PYTHON_AVAILABLE = True
 except ImportError:
     _RESTRICTED_PYTHON_AVAILABLE = False
@@ -50,24 +57,43 @@ class CodeSandbox(AbstractTool):
                           Defaults to a safe built-in subset.
     """
 
-    _SAFE_IMPORTS_DEFAULT = frozenset({
-        "math", "statistics", "random", "datetime", "json",
-        "re", "string", "itertools", "functools", "collections",
-        "decimal", "fractions",
-    })
+    _SAFE_IMPORTS_DEFAULT = frozenset(
+        {
+            "math",
+            "statistics",
+            "random",
+            "datetime",
+            "json",
+            "re",
+            "string",
+            "itertools",
+            "functools",
+            "collections",
+            "decimal",
+            "fractions",
+        }
+    )
 
     _SPEC = ToolSpec(
-        name        = "code_exec",
-        description = (
+        name="code_exec",
+        description=(
             "Execute a Python code snippet and return its stdout output. "
             "Imports are restricted to a safe allow-list."
         ),
-        parameters  = {
-            "code":    {"type": "string", "description": "Python source to execute", "required": True},
-            "context": {"type": "object", "description": "Variable bindings injected into globals", "required": False},
+        parameters={
+            "code": {
+                "type": "string",
+                "description": "Python source to execute",
+                "required": True,
+            },
+            "context": {
+                "type": "object",
+                "description": "Variable bindings injected into globals",
+                "required": False,
+            },
         },
-        category    = ToolCategory.CODE_EXEC,
-        safe        = False,
+        category=ToolCategory.CODE_EXEC,
+        safe=False,
     )
 
     def __init__(
@@ -77,9 +103,13 @@ class CodeSandbox(AbstractTool):
         use_stub: bool = False,
         allow_imports: Optional[frozenset] = None,
     ) -> None:
-        self._timeout      = timeout_seconds
-        self._max_out      = max_output_len
-        self._stub         = use_stub or os.environ.get("NAWAL_STUB_TOOLS", "").lower() in ("1", "true", "yes")
+        self._timeout = timeout_seconds
+        self._max_out = max_output_len
+        self._stub = use_stub or os.environ.get("NAWAL_STUB_TOOLS", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
         self._allow_imports = allow_imports or self._SAFE_IMPORTS_DEFAULT
 
     @property
@@ -98,9 +128,9 @@ class CodeSandbox(AbstractTool):
     ) -> ToolResult:
         if not code or not code.strip():
             return ToolResult(
-                tool_name = "code_exec",
-                status    = ToolStatus.FAILURE,
-                error     = "code must not be empty",
+                tool_name="code_exec",
+                status=ToolStatus.FAILURE,
+                error="code must not be empty",
             )
 
         t0 = time.time()
@@ -114,20 +144,18 @@ class CodeSandbox(AbstractTool):
         latency_ms = (time.time() - t0) * 1000
 
         return ToolResult(
-            tool_name = "code_exec",
-            status    = status,
-            output    = output,
-            error     = output.get("error") if status != ToolStatus.SUCCESS else None,
-            metadata  = {"latency_ms": latency_ms},
+            tool_name="code_exec",
+            status=status,
+            output=output,
+            error=output.get("error") if status != ToolStatus.SUCCESS else None,
+            metadata={"latency_ms": latency_ms},
         )
 
     # ------------------------------------------------------------------ #
     # Execution back-ends                                                  #
     # ------------------------------------------------------------------ #
 
-    def _sandboxed_exec(
-        self, code: str, context: Dict[str, Any]
-    ) -> tuple:
+    def _sandboxed_exec(self, code: str, context: Dict[str, Any]) -> tuple:
         stdout_buf = io.StringIO()
         stderr_buf = io.StringIO()
 
@@ -136,6 +164,7 @@ class CodeSandbox(AbstractTool):
             # After exec, the local variable `_print` (no trailing _) holds a
             # PrintCollector instance; calling it returns the captured stdout text.
             import warnings as _w
+
             g = dict(safe_globals)
             g["_print_"] = PrintCollector
             g["_getattr_"] = getattr
@@ -148,7 +177,9 @@ class CodeSandbox(AbstractTool):
                 stderr_buf = io.StringIO()
                 with _w.catch_warnings():
                     _w.simplefilter("ignore", SyntaxWarning)
-                    byte_code = compile_restricted(code, filename="<sandbox>", mode="exec")
+                    byte_code = compile_restricted(
+                        code, filename="<sandbox>", mode="exec"
+                    )
                 with redirect_stderr(stderr_buf):
                     exec(byte_code, g, loc)  # noqa: S102
                 # loc['_print'] is the PrintCollector instance; calling it returns text
@@ -164,12 +195,42 @@ class CodeSandbox(AbstractTool):
                 return {"error": str(exc)}, ToolStatus.FAILURE
         else:
             # Plain exec (no AST restriction)
-            safe_builtins = {k: __builtins__[k] for k in (  # type: ignore
-                "print", "len", "range", "enumerate", "zip", "map", "filter",
-                "int", "float", "str", "bool", "list", "dict", "set", "tuple",
-                "abs", "min", "max", "sum", "sorted", "reversed",
-                "isinstance", "type", "repr", "round",
-            ) if k in (getattr(__builtins__, "__dict__", __builtins__) if isinstance(__builtins__, dict) else vars(__builtins__))}
+            safe_builtins = {
+                k: __builtins__[k]
+                for k in (  # type: ignore
+                    "print",
+                    "len",
+                    "range",
+                    "enumerate",
+                    "zip",
+                    "map",
+                    "filter",
+                    "int",
+                    "float",
+                    "str",
+                    "bool",
+                    "list",
+                    "dict",
+                    "set",
+                    "tuple",
+                    "abs",
+                    "min",
+                    "max",
+                    "sum",
+                    "sorted",
+                    "reversed",
+                    "isinstance",
+                    "type",
+                    "repr",
+                    "round",
+                )
+                if k
+                in (
+                    getattr(__builtins__, "__dict__", __builtins__)
+                    if isinstance(__builtins__, dict)
+                    else vars(__builtins__)
+                )
+            }
             g = {"__builtins__": safe_builtins}
             g.update(context)
             try:

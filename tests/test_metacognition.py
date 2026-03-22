@@ -9,6 +9,7 @@ Covers:
   - IdentityModule
   - MetacognitionLayer (facade)
 """
+
 from __future__ import annotations
 
 import json
@@ -25,7 +26,6 @@ from metacognition.confidence_calibrator import ConfidenceCalibrator
 from metacognition.internal_simulator import InternalSimulator
 from metacognition.identity_module import AgentProfile, DecisionRecord, IdentityModule
 from metacognition.layer import MetacognitionLayer, ReflectionResult
-
 
 # =========================================================================== #
 # Helpers
@@ -45,6 +45,7 @@ CONFIDENT_RESPONSE = "Definitively, Paris is the capital of France."
 # =========================================================================== #
 # SelfCritic
 # =========================================================================== #
+
 
 class TestSelfCritic:
 
@@ -118,7 +119,7 @@ class TestSelfCritic:
 
     def test_estimate_confidence_bad(self):
         critic = SelfCritic(auto_revise=False)
-        conf_bad  = critic.estimate_confidence(EMPTY_RESPONSE, {})
+        conf_bad = critic.estimate_confidence(EMPTY_RESPONSE, {})
         conf_good = critic.estimate_confidence(GOOD_RESPONSE, {})
         assert conf_bad.value < conf_good.value
 
@@ -131,7 +132,7 @@ class TestSelfCritic:
 
         critic.add_check("one_issue", one_issue, prepend=True)
         result = critic.critique(GOOD_RESPONSE, {})
-        assert result.approved is True   # 1 issue < threshold 2
+        assert result.approved is True  # 1 issue < threshold 2
 
     def test_check_names_order(self):
         critic = SelfCritic()
@@ -143,6 +144,7 @@ class TestSelfCritic:
 # =========================================================================== #
 # ConsistencyChecker
 # =========================================================================== #
+
 
 class TestConsistencyChecker:
 
@@ -157,7 +159,7 @@ class TestConsistencyChecker:
         c1 = "Paris is the capital of France with a population of 2 million."
         c2 = "France's capital Paris has roughly 2 million inhabitants."
         result = checker.check([c1, c2], {})
-        assert result.score >= 0.5   # may find numeric pair, but not necessarily
+        assert result.score >= 0.5  # may find numeric pair, but not necessarily
 
     def test_numeric_contradiction(self):
         checker = ConsistencyChecker()
@@ -205,6 +207,7 @@ class TestConsistencyChecker:
 # ConfidenceCalibrator
 # =========================================================================== #
 
+
 class TestConfidenceCalibrator:
 
     def test_all_signals(self):
@@ -246,9 +249,9 @@ class TestConfidenceCalibrator:
     def test_custom_weights(self):
         cal = ConfidenceCalibrator(weights={"plan_score": 10.0})
         signals_high = {"plan_score": 1.0}
-        signals_low  = {"plan_score": 0.0}
+        signals_low = {"plan_score": 0.0}
         cf_high = cal.calibrate(signals_high, {})
-        cf_low  = cal.calibrate(signals_low, {})
+        cf_low = cal.calibrate(signals_low, {})
         assert cf_high.value > cf_low.value
 
     def test_method_label(self):
@@ -260,6 +263,7 @@ class TestConfidenceCalibrator:
 # =========================================================================== #
 # InternalSimulator
 # =========================================================================== #
+
 
 class TestInternalSimulator:
 
@@ -338,6 +342,7 @@ class TestInternalSimulator:
 # IdentityModule
 # =========================================================================== #
 
+
 class TestIdentityModule:
 
     def test_default_profile_name(self):
@@ -415,9 +420,7 @@ class TestIdentityModule:
         assert len(mod.all_limitations()) == original + 1
 
     def test_save_and_load_roundtrip(self):
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             path = f.name
         try:
             mod = IdentityModule(persist_path=path)
@@ -449,6 +452,7 @@ class TestIdentityModule:
 # =========================================================================== #
 # MetacognitionLayer (facade)
 # =========================================================================== #
+
 
 class TestMetacognitionLayer:
 
@@ -536,9 +540,7 @@ class TestMetacognitionLayer:
         assert isinstance(layer.identity, IdentityModule)
 
     def test_custom_persist_path(self):
-        with tempfile.NamedTemporaryFile(
-            suffix=".json", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="w") as f:
             path = f.name
         try:
             layer = MetacognitionLayer(persist_path=path)

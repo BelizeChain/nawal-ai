@@ -37,6 +37,7 @@ Usage::
     )
     best = sim.best_action(scenarios)
 """
+
 from __future__ import annotations
 
 import copy
@@ -49,10 +50,10 @@ from loguru import logger
 
 from metacognition.interfaces import AbstractSimulator
 
-
 # --------------------------------------------------------------------------- #
 # Transition rules                                                             #
 # --------------------------------------------------------------------------- #
+
 
 def _apply_action(
     state: Dict[str, Any],
@@ -129,6 +130,7 @@ def _estimate_state_value(
 # InternalSimulator                                                            #
 # --------------------------------------------------------------------------- #
 
+
 class InternalSimulator(AbstractSimulator):
     """
     Classical "what-if" rollout simulator.
@@ -184,7 +186,7 @@ class InternalSimulator(AbstractSimulator):
           Replace the loop below with a quantum circuit that puts all
           action branches in superposition before measuring.
         """
-        h = horizon  if horizon   is not None else self.default_horizon
+        h = horizon if horizon is not None else self.default_horizon
         s = n_samples if n_samples is not None else self.default_n_samples
 
         scenarios = []
@@ -200,12 +202,14 @@ class InternalSimulator(AbstractSimulator):
 
             avg_value = sum(cumulative_values) / len(cumulative_values)
 
-            scenarios.append({
-                "action":     action,
-                "trajectory": sample_trajectory,
-                "value":      round(avg_value, 4),
-                "samples":    s,
-            })
+            scenarios.append(
+                {
+                    "action": action,
+                    "trajectory": sample_trajectory,
+                    "value": round(avg_value, 4),
+                    "samples": s,
+                }
+            )
 
         logger.info(
             f"InternalSimulator: simulated {len(possible_actions)} actions "

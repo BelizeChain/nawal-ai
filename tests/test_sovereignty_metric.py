@@ -11,6 +11,7 @@ Covers:
   - reset()
   - error handling
 """
+
 from __future__ import annotations
 
 import time
@@ -20,10 +21,10 @@ import pytest
 
 from hybrid.sovereignty_metrics import SovereigntyMetrics
 
-
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def metrics() -> SovereigntyMetrics:
@@ -33,6 +34,7 @@ def metrics() -> SovereigntyMetrics:
 # ============================================================================
 # Basic recording
 # ============================================================================
+
 
 class TestSovereigntyMetricsRecord:
 
@@ -74,6 +76,7 @@ class TestSovereigntyMetricsRecord:
 # Total sovereignty rate
 # ============================================================================
 
+
 class TestTotalSovereigntyRate:
 
     def test_all_nawal_is_100_percent(self, metrics):
@@ -106,6 +109,7 @@ class TestTotalSovereigntyRate:
 # ============================================================================
 # Sliding-window sovereignty rate
 # ============================================================================
+
 
 class TestWindowSovereigntyRate:
 
@@ -171,6 +175,7 @@ class TestWindowSovereigntyRate:
 # Roadmap milestone tracking
 # ============================================================================
 
+
 class TestIsOnTrack:
 
     def test_on_track_at_month_1_exactly(self, metrics):
@@ -232,6 +237,7 @@ class TestIsOnTrack:
 # Roadmap target interpolation
 # ============================================================================
 
+
 class TestTargetForMonth:
 
     def test_exact_milestone_1(self, metrics):
@@ -270,6 +276,7 @@ class TestTargetForMonth:
 # ============================================================================
 # snapshot() dict structure
 # ============================================================================
+
 
 class TestSnapshot:
 
@@ -313,6 +320,7 @@ class TestSnapshot:
 # ============================================================================
 # reset()
 # ============================================================================
+
 
 class TestReset:
 

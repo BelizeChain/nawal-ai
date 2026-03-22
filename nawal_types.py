@@ -10,15 +10,16 @@ Usage::
 
     ws = WorldState(text="Hello", modalities=["text"])
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-
 # --------------------------------------------------------------------------- #
 # Perception types                                                             #
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class WorldState:
@@ -34,13 +35,14 @@ class WorldState:
         timestamp        : ISO-8601 creation time (empty string = not set).
         metadata         : Arbitrary extra data.
     """
-    text:              Optional[str]        = None
-    image_embedding:   Optional[List[float]]= None
-    audio_transcript:  Optional[str]        = None
-    fused_embedding:   Optional[List[float]]= None
-    modalities:        List[str]            = field(default_factory=list)
-    timestamp:         str                  = ""
-    metadata:          Dict[str, Any]       = field(default_factory=dict)
+
+    text: Optional[str] = None
+    image_embedding: Optional[List[float]] = None
+    audio_transcript: Optional[str] = None
+    fused_embedding: Optional[List[float]] = None
+    modalities: List[str] = field(default_factory=list)
+    timestamp: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def has_text(self) -> bool:
         return bool(self.text)
@@ -59,6 +61,7 @@ class WorldState:
 # Generation / inference types                                                 #
 # --------------------------------------------------------------------------- #
 
+
 @dataclass
 class GenerationResult:
     """
@@ -76,16 +79,17 @@ class GenerationResult:
         safety_passed        : Whether the MaintenanceLayer approved the output.
         metadata             : Arbitrary extra data.
     """
-    prompt:              str              = ""
-    response:            str              = ""
-    model_used:          str              = ""
-    confidence:          float            = 1.0
-    latency_ms:          float            = 0.0
-    token_count:         int              = 0
-    memory_context_used: bool             = False
-    critique_applied:    bool             = False
-    safety_passed:       bool             = True
-    metadata:            Dict[str, Any]   = field(default_factory=dict)
+
+    prompt: str = ""
+    response: str = ""
+    model_used: str = ""
+    confidence: float = 1.0
+    latency_ms: float = 0.0
+    token_count: int = 0
+    memory_context_used: bool = False
+    critique_applied: bool = False
+    safety_passed: bool = True
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def is_complete(self) -> bool:
         return bool(self.response)
@@ -103,6 +107,7 @@ class GenerationResult:
 # Feedback / RLHF types                                                        #
 # --------------------------------------------------------------------------- #
 
+
 @dataclass
 class FeedbackSignal:
     """
@@ -119,15 +124,16 @@ class FeedbackSignal:
         memory_utilized     : Whether memory retrieval improved the response.
         metadata            : Arbitrary extra labels or debug info.
     """
-    prompt:            str              = ""
-    response:          str              = ""
-    reward_score:      float            = 0.0
-    human_rating:      Optional[float]  = None
-    safety_score:      float            = 1.0
-    consistency_score: float            = 1.0
-    novelty_score:     float            = 0.0
-    memory_utilized:   bool             = False
-    metadata:          Dict[str, Any]   = field(default_factory=dict)
+
+    prompt: str = ""
+    response: str = ""
+    reward_score: float = 0.0
+    human_rating: Optional[float] = None
+    safety_score: float = 1.0
+    consistency_score: float = 1.0
+    novelty_score: float = 0.0
+    memory_utilized: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def composite_reward(
         self,
@@ -137,8 +143,8 @@ class FeedbackSignal:
     ) -> float:
         """Weighted composite of reward, safety, and novelty."""
         return (
-            w_reward  * self.reward_score
-            + w_safety  * self.safety_score
+            w_reward * self.reward_score
+            + w_safety * self.safety_score
             + w_novelty * self.novelty_score
         )
 

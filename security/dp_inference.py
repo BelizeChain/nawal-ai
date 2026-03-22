@@ -31,9 +31,11 @@ class DPInferenceGuard:
         Noise scale = sensitivity / epsilon (standard Laplace mechanism).
         """
         scale = self.sensitivity / self.epsilon
-        noise = torch.distributions.Laplace(
-            loc=0.0, scale=scale
-        ).sample(tensor.shape).to(tensor.device)
+        noise = (
+            torch.distributions.Laplace(loc=0.0, scale=scale)
+            .sample(tensor.shape)
+            .to(tensor.device)
+        )
         return tensor + noise
 
     def protect_output(self, output: torch.Tensor) -> torch.Tensor:
@@ -71,4 +73,4 @@ class DPInferenceGuard:
     @property
     def is_active(self) -> bool:
         """Whether the guard is currently active inside an inference context."""
-        return getattr(self, '_active', False)
+        return getattr(self, "_active", False)

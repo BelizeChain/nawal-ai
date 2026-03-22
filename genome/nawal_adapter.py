@@ -16,6 +16,7 @@ from typing import Optional
 from loguru import logger
 
 from nawal.architecture import NawalModelConfig, NawalTransformer
+
 # Backward-compatible alias
 NawalConfig = NawalModelConfig
 from nawal.genome.encoding import Genome, LayerType
@@ -47,8 +48,10 @@ class GenomeToNawalAdapter:
         """
         # Extract transformer layers from genome
         transformer_layers = [
-            layer for layer in genome.encoder_layers
-            if layer.layer_type in [
+            layer
+            for layer in genome.encoder_layers
+            if layer.layer_type
+            in [
                 LayerType.TRANSFORMER_ENCODER,
                 LayerType.MULTIHEAD_ATTENTION,
             ]
@@ -69,7 +72,8 @@ class GenomeToNawalAdapter:
 
         # Extract vocab_size from embedding layer if present
         embedding_layers = [
-            layer for layer in genome.encoder_layers
+            layer
+            for layer in genome.encoder_layers
             if layer.layer_type == LayerType.EMBEDDING
         ]
         vocab_size = 52000  # Belizean extended vocab default
@@ -78,7 +82,8 @@ class GenomeToNawalAdapter:
 
         # Extract max_position_embeddings from positional encoding layer
         pos_layers = [
-            layer for layer in genome.encoder_layers
+            layer
+            for layer in genome.encoder_layers
             if layer.layer_type == LayerType.POSITIONAL_ENCODING
         ]
         max_position_embeddings = 1024
@@ -161,12 +166,14 @@ class GenomeToNawalAdapter:
         # Attention: 4 * hidden^2 * seq_len * num_layers
         # FFN: 8 * hidden^2 * seq_len * num_layers
         attention_flops = (
-            4 * config.hidden_size * config.hidden_size *
-            seq_len * config.num_layers
+            4 * config.hidden_size * config.hidden_size * seq_len * config.num_layers
         )
         ffn_flops = (
-            8 * config.hidden_size * config.intermediate_size *
-            seq_len * config.num_layers
+            8
+            * config.hidden_size
+            * config.intermediate_size
+            * seq_len
+            * config.num_layers
         )
 
         total_flops = attention_flops + ffn_flops
@@ -196,24 +203,21 @@ class GenomeToNawalAdapter:
 
         # Activations (approximate, depends on batch size)
         # For batch_size=8, seq_len=512
-        activations_memory = (
-            8 * 512 * config.hidden_size * config.num_layers * 4
-        )
+        activations_memory = 8 * 512 * config.hidden_size * config.num_layers * 4
 
         return {
             "parameters_bytes": params_memory,
-            "parameters_mb": params_memory / (1024 ** 2),
+            "parameters_mb": params_memory / (1024**2),
             "gradients_bytes": gradients_memory,
             "optimizer_bytes": optimizer_memory,
             "activations_bytes": activations_memory,
             "total_training_bytes": (
-                params_memory + gradients_memory +
-                optimizer_memory + activations_memory
+                params_memory + gradients_memory + optimizer_memory + activations_memory
             ),
             "total_training_gb": (
-                params_memory + gradients_memory +
-                optimizer_memory + activations_memory
-            ) / (1024 ** 3),
+                params_memory + gradients_memory + optimizer_memory + activations_memory
+            )
+            / (1024**3),
         }
 
 
@@ -304,11 +308,7 @@ class NawalGenomeBuilder:
         privacy_score = 1.0 / (1.0 + privacy_epsilon)
 
         # PoUW weighted combination: 40% quality, 30% timeliness, 30% honesty
-        fitness = (
-            0.4 * quality_score +
-            0.3 * timeliness_score +
-            0.3 * privacy_score
-        )
+        fitness = 0.4 * quality_score + 0.3 * timeliness_score + 0.3 * privacy_score
 
         # Scale to 0-100 for PoUWAlignment compatibility
         fitness_pouw = fitness * 100.0

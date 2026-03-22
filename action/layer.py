@@ -16,6 +16,7 @@ Usage::
 
     print([t.name for t in layer.available_tools()])
 """
+
 from __future__ import annotations
 
 from typing import Any, List, Optional
@@ -51,30 +52,22 @@ class ActionLayer(AbstractActionLayer):
 
     def __init__(
         self,
-        memory_manager:     Optional[Any] = None,
-        safety_screener:    Optional[Any] = None,
-        extra_tools:        Optional[list] = None,
+        memory_manager: Optional[Any] = None,
+        safety_screener: Optional[Any] = None,
+        extra_tools: Optional[list] = None,
         stub_network_tools: bool = False,
     ) -> None:
         self._registry = ToolRegistry(safety_screener=safety_screener)
         self._executor = ActionExecutor(self._registry)
 
         # Register built-in tools
-        self._registry.register(
-            WebSearchTool(use_stub=stub_network_tools)
-        )
-        self._registry.register(
-            CodeSandbox(use_stub=stub_network_tools)
-        )
-        self._registry.register(
-            MemoryReadTool(memory_manager=memory_manager)
-        )
-        self._registry.register(
-            MemoryWriteTool(memory_manager=memory_manager)
-        )
+        self._registry.register(WebSearchTool(use_stub=stub_network_tools))
+        self._registry.register(CodeSandbox(use_stub=stub_network_tools))
+        self._registry.register(MemoryReadTool(memory_manager=memory_manager))
+        self._registry.register(MemoryWriteTool(memory_manager=memory_manager))
 
         # Register any caller-supplied extras
-        for tool in (extra_tools or []):
+        for tool in extra_tools or []:
             self._registry.register(tool)
 
         logger.info(
@@ -109,8 +102,8 @@ class ActionLayer(AbstractActionLayer):
     def get_status(self) -> dict:
         """Return runtime telemetry."""
         return {
-            "num_tools":    len(self._registry),
-            "tools":        [t.name for t in self._registry.list_tools()],
+            "num_tools": len(self._registry),
+            "tools": [t.name for t in self._registry.list_tools()],
             "success_rate": self._executor.success_rate(),
-            "history_len":  len(self._executor.history()),
+            "history_len": len(self._executor.history()),
         }

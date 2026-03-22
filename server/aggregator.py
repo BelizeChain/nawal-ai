@@ -29,7 +29,6 @@ import torch.nn as nn
 from genome import Genome
 from storage.metrics_db import MetricsStore
 
-
 # =============================================================================
 # Model Update Types
 # =============================================================================
@@ -65,7 +64,9 @@ class ModelUpdate:
     fitness_score: float | None = None
 
     # Metadata
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     def calculate_weight(self, strategy: str = "samples") -> float:
         """
@@ -92,7 +93,7 @@ class ModelUpdate:
                 # Combine samples and fitness
                 sample_weight = float(self.samples_trained)
                 fitness_weight = (self.fitness_score or 0.0) / 100.0
-                return (sample_weight * 0.7 + fitness_weight * 0.3)
+                return sample_weight * 0.7 + fitness_weight * 0.3
 
             case _:
                 return 1.0
@@ -192,7 +193,9 @@ class FedAvgStrategy:
         for key in current_weights.keys():
             # Skip if any update is missing this key
             if not all(key in update.weights for update in updates):
-                logger.warning(f"Key {key} missing in some updates, using current weight")
+                logger.warning(
+                    f"Key {key} missing in some updates, using current weight"
+                )
                 aggregated[key] = current_weights[key]
                 continue
 
@@ -355,7 +358,7 @@ class FederatedAggregator:
         if config is not None:
             self.config = config
             self.min_participants = config.min_participants
-            self.max_wait_time = getattr(config, 'max_wait_time', max_wait_time)
+            self.max_wait_time = getattr(config, "max_wait_time", max_wait_time)
             # Create strategy based on config
             if config.aggregation_strategy == "fedavg":
                 self.strategy = strategy or FedAvgStrategy()
@@ -395,7 +398,9 @@ class FederatedAggregator:
             metrics_enabled=metrics_store is not None,
         )
 
-    def set_genome(self, genome: Genome, initial_weights: dict[str, torch.Tensor]) -> None:
+    def set_genome(
+        self, genome: Genome, initial_weights: dict[str, torch.Tensor]
+    ) -> None:
         """
         Set current genome and initial weights.
 
@@ -414,7 +419,9 @@ class FederatedAggregator:
             generation=genome.generation,
         )
 
-    def fedavg_aggregate(self, client_params: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
+    def fedavg_aggregate(
+        self, client_params: list[dict[str, torch.Tensor]]
+    ) -> dict[str, torch.Tensor]:
         """
         Synchronous FedAvg aggregation for backward compatibility.
 
@@ -441,9 +448,7 @@ class FederatedAggregator:
         return aggregated
 
     def weighted_aggregate(
-        self,
-        client_params: list[dict[str, torch.Tensor]],
-        weights: list[float]
+        self, client_params: list[dict[str, torch.Tensor]], weights: list[float]
     ) -> dict[str, torch.Tensor]:
         """
         Weighted aggregation for backward compatibility.
@@ -467,14 +472,15 @@ class FederatedAggregator:
         for key in client_params[0].keys():
             # Weighted sum of all client parameters
             weighted_sum = sum(
-                params[key] * weight
-                for params, weight in zip(client_params, weights)
+                params[key] * weight for params, weight in zip(client_params, weights)
             )
             aggregated[key] = weighted_sum
 
         return aggregated
 
-    def select_clients(self, total_clients: int, num_to_select: int | None = None) -> list[int]:
+    def select_clients(
+        self, total_clients: int, num_to_select: int | None = None
+    ) -> list[int]:
         """
         Select clients for federated round with fairness guarantee.
 
@@ -495,8 +501,9 @@ class FederatedAggregator:
 
         # Enforce minimum if config has it
         min_clients: int = (
-            getattr(self.config, 'min_clients', self.min_participants)
-            if self.config else self.min_participants
+            getattr(self.config, "min_clients", self.min_participants)
+            if self.config
+            else self.min_participants
         )
         n = max(n, min_clients)
 
@@ -527,7 +534,9 @@ class FederatedAggregator:
             List of selected client indices
         """
         # Get client fraction from config
-        client_fraction = getattr(self.config, 'client_fraction', 1.0) if self.config else 1.0
+        client_fraction = (
+            getattr(self.config, "client_fraction", 1.0) if self.config else 1.0
+        )
         num_to_select = max(1, int(total_clients * client_fraction))
 
         return self.select_clients(total_clients, num_to_select)
@@ -544,7 +553,9 @@ class FederatedAggregator:
         """
         # Verify participant identity
         if self.participant_manager is not None:
-            participant = self.participant_manager.get_participant(update.participant_id)
+            participant = self.participant_manager.get_participant(
+                update.participant_id
+            )
             if participant is None:
                 logger.warning(
                     "Update from unknown participant",
@@ -559,7 +570,9 @@ class FederatedAggregator:
                 )
                 return False
         else:
-            logger.warning("No participant manager set — skipping identity verification")
+            logger.warning(
+                "No participant manager set — skipping identity verification"
+            )
 
         # Validate update
         if self.current_genome is None:
@@ -642,7 +655,9 @@ class FederatedAggregator:
 
             record = AggregationRound(
                 round_number=round_number,
-                genome_id=self.current_genome.genome_id if self.current_genome else "unknown",
+                genome_id=(
+                    self.current_genome.genome_id if self.current_genome else "unknown"
+                ),
                 num_participants=len(updates),
                 total_samples=total_samples,
                 avg_fitness=avg_fitness,
@@ -666,7 +681,9 @@ class FederatedAggregator:
                             "strategy": type(self.strategy).__name__,
                         },
                         participating_clients=len(updates),
-                        aggregated_weights_hash=str(hash(frozenset(aggregated_weights.keys()))),
+                        aggregated_weights_hash=str(
+                            hash(frozenset(aggregated_weights.keys()))
+                        ),
                     )
                     logger.debug(f"Metrics persisted for round {round_number}")
                 except Exception as e:
@@ -715,10 +732,16 @@ class FederatedAggregator:
 
         return {
             "total_rounds": len(self.aggregation_history),
-            "total_participants": sum(r.num_participants for r in self.aggregation_history),
+            "total_participants": sum(
+                r.num_participants for r in self.aggregation_history
+            ),
             "total_samples": sum(r.total_samples for r in self.aggregation_history),
-            "avg_fitness": sum(r.avg_fitness for r in self.aggregation_history) / len(self.aggregation_history),
-            "avg_aggregation_time": sum(r.aggregation_time for r in self.aggregation_history) / len(self.aggregation_history),
+            "avg_fitness": sum(r.avg_fitness for r in self.aggregation_history)
+            / len(self.aggregation_history),
+            "avg_aggregation_time": sum(
+                r.aggregation_time for r in self.aggregation_history
+            )
+            / len(self.aggregation_history),
             "current_round": self.round_number,
         }
 

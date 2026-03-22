@@ -179,7 +179,10 @@ class HybridNawalEngine:
         # Detect language
         detected_lang = "en"
         if detect_language:
-            if hasattr(self.nawal, 'language_detector') and self.nawal.language_detector:
+            if (
+                hasattr(self.nawal, "language_detector")
+                and self.nawal.language_detector
+            ):
                 detected_lang = self.nawal.language_detector.detect(prompt)
             else:
                 logger.debug("No language_detector available, defaulting to English")
@@ -340,7 +343,9 @@ if __name__ == "__main__":
         print(f"\n[Query {i}] {query}")
         result = engine.generate(query, max_length=50)
         print(f"[{result['model_used'].upper()}] {result['text'][:200]}")
-        print(f"Confidence: {result['confidence']:.3f} | Latency: {result['latency_ms']:.1f}ms")
+        print(
+            f"Confidence: {result['confidence']:.3f} | Latency: {result['latency_ms']:.1f}ms"
+        )
 
     # Show statistics
     print("\n" + "=" * 70)

@@ -8,6 +8,7 @@ Covers:
   - MultimodalCortex
   - SensoryHub
 """
+
 from __future__ import annotations
 
 import math
@@ -30,6 +31,7 @@ from perception.sensory_hub import SensoryHub
 
 try:
     from PIL import Image as PILImage
+
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -38,6 +40,7 @@ except ImportError:
 # =========================================================================== #
 # Helpers                                                                      #
 # =========================================================================== #
+
 
 def _unit_vec_check(vec: List[float], tol: float = 1e-5) -> bool:
     """Return True if vec is approximately L2-normalised."""
@@ -58,6 +61,7 @@ def _random_image_hwc(h: int = 32, w: int = 32) -> np.ndarray:
 # =========================================================================== #
 # TextCortex
 # =========================================================================== #
+
 
 class TestTextCortex:
 
@@ -158,6 +162,7 @@ class TestTextCortex:
 # VisualCortex
 # =========================================================================== #
 
+
 class TestVisualCortex:
 
     def test_stub_numpy_returns_correct_dim(self):
@@ -213,6 +218,7 @@ class TestVisualCortex:
 # =========================================================================== #
 # AuditoryCortex
 # =========================================================================== #
+
 
 class TestAuditoryCortex:
 
@@ -275,6 +281,7 @@ class TestAuditoryCortex:
 # MultimodalCortex
 # =========================================================================== #
 
+
 class TestMultimodalCortex:
 
     def _text_ws(self, dim: int = 64) -> WorldState:
@@ -285,7 +292,7 @@ class TestMultimodalCortex:
 
     def _full_ws(self, dim: int = 64) -> WorldState:
         ws = WorldState()
-        ws.text_embedding  = TextCortex(embed_dim=dim).encode("Hello")
+        ws.text_embedding = TextCortex(embed_dim=dim).encode("Hello")
         ws.image_embedding = VisualCortex(embed_dim=dim, stub_mode=True).encode(
             _random_image_hwc()
         )
@@ -340,7 +347,7 @@ class TestMultimodalCortex:
         """Cortex emitting 512-dim vec into 64-dim fusion should project."""
         mm = MultimodalCortex(hidden_dim=64, fusion_strategy="weighted")
         ws = WorldState()
-        ws.text_embedding  = [0.1] * 512  # mismatched
+        ws.text_embedding = [0.1] * 512  # mismatched
         ws.image_embedding = [0.2] * 512
         result = mm.fuse(ws)
         assert len(result) == 64
@@ -349,6 +356,7 @@ class TestMultimodalCortex:
 # =========================================================================== #
 # SensoryHub
 # =========================================================================== #
+
 
 class TestSensoryHub:
 
@@ -388,7 +396,7 @@ class TestSensoryHub:
             image=_random_image_hwc(),
             audio=_random_audio(),
         )
-        assert ws.text_embedding  is not None
+        assert ws.text_embedding is not None
         assert ws.image_embedding is not None
         assert ws.audio_embedding is not None
         assert ws.fused_embedding is not None

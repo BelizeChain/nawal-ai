@@ -26,6 +26,7 @@ Typical usage::
     best      = vl.best(safe, context={"goal": "answer arithmetic question"})
     all_ranked = vl.ranked(candidates, context={"goal": "..."})
 """
+
 from __future__ import annotations
 
 import re
@@ -66,6 +67,7 @@ _DEFAULT_BLOCKLIST: List[str] = [
 # BasicSafetyFilter                                                            #
 # --------------------------------------------------------------------------- #
 
+
 class BasicSafetyFilter(SafetyFilter):
     """
     Text-output safety filter.
@@ -87,7 +89,9 @@ class BasicSafetyFilter(SafetyFilter):
         extra_checks: Optional[List[Tuple[str, Any]]] = None,
     ) -> None:
         raw_patterns = blocklist if blocklist is not None else _DEFAULT_BLOCKLIST
-        self._patterns = [re.compile(p, re.IGNORECASE | re.DOTALL) for p in raw_patterns]
+        self._patterns = [
+            re.compile(p, re.IGNORECASE | re.DOTALL) for p in raw_patterns
+        ]
         self._max_length = max_length
         self._extra_checks = extra_checks or []
 
@@ -171,6 +175,7 @@ class BasicSafetyFilter(SafetyFilter):
 # ValuationLayer                                                               #
 # --------------------------------------------------------------------------- #
 
+
 class ValuationLayer:
     """
     Unified facade for scoring + filtering candidates.
@@ -198,8 +203,12 @@ class ValuationLayer:
         reward_model: Optional[AbstractRewardModel] = None,
         safety_filter: Optional[SafetyFilter] = None,
     ) -> None:
-        self._reward  = reward_model  if reward_model  is not None else DriveBasedRewardModel()
-        self._safety  = safety_filter if safety_filter is not None else BasicSafetyFilter()
+        self._reward = (
+            reward_model if reward_model is not None else DriveBasedRewardModel()
+        )
+        self._safety = (
+            safety_filter if safety_filter is not None else BasicSafetyFilter()
+        )
 
     # ------------------------------------------------------------------
     # Public API

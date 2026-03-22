@@ -28,6 +28,7 @@ from .staking_interface import StakingInterface
 
 class KYCStatus(Enum):
     """KYC verification status."""
+
     PENDING = "pending"
     VERIFIED = "verified"
     REJECTED = "rejected"
@@ -36,9 +37,10 @@ class KYCStatus(Enum):
 
 class ValidatorTier(Enum):
     """Validator tiers based on stake and reputation."""
-    BRONZE = "bronze"      # Min stake, new validators
-    SILVER = "silver"      # 2x min stake, good reputation
-    GOLD = "gold"          # 5x min stake, excellent reputation
+
+    BRONZE = "bronze"  # Min stake, new validators
+    SILVER = "silver"  # 2x min stake, good reputation
+    GOLD = "gold"  # 5x min stake, excellent reputation
     PLATINUM = "platinum"  # 10x min stake, perfect reputation
 
 
@@ -59,6 +61,7 @@ class ValidatorIdentity:
         kyc_verified_at: KYC verification timestamp
         tier: Validator tier
     """
+
     address: str
     name: str
     email: str
@@ -76,23 +79,26 @@ class ValidatorIdentity:
         PII fields (email, legal_name, tax_id) are SHA-256 hashed
         before serialization to prevent plaintext exposure on-chain.
         """
+
         def _hash_pii(value: str) -> str:
             """One-way hash PII using SHA-256."""
             if not value:
-                return ''
-            return hashlib.sha256(value.encode('utf-8')).hexdigest()
+                return ""
+            return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
         return {
-            'address': self.address,
-            'name': self.name,
-            'email_hash': _hash_pii(self.email),
-            'website': self.website or '',
-            'legal_name_hash': _hash_pii(self.legal_name or ''),
-            'jurisdiction': self.jurisdiction,
-            'tax_id_hash': _hash_pii(self.tax_id or ''),
-            'kyc_status': self.kyc_status.value,
-            'kyc_verified_at': int(self.kyc_verified_at.timestamp()) if self.kyc_verified_at else 0,
-            'tier': self.tier.value,
+            "address": self.address,
+            "name": self.name,
+            "email_hash": _hash_pii(self.email),
+            "website": self.website or "",
+            "legal_name_hash": _hash_pii(self.legal_name or ""),
+            "jurisdiction": self.jurisdiction,
+            "tax_id_hash": _hash_pii(self.tax_id or ""),
+            "kyc_status": self.kyc_status.value,
+            "kyc_verified_at": (
+                int(self.kyc_verified_at.timestamp()) if self.kyc_verified_at else 0
+            ),
+            "tier": self.tier.value,
         }
 
 
@@ -153,8 +159,7 @@ class ValidatorManager:
             Extrinsic receipt
         """
         logger.info(
-            f"Registering validator identity: {identity.name} "
-            f"({identity.address})"
+            f"Registering validator identity: {identity.name} " f"({identity.address})"
         )
 
         receipt = self.client.submit_extrinsic(
@@ -196,15 +201,19 @@ class ValidatorManager:
 
             identity = ValidatorIdentity(
                 address=address,
-                name=data['name'],
-                email=data['email'],
-                website=data.get('website'),
-                legal_name=data.get('legal_name'),
-                jurisdiction=data.get('jurisdiction', 'BZ'),
-                tax_id=data.get('tax_id'),
-                kyc_status=KYCStatus(data.get('kyc_status', 'pending')),
-                kyc_verified_at=datetime.fromtimestamp(data['kyc_verified_at'], tz=timezone.utc) if data.get('kyc_verified_at') else None,
-                tier=ValidatorTier(data.get('tier', 'bronze')),
+                name=data["name"],
+                email=data["email"],
+                website=data.get("website"),
+                legal_name=data.get("legal_name"),
+                jurisdiction=data.get("jurisdiction", "BZ"),
+                tax_id=data.get("tax_id"),
+                kyc_status=KYCStatus(data.get("kyc_status", "pending")),
+                kyc_verified_at=(
+                    datetime.fromtimestamp(data["kyc_verified_at"], tz=timezone.utc)
+                    if data.get("kyc_verified_at")
+                    else None
+                ),
+                tier=ValidatorTier(data.get("tier", "bronze")),
             )
 
             return identity
@@ -237,7 +246,7 @@ class ValidatorManager:
             call_module="Identity",
             call_function="submit_kyc",
             call_params={
-                'documents': documents,
+                "documents": documents,
             },
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
@@ -274,7 +283,9 @@ class ValidatorManager:
 
         # Check KYC status
         if identity.kyc_status != KYCStatus.VERIFIED:
-            logger.warning(f"KYC not verified: {address} (status={identity.kyc_status.value})")
+            logger.warning(
+                f"KYC not verified: {address} (status={identity.kyc_status.value})"
+            )
             return False
 
         # Check stake
@@ -344,7 +355,7 @@ class ValidatorManager:
             call_module="Identity",
             call_function="update_tier",
             call_params={
-                'tier': new_tier.value,
+                "tier": new_tier.value,
             },
             wait_for_inclusion=True,
             wait_for_finalization=wait_for_finalization,
@@ -403,14 +414,14 @@ class ValidatorManager:
                 try:
                     identity = ValidatorIdentity(
                         address=address,
-                        name=data['name'],
-                        email=data['email'],
-                        website=data.get('website'),
-                        legal_name=data.get('legal_name'),
-                        jurisdiction=data.get('jurisdiction', 'BZ'),
-                        tax_id=data.get('tax_id'),
-                        kyc_status=KYCStatus(data.get('kyc_status', 'pending')),
-                        tier=ValidatorTier(data.get('tier', 'bronze')),
+                        name=data["name"],
+                        email=data["email"],
+                        website=data.get("website"),
+                        legal_name=data.get("legal_name"),
+                        jurisdiction=data.get("jurisdiction", "BZ"),
+                        tax_id=data.get("tax_id"),
+                        kyc_status=KYCStatus(data.get("kyc_status", "pending")),
+                        tier=ValidatorTier(data.get("tier", "bronze")),
                     )
                     identities.append(identity)
                 except Exception as e:
@@ -433,9 +444,10 @@ class ValidatorManager:
         """
         all_validators = self.get_all_validators()
         compliant = [
-            v.address for v in all_validators
-            if self.check_compliance(v.address)
+            v.address for v in all_validators if self.check_compliance(v.address)
         ]
 
-        logger.info(f"Found {len(compliant)}/{len(all_validators)} compliant validators")
+        logger.info(
+            f"Found {len(compliant)}/{len(all_validators)} compliant validators"
+        )
         return compliant

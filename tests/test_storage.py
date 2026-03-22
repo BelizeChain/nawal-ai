@@ -6,6 +6,7 @@ Covers:
   - storage/pakit_client.py  → PakitClient (HTTP calls mocked)
   - storage/checkpoint_manager.py → CheckpointManager (Pakit calls mocked)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,10 +21,10 @@ from storage.metrics_db import MetricsStore
 from storage.pakit_client import PakitClient
 from storage.checkpoint_manager import CheckpointManager
 
-
 # ===========================================================================
 # MetricsStore
 # ===========================================================================
+
 
 class TestMetricsStore:
 
@@ -89,6 +90,7 @@ class TestMetricsStore:
 # PakitClient — init and environment
 # ===========================================================================
 
+
 class TestPakitClientInit:
 
     def test_default_urls(self):
@@ -101,17 +103,20 @@ class TestPakitClientInit:
         client = PakitClient(
             pakit_api_url="http://prod-api:9090",
             dag_gateway_url="http://prod-dag:9091",
-            compression="lz4"
+            compression="lz4",
         )
         assert client.pakit_api_url == "http://prod-api:9090"
         assert client.compression == "lz4"
 
     def test_from_env_uses_env_vars(self):
-        with patch.dict("os.environ", {
-            "PAKIT_API_URL": "http://env-api:7070",
-            "PAKIT_DAG_GATEWAY_URL": "http://env-dag:7071",
-            "PAKIT_COMPRESSION": "brotli"
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "PAKIT_API_URL": "http://env-api:7070",
+                "PAKIT_DAG_GATEWAY_URL": "http://env-dag:7071",
+                "PAKIT_COMPRESSION": "brotli",
+            },
+        ):
             client = PakitClient.from_env()
         assert client.pakit_api_url == "http://env-api:7070"
         assert client.dag_gateway_url == "http://env-dag:7071"
@@ -121,6 +126,7 @@ class TestPakitClientInit:
         with patch.dict("os.environ", {}, clear=False):
             # Remove keys if present
             import os
+
             for k in ("PAKIT_API_URL", "PAKIT_DAG_GATEWAY_URL", "PAKIT_COMPRESSION"):
                 os.environ.pop(k, None)
             client = PakitClient.from_env()
@@ -130,6 +136,7 @@ class TestPakitClientInit:
 # ===========================================================================
 # PakitClient — mock upload (offline)
 # ===========================================================================
+
 
 class TestPakitClientMockUpload:
 
@@ -164,6 +171,7 @@ class TestPakitClientMockUpload:
 # PakitClient — HTTP paths (mocked requests)
 # ===========================================================================
 
+
 class TestPakitClientHTTP:
 
     def test_upload_success(self, tmp_path):
@@ -196,8 +204,10 @@ class TestPakitClientHTTP:
                 client.upload_file(str(fpath))
 
     def test_upload_no_requests_raises_runtime_error(self):
-        with patch("storage.pakit_client.REQUESTS_AVAILABLE", False), \
-             pytest.raises(RuntimeError, match="requests"):
+        with (
+            patch("storage.pakit_client.REQUESTS_AVAILABLE", False),
+            pytest.raises(RuntimeError, match="requests"),
+        ):
             PakitClient().upload_file("/any/path.pt")
 
     def test_download_success(self, tmp_path):
@@ -208,8 +218,10 @@ class TestPakitClientHTTP:
         mock_response.iter_content.return_value = [b"chunk1", b"chunk2"]
         output_path = str(tmp_path / "downloaded.bin")
 
-        with patch("storage.pakit_client.requests.get", return_value=mock_response), \
-             patch.object(PakitClient, "_compute_file_hash", return_value=valid_cid):
+        with (
+            patch("storage.pakit_client.requests.get", return_value=mock_response),
+            patch.object(PakitClient, "_compute_file_hash", return_value=valid_cid),
+        ):
             client = PakitClient()
             result = client.download_file(valid_cid, output_path)
 
@@ -282,12 +294,17 @@ class TestPakitClientHTTP:
     def test_upload_network_error_raises(self, tmp_path):
         """RequestException wraps as RuntimeError."""
         import requests
+
         fpath = tmp_path / "file.bin"
         fpath.write_bytes(b"data")
 
-        with patch("storage.pakit_client.requests.post",
-                   side_effect=requests.RequestException("connection refused")), \
-             pytest.raises(RuntimeError, match="Pakit upload failed"):
+        with (
+            patch(
+                "storage.pakit_client.requests.post",
+                side_effect=requests.RequestException("connection refused"),
+            ),
+            pytest.raises(RuntimeError, match="Pakit upload failed"),
+        ):
             PakitClient().upload_file(str(fpath))
 
 
@@ -295,12 +312,13 @@ class TestPakitClientHTTP:
 # CheckpointManager — local operations (no Pakit)
 # ===========================================================================
 
+
 @pytest.fixture
 def ckpt_manager(tmp_path) -> CheckpointManager:
     return CheckpointManager(
         checkpoint_dir=str(tmp_path / "checkpoints"),
         pakit_client=None,
-        auto_upload=False
+        auto_upload=False,
     )
 
 
@@ -411,12 +429,15 @@ class TestCheckpointManagerLocal:
         file_path = ckpt_manager.checkpoint_dir / "legacy.pt"
         # Remove hash to simulate legacy entry
         info_no_hash = {"name": "legacy.pt", "path": str(file_path)}
-        assert ckpt_manager._verify_checkpoint_integrity(file_path, info_no_hash) is True
+        assert (
+            ckpt_manager._verify_checkpoint_integrity(file_path, info_no_hash) is True
+        )
 
 
 # ===========================================================================
 # CheckpointManager — Pakit integration (mocked)
 # ===========================================================================
+
 
 class TestCheckpointManagerWithPakit:
 
@@ -428,7 +449,7 @@ class TestCheckpointManagerWithPakit:
         mgr = CheckpointManager(
             checkpoint_dir=str(tmp_path / "ckpts"),
             pakit_client=mock_pakit,
-            auto_upload=True
+            auto_upload=True,
         )
         result = mgr.save_checkpoint(_make_state_dict(), "auto.pt")
         mock_pakit.upload_file.assert_called_once()
@@ -440,7 +461,7 @@ class TestCheckpointManagerWithPakit:
         mgr = CheckpointManager(
             checkpoint_dir=str(tmp_path / "ckpts"),
             pakit_client=mock_pakit,
-            auto_upload=False
+            auto_upload=False,
         )
         mgr.save_checkpoint(_make_state_dict(), "no_upload.pt")
         mock_pakit.upload_file.assert_not_called()
@@ -453,7 +474,7 @@ class TestCheckpointManagerWithPakit:
         mgr = CheckpointManager(
             checkpoint_dir=str(tmp_path / "ckpts"),
             pakit_client=mock_pakit,
-            auto_upload=True
+            auto_upload=True,
         )
         result = mgr.save_checkpoint(_make_state_dict(), "fallback.pt")
         assert (mgr.checkpoint_dir / "fallback.pt").exists()
@@ -467,7 +488,7 @@ class TestCheckpointManagerWithPakit:
         mgr = CheckpointManager(
             checkpoint_dir=str(tmp_path / "ckpts2"),
             pakit_client=mock_pakit,
-            auto_upload=False
+            auto_upload=False,
         )
 
         # Manually inject a registry entry with a pakit_cid
@@ -486,6 +507,7 @@ class TestCheckpointManagerWithPakit:
         # Mock download to copy the original file to the temp path
         def _mock_download(cid, output_path):
             import shutil
+
             shutil.copy(str(original_path), output_path)
             return True
 

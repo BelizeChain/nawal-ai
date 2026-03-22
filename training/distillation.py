@@ -148,7 +148,7 @@ class KnowledgeDistillationLoss(nn.Module):
         # Soft loss (KL divergence between temperature-scaled distributions)
         student_soft = F.log_softmax(student_logits_flat / self.temperature, dim=-1)
         teacher_soft = F.softmax(teacher_logits_flat / self.temperature, dim=-1)
-        soft_loss = self.kl_div(student_soft, teacher_soft) * (self.temperature ** 2)
+        soft_loss = self.kl_div(student_soft, teacher_soft) * (self.temperature**2)
 
         # Hard loss (cross-entropy on ground truth)
         hard_loss = self.ce_loss(student_logits_flat, labels_flat)
@@ -255,7 +255,9 @@ class KnowledgeDistillationTrainer:
             self.student = NawalTransformer(NawalModelConfig.nawal_medium())
 
         self.student = self.student.to(self.device)
-        logger.info(f"Student model: {self.student.config.num_parameters():,} parameters")
+        logger.info(
+            f"Student model: {self.student.config.num_parameters():,} parameters"
+        )
 
         # Initialize teacher model (frozen)
         if teacher_model is not None:
@@ -263,6 +265,7 @@ class KnowledgeDistillationTrainer:
         else:
             logger.info(f"Loading teacher model: {teacher_model_id}")
             from hybrid.teacher import DeepSeekConfig
+
             teacher_config = DeepSeekConfig(model_name=teacher_model_id)
             self.teacher = DeepSeekTeacher(config=teacher_config)
 
@@ -276,7 +279,7 @@ class KnowledgeDistillationTrainer:
             self.student.parameters(),
             lr=learning_rate,
             betas=(0.9, 0.95),
-            weight_decay=0.1
+            weight_decay=0.1,
         )
 
         # Pakit integration
@@ -287,7 +290,7 @@ class KnowledgeDistillationTrainer:
         # Training state
         self.global_step = 0
         self.current_epoch = 0
-        self.best_val_loss = float('inf')
+        self.best_val_loss = float("inf")
 
         if use_wandb:
             wandb.init(
@@ -298,7 +301,7 @@ class KnowledgeDistillationTrainer:
                     "temperature": temperature,
                     "alpha": alpha,
                     "learning_rate": learning_rate,
-                }
+                },
             )
 
     def train_step(
@@ -331,17 +334,14 @@ class KnowledgeDistillationTrainer:
 
         # Student forward pass
         student_outputs = self.student(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            return_dict=True
+            input_ids=input_ids, attention_mask=attention_mask, return_dict=True
         )
         student_logits = student_outputs["logits"]
 
         # Teacher forward pass (no gradients)
         with torch.no_grad():
             teacher_outputs = self.teacher.model(
-                input_ids=input_ids,
-                attention_mask=attention_mask
+                input_ids=input_ids, attention_mask=attention_mask
             )
             teacher_logits = teacher_outputs.logits
 
@@ -361,9 +361,15 @@ class KnowledgeDistillationTrainer:
             labels_flat = labels.view(-1)
 
             # Soft loss
-            student_soft = F.log_softmax(student_logits_flat / self.loss_fn.temperature, dim=-1)
-            teacher_soft = F.softmax(teacher_logits_flat / self.loss_fn.temperature, dim=-1)
-            soft_loss = F.kl_div(student_soft, teacher_soft, reduction="batchmean") * (self.loss_fn.temperature ** 2)
+            student_soft = F.log_softmax(
+                student_logits_flat / self.loss_fn.temperature, dim=-1
+            )
+            teacher_soft = F.softmax(
+                teacher_logits_flat / self.loss_fn.temperature, dim=-1
+            )
+            soft_loss = F.kl_div(student_soft, teacher_soft, reduction="batchmean") * (
+                self.loss_fn.temperature**2
+            )
 
             # Hard loss
             hard_loss = F.cross_entropy(student_logits_flat, labels_flat)
@@ -435,21 +441,29 @@ class KnowledgeDistillationTrainer:
         # Update learning rate if provided
         if learning_rate is not None:
             for param_group in self.optimizer.param_groups:
-                param_group['lr'] = learning_rate
+                param_group["lr"] = learning_rate
 
         # Prepare data loaders
         if isinstance(train_dataset, str):
-            train_loader = self._create_dataloader(train_dataset, batch_size, shuffle=True)
+            train_loader = self._create_dataloader(
+                train_dataset, batch_size, shuffle=True
+            )
         elif isinstance(train_dataset, Dataset):
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            train_loader = DataLoader(
+                train_dataset, batch_size=batch_size, shuffle=True
+            )
         else:
             train_loader = train_dataset
 
         if val_dataset is not None:
             if isinstance(val_dataset, str):
-                val_loader = self._create_dataloader(val_dataset, batch_size, shuffle=False)
+                val_loader = self._create_dataloader(
+                    val_dataset, batch_size, shuffle=False
+                )
             elif isinstance(val_dataset, Dataset):
-                val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+                val_loader = DataLoader(
+                    val_dataset, batch_size=batch_size, shuffle=False
+                )
             else:
                 val_loader = val_dataset
         else:
@@ -458,11 +472,18 @@ class KnowledgeDistillationTrainer:
         # Training loop
         logger.info(f"Starting training for {num_epochs} epochs")
         logger.info(f"Student: {self.student.config.num_parameters():,} params")
-        logger.info(f"Temperature: {self.loss_fn.temperature}, Alpha: {self.loss_fn.alpha}")
+        logger.info(
+            f"Temperature: {self.loss_fn.temperature}, Alpha: {self.loss_fn.alpha}"
+        )
 
         for epoch in range(num_epochs):
             self.current_epoch = epoch
-            epoch_metrics = {"loss": [], "soft_loss": [], "hard_loss": [], "perplexity": []}
+            epoch_metrics = {
+                "loss": [],
+                "soft_loss": [],
+                "hard_loss": [],
+                "perplexity": [],
+            }
 
             progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")
 
@@ -474,43 +495,55 @@ class KnowledgeDistillationTrainer:
                     epoch_metrics[key].append(value)
 
                 # Update progress bar
-                progress_bar.set_postfix({
-                    "loss": f"{metrics['loss']:.4f}",
-                    "ppl": f"{metrics['perplexity']:.2f}",
-                })
+                progress_bar.set_postfix(
+                    {
+                        "loss": f"{metrics['loss']:.4f}",
+                        "ppl": f"{metrics['perplexity']:.2f}",
+                    }
+                )
 
                 # Log to wandb
                 if self.use_wandb:
-                    wandb.log({
-                        "train/loss": metrics["loss"],
-                        "train/soft_loss": metrics["soft_loss"],
-                        "train/hard_loss": metrics["hard_loss"],
-                        "train/perplexity": metrics["perplexity"],
-                        "train/epoch": epoch,
-                        "train/step": self.global_step,
-                    })
+                    wandb.log(
+                        {
+                            "train/loss": metrics["loss"],
+                            "train/soft_loss": metrics["soft_loss"],
+                            "train/hard_loss": metrics["hard_loss"],
+                            "train/perplexity": metrics["perplexity"],
+                            "train/epoch": epoch,
+                            "train/step": self.global_step,
+                        }
+                    )
 
                 # Validation
                 if val_loader is not None and self.global_step % eval_every == 0:
                     val_metrics = self.evaluate(val_loader)
-                    logger.info(f"Step {self.global_step} - Val Loss: {val_metrics['loss']:.4f}, "
-                              f"Val PPL: {val_metrics['perplexity']:.2f}")
+                    logger.info(
+                        f"Step {self.global_step} - Val Loss: {val_metrics['loss']:.4f}, "
+                        f"Val PPL: {val_metrics['perplexity']:.2f}"
+                    )
 
                     if self.use_wandb:
-                        wandb.log({
-                            "val/loss": val_metrics["loss"],
-                            "val/perplexity": val_metrics["perplexity"],
-                        })
+                        wandb.log(
+                            {
+                                "val/loss": val_metrics["loss"],
+                                "val/perplexity": val_metrics["perplexity"],
+                            }
+                        )
 
                     # Save best model
                     if val_metrics["loss"] < self.best_val_loss:
                         self.best_val_loss = val_metrics["loss"]
                         self.save_checkpoint(checkpoint_path / "best_model.pt")
-                        logger.info(f"Saved new best model (val_loss={val_metrics['loss']:.4f})")
+                        logger.info(
+                            f"Saved new best model (val_loss={val_metrics['loss']:.4f})"
+                        )
 
                 # Periodic checkpoint
                 if self.global_step % save_every == 0:
-                    self.save_checkpoint(checkpoint_path / f"checkpoint_step_{self.global_step}.pt")
+                    self.save_checkpoint(
+                        checkpoint_path / f"checkpoint_step_{self.global_step}.pt"
+                    )
 
                 # Max steps check
                 if max_steps is not None and self.global_step >= max_steps:
@@ -519,8 +552,10 @@ class KnowledgeDistillationTrainer:
 
             # Epoch summary
             avg_metrics = {k: sum(v) / len(v) for k, v in epoch_metrics.items()}
-            logger.info(f"Epoch {epoch+1} - Avg Loss: {avg_metrics['loss']:.4f}, "
-                       f"Avg PPL: {avg_metrics['perplexity']:.2f}")
+            logger.info(
+                f"Epoch {epoch+1} - Avg Loss: {avg_metrics['loss']:.4f}, "
+                f"Avg PPL: {avg_metrics['perplexity']:.2f}"
+            )
 
             if max_steps is not None and self.global_step >= max_steps:
                 break
@@ -557,16 +592,13 @@ class KnowledgeDistillationTrainer:
 
                 # Student predictions
                 student_outputs = self.student(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    return_dict=True
+                    input_ids=input_ids, attention_mask=attention_mask, return_dict=True
                 )
                 student_logits = student_outputs["logits"]
 
                 # Teacher predictions
                 teacher_outputs = self.teacher.model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask
+                    input_ids=input_ids, attention_mask=attention_mask
                 )
                 teacher_logits = teacher_outputs.logits
 
@@ -611,7 +643,9 @@ class KnowledgeDistillationTrainer:
         logger.info(f"Checkpoint saved to {path}")
 
     @classmethod
-    def from_checkpoint(cls, path: Union[str, Path], **kwargs) -> "KnowledgeDistillationTrainer":
+    def from_checkpoint(
+        cls, path: Union[str, Path], **kwargs
+    ) -> "KnowledgeDistillationTrainer":
         """Load trainer from checkpoint.
 
         Args:
@@ -633,7 +667,7 @@ class KnowledgeDistillationTrainer:
             student_model=student_model,
             temperature=checkpoint["temperature"],
             alpha=checkpoint["alpha"],
-            **kwargs
+            **kwargs,
         )
 
         # Restore optimizer state
@@ -668,28 +702,27 @@ class KnowledgeDistillationTrainer:
             RuntimeError: If pakit_client not initialized (need pakit_gateway in __init__).
         """
         if self.pakit_client is None:
-            raise RuntimeError("Pakit client not initialized. Provide pakit_gateway in __init__.")
+            raise RuntimeError(
+                "Pakit client not initialized. Provide pakit_gateway in __init__."
+            )
 
         # Save to temporary directory
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             model_path = Path(tmpdir) / "model"
             self.save_student(model_path)
 
             # Upload to Pakit DAG
             content_hash = self.pakit_client.upload_directory(
-                dir_path=str(model_path),
-                metadata=metadata or {}
+                dir_path=str(model_path), metadata=metadata or {}
             )
 
         logger.info(f"Model uploaded to Pakit: {content_hash}")
         return content_hash
 
     def _create_dataloader(
-        self,
-        dataset_path: str,
-        batch_size: int,
-        shuffle: bool = True
+        self, dataset_path: str, batch_size: int, shuffle: bool = True
     ) -> DataLoader:
         """Create DataLoader from dataset file.
 
@@ -719,4 +752,6 @@ class KnowledgeDistillationTrainer:
 
         dataset = TensorDataset(dummy_inputs, dummy_inputs)  # input_ids = labels
 
-        return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
+        return DataLoader(
+            dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn
+        )

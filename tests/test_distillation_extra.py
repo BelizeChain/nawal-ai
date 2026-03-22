@@ -12,6 +12,7 @@ Targets the uncovered branches:
   - upload_to_pakit()
   - _create_dataloader()
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -23,8 +24,10 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from training.distillation import KnowledgeDistillationTrainer, KnowledgeDistillationLoss
-
+from training.distillation import (
+    KnowledgeDistillationTrainer,
+    KnowledgeDistillationLoss,
+)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Constants
@@ -38,6 +41,7 @@ BATCH = 2
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers (mirrored from the main test module so each file is self-contained)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class _FakeConfig:
     def num_parameters(self) -> int:
@@ -105,7 +109,9 @@ def _make_loader(n_batches: int = 2) -> DataLoader:
 
 
 def _make_trainer(**kwargs) -> KnowledgeDistillationTrainer:
-    defaults = dict(student_model=_make_student(), teacher_model=_make_teacher(), device="cpu")
+    defaults = dict(
+        student_model=_make_student(), teacher_model=_make_teacher(), device="cpu"
+    )
     defaults.update(kwargs)
     return KnowledgeDistillationTrainer(**defaults)
 
@@ -113,6 +119,7 @@ def _make_trainer(**kwargs) -> KnowledgeDistillationTrainer:
 # ──────────────────────────────────────────────────────────────────────────────
 # __init__ — student_config= branch (lines 250-251)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestStudentConfigBranch:
 
@@ -138,6 +145,7 @@ class TestStudentConfigBranch:
 # __init__ — default branch (lines 252-255): no student_model, no student_config
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestDefaultStudentBranch:
 
     def test_default_nawal_medium_used(self):
@@ -146,8 +154,10 @@ class TestDefaultStudentBranch:
         mock_student = _make_student()
         mock_student.to = MagicMock(return_value=mock_student)
 
-        with patch("training.distillation.NawalModelConfig") as MockConfig, \
-             patch("training.distillation.NawalTransformer") as MockTransformer:
+        with (
+            patch("training.distillation.NawalModelConfig") as MockConfig,
+            patch("training.distillation.NawalTransformer") as MockTransformer,
+        ):
 
             MockConfig.nawal_medium.return_value = mock_config
             MockTransformer.return_value = mock_student
@@ -165,6 +175,7 @@ class TestDefaultStudentBranch:
 # __init__ — teacher loading branch (lines 264-267)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestTeacherLoadingBranch:
 
     def test_teacher_loaded_from_model_id(self):
@@ -172,8 +183,10 @@ class TestTeacherLoadingBranch:
         mock_teacher = _make_teacher()
         mock_ds_config = MagicMock()
 
-        with patch("training.distillation.DeepSeekTeacher") as MockTeacher, \
-             patch("hybrid.teacher.DeepSeekConfig") as MockDSConfig:
+        with (
+            patch("training.distillation.DeepSeekTeacher") as MockTeacher,
+            patch("hybrid.teacher.DeepSeekConfig") as MockDSConfig,
+        ):
 
             MockDSConfig.return_value = mock_ds_config
             MockTeacher.return_value = mock_teacher
@@ -192,6 +205,7 @@ class TestTeacherLoadingBranch:
 # __init__ — use_wandb=True branch (lines 285, 293)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestWandbBranch:
 
     def test_wandb_init_called_when_enabled(self):
@@ -206,6 +220,7 @@ class TestWandbBranch:
 # ──────────────────────────────────────────────────────────────────────────────
 # train() — main path (lines 432-534)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestTrainMethod:
 
@@ -248,7 +263,7 @@ class TestTrainMethod:
             num_epochs=1,
             max_steps=1,
             eval_every=1,
-            save_every=10000,   # suppress periodic saves
+            save_every=10000,  # suppress periodic saves
             checkpoint_dir=str(tmp_path),
         )
         # Best model should have been saved on first (and only) eval
@@ -311,7 +326,9 @@ class TestTrainMethod:
         loader = _make_loader()
 
         # Patch _create_dataloader to avoid vocab mismatch
-        with patch.object(trainer, "_create_dataloader", return_value=loader) as mock_cdl:
+        with patch.object(
+            trainer, "_create_dataloader", return_value=loader
+        ) as mock_cdl:
             trainer.train(
                 train_dataset="path/to/data.jsonl",
                 num_epochs=1,
@@ -344,7 +361,7 @@ class TestTrainMethod:
         trainer = _make_trainer()
         trainer.train(
             train_dataset=_make_loader(n_batches=4),
-            num_epochs=10,   # many epochs, but max_steps=1 stops it
+            num_epochs=10,  # many epochs, but max_steps=1 stops it
             max_steps=1,
             checkpoint_dir=str(tmp_path),
         )
@@ -354,6 +371,7 @@ class TestTrainMethod:
 # ──────────────────────────────────────────────────────────────────────────────
 # evaluate() method (lines 545-589)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestEvaluateMethod:
 
@@ -372,6 +390,7 @@ class TestEvaluateMethod:
     def test_evaluate_perplexity_matches_exp_loss(self):
         """perplexity ≈ exp(cross_entropy_hard_loss) — should be > 1 for random model."""
         import math
+
         trainer = _make_trainer()
         metrics = trainer.evaluate(_make_loader(n_batches=1))
         assert metrics["perplexity"] > 1.0
@@ -391,6 +410,7 @@ class TestEvaluateMethod:
 # from_checkpoint() (lines 624-647)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestFromCheckpoint:
 
     def test_from_checkpoint_restores_state(self, tmp_path):
@@ -406,8 +426,10 @@ class TestFromCheckpoint:
         # from_checkpoint reconstructs NawalTransformer from the saved config.
         # Patch NawalTransformer so it returns a TinyStudent (fast).
         tiny = _make_student()
-        with patch("training.distillation.NawalTransformer") as MockT, \
-             patch("training.distillation.NawalModelConfig") as MockC:
+        with (
+            patch("training.distillation.NawalTransformer") as MockT,
+            patch("training.distillation.NawalModelConfig") as MockC,
+        ):
 
             mock_cfg = MagicMock()
             MockC.return_value = mock_cfg
@@ -436,8 +458,10 @@ class TestFromCheckpoint:
         trainer.save_checkpoint(path)
 
         tiny = _make_student()
-        with patch("training.distillation.NawalTransformer", return_value=tiny), \
-             patch("training.distillation.NawalModelConfig"):
+        with (
+            patch("training.distillation.NawalTransformer", return_value=tiny),
+            patch("training.distillation.NawalModelConfig"),
+        ):
 
             loaded = KnowledgeDistillationTrainer.from_checkpoint(
                 path,
@@ -452,6 +476,7 @@ class TestFromCheckpoint:
 # ──────────────────────────────────────────────────────────────────────────────
 # upload_to_pakit() (lines 670-686)
 # ──────────────────────────────────────────────────────────────────────────────
+
 
 class TestUploadToPakit:
 
@@ -495,6 +520,7 @@ class TestUploadToPakit:
 # _create_dataloader() (lines 709-722)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestCreateDataloader:
 
     def test_returns_dataloader_instance(self):
@@ -526,10 +552,12 @@ class TestCreateDataloader:
 # train() — Dataset input branches (lines 444, 452) and wandb+val (line 500)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestTrainDatasetBranches:
 
     def _make_dict_dataset(self):
         """Dataset returning dict batches (compatible with train_step)."""
+
         class DictDataset(TensorDataset):
             def __getitem__(self, idx):
                 ids, lbls = super().__getitem__(idx)
@@ -591,6 +619,7 @@ class TestTrainDatasetBranches:
 # evaluate() — attention_mask branch (line 555)
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestEvaluateAttentionMask:
 
     def test_evaluate_with_attention_mask_in_batch(self):
@@ -618,12 +647,14 @@ class TestEvaluateAttentionMask:
 # pakit_gateway __init__ branch
 # ──────────────────────────────────────────────────────────────────────────────
 
+
 class TestPakitGatewayInit:
 
     def test_pakit_client_created_when_gateway_given(self):
         """Providing pakit_gateway= creates a PakitClient."""
         trainer = _make_trainer(pakit_gateway="http://localhost:8081")
         from storage.pakit_client import PakitClient
+
         assert isinstance(trainer.pakit_client, PakitClient)
 
     def test_no_pakit_client_when_no_gateway(self):

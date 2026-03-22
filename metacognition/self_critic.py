@@ -38,6 +38,7 @@ Usage::
         print(result.issues)
         print(result.revised_response)
 """
+
 from __future__ import annotations
 
 import re
@@ -51,7 +52,6 @@ from metacognition.interfaces import (
     ConfidenceScore,
     CritiqueResult,
 )
-
 
 # --------------------------------------------------------------------------- #
 # Check helpers                                                                #
@@ -71,6 +71,7 @@ def _check_min_length(min_words: int = 3) -> CheckFn:
         if len(words) < min_words:
             return f"Response too short ({len(words)} words, minimum {min_words})"
         return None
+
     return _check
 
 
@@ -80,6 +81,7 @@ def _check_max_length(max_words: int = 2048) -> CheckFn:
         if len(words) > max_words:
             return f"Response too long ({len(words)} words, maximum {max_words})"
         return None
+
     return _check
 
 
@@ -88,6 +90,7 @@ def _check_not_empty() -> CheckFn:
         if not text or not text.strip():
             return "Response is empty"
         return None
+
     return _check
 
 
@@ -96,6 +99,7 @@ def _check_goal_alignment(min_overlap: float = 0.0) -> CheckFn:
     Warn (not fail) when text has zero keyword overlap with the stated goal.
     ``min_overlap=0.0`` disables this check by default — enable by passing > 0.
     """
+
     def _check(text: str, ctx: Dict) -> Optional[str]:
         if min_overlap <= 0.0:
             return None
@@ -113,6 +117,7 @@ def _check_goal_alignment(min_overlap: float = 0.0) -> CheckFn:
                 f"(keyword overlap {overlap:.0%} < required {min_overlap:.0%})"
             )
         return None
+
     return _check
 
 
@@ -134,6 +139,7 @@ def _check_no_hallucination_markers() -> CheckFn:
                     f"{pat.pattern!r}"
                 )
         return None
+
     return _check
 
 
@@ -153,10 +159,9 @@ def _check_no_bare_refusal() -> CheckFn:
         stripped = text.strip()
         for pat in compiled:
             if pat.match(stripped):
-                return (
-                    "Response is a bare refusal without context or alternatives"
-                )
+                return "Response is a bare refusal without context or alternatives"
         return None
+
     return _check
 
 
@@ -165,41 +170,92 @@ def _check_coherence() -> CheckFn:
     Minimal coherence: response should have at least one sentence-ending
     punctuation mark if it's longer than 10 words.
     """
+
     def _check(text: str, _ctx: Dict) -> Optional[str]:
         if len(text.split()) < 10:
             return None
         if not re.search(r"[.!?]", text):
             return "Response lacks sentence-terminating punctuation — may be truncated"
         return None
+
     return _check
 
 
 # Common English stop-words (used in goal-alignment overlap computation)
-_STOPWORDS = frozenset({
-    "a", "an", "the", "is", "it", "in", "on", "at", "to", "for",
-    "of", "and", "or", "but", "not", "no", "with", "by", "from",
-    "as", "be", "was", "are", "were", "has", "have", "had", "do",
-    "does", "did", "will", "would", "could", "should", "may", "might",
-    "can", "this", "that", "these", "those", "i", "me", "my", "we",
-    "you", "he", "she", "they", "them", "their", "its",
-})
+_STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "is",
+        "it",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "and",
+        "or",
+        "but",
+        "not",
+        "no",
+        "with",
+        "by",
+        "from",
+        "as",
+        "be",
+        "was",
+        "are",
+        "were",
+        "has",
+        "have",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "can",
+        "this",
+        "that",
+        "these",
+        "those",
+        "i",
+        "me",
+        "my",
+        "we",
+        "you",
+        "he",
+        "she",
+        "they",
+        "them",
+        "their",
+        "its",
+    }
+)
 
 # Default check registry
 _DEFAULT_CHECKS: List[Tuple[str, CheckFn]] = [
-    ("not_empty",              _check_not_empty()),
-    ("min_length",             _check_min_length(min_words=2)),
-    ("max_length",             _check_max_length(max_words=2048)),
-    ("no_hallucination",       _check_no_hallucination_markers()),
-    ("no_bare_refusal",        _check_no_bare_refusal()),
-    ("coherence",              _check_coherence()),
+    ("not_empty", _check_not_empty()),
+    ("min_length", _check_min_length(min_words=2)),
+    ("max_length", _check_max_length(max_words=2048)),
+    ("no_hallucination", _check_no_hallucination_markers()),
+    ("no_bare_refusal", _check_no_bare_refusal()),
+    ("coherence", _check_coherence()),
     # goal alignment disabled by default (min_overlap=0)
-    ("goal_alignment",         _check_goal_alignment(min_overlap=0.0)),
+    ("goal_alignment", _check_goal_alignment(min_overlap=0.0)),
 ]
 
 
 # --------------------------------------------------------------------------- #
 # SelfCritic                                                                   #
 # --------------------------------------------------------------------------- #
+
 
 class SelfCritic(AbstractCritic):
     """
@@ -286,10 +342,7 @@ class SelfCritic(AbstractCritic):
         if n_checks == 0:
             return ConfidenceScore(value=1.0, method="self_critic_passrate")
 
-        n_fail = sum(
-            1 for _, fn in self._checks
-            if fn(response, context) is not None
-        )
+        n_fail = sum(1 for _, fn in self._checks if fn(response, context) is not None)
         value = round(1.0 - (n_fail / n_checks), 4)
         return ConfidenceScore(
             value=value,

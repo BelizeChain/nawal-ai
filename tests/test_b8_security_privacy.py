@@ -10,6 +10,7 @@ Covers C8.1–C8.7:
   C8.6  Content filtering scope (OutputFilter, ComplianceFilter coverage)
   C8.7  Azure secret handling (no hardcoded secrets, header-only API key)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -45,10 +46,10 @@ from client.nawal import ComplianceFilter
 from maintenance.output_filter import OutputFilter
 from maintenance.interfaces import RiskLevel
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 class _TinyModel(nn.Module):
     def __init__(self):
@@ -95,13 +96,18 @@ def _make_update(seed: int = 0, size: int = 6):
 # C8.1 — Differential Privacy Wrapper Correctness
 # ===========================================================================
 
+
 class TestC81_DPWrapperCorrectness:
 
     def test_all_params_configurable(self):
         """ε, δ, clip_norm, noise_multiplier all settable."""
         dp = DifferentialPrivacy(
-            epsilon=2.0, delta=1e-6, clip_norm=0.5,
-            noise_multiplier=0.8, target_steps=500, sampling_rate=0.01,
+            epsilon=2.0,
+            delta=1e-6,
+            clip_norm=0.5,
+            noise_multiplier=0.8,
+            target_steps=500,
+            sampling_rate=0.01,
         )
         assert dp.budget.epsilon == 2.0
         assert dp.budget.delta == 1e-6
@@ -110,7 +116,9 @@ class TestC81_DPWrapperCorrectness:
 
     def test_budget_cap_enforced(self):
         """Training must stop after budget exhaustion."""
-        dp = DifferentialPrivacy(epsilon=0.1, delta=1e-5, clip_norm=1.0, noise_multiplier=1.0)
+        dp = DifferentialPrivacy(
+            epsilon=0.1, delta=1e-5, clip_norm=1.0, noise_multiplier=1.0
+        )
         model = _model_with_grads()
         # Exhaust the budget by spending many steps
         exhausted = False
@@ -146,7 +154,7 @@ class TestC81_DPWrapperCorrectness:
         for p in model.parameters():
             if p.grad is not None:
                 total_norm += p.grad.data.norm(2).item() ** 2
-        total_norm = total_norm ** 0.5
+        total_norm = total_norm**0.5
         assert total_norm <= clip + 1e-5
 
     def test_add_noise_changes_gradients(self):
@@ -154,7 +162,9 @@ class TestC81_DPWrapperCorrectness:
         dp = DifferentialPrivacy(epsilon=1.0, noise_multiplier=1.0, clip_norm=1.0)
         model = _model_with_grads()
         dp.clip_gradients(model)
-        before = {n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None}
+        before = {
+            n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None
+        }
         dp.add_noise(model)
         changed = False
         for n, p in model.named_parameters():
@@ -182,6 +192,7 @@ class TestC81_DPWrapperCorrectness:
 # C8.2 — Byzantine Aggregation Defences
 # ===========================================================================
 
+
 class TestC82_ByzantineAggregation:
 
     def test_prod_config_uses_byzantine_robust_method(self):
@@ -189,9 +200,9 @@ class TestC82_ByzantineAggregation:
         with open("config.prod.yaml") as f:
             cfg = yaml.safe_load(f)
         strategy = cfg["federated"]["aggregation_strategy"]
-        assert strategy != "fedavg", (
-            f"Production config uses '{strategy}' — must be Byzantine-robust"
-        )
+        assert (
+            strategy != "fedavg"
+        ), f"Production config uses '{strategy}' — must be Byzantine-robust"
         assert strategy in {"krum", "multi_krum", "trimmed_mean", "median", "phocas"}
 
     def test_median_is_coordinate_wise(self):
@@ -230,18 +241,27 @@ class TestC82_ByzantineAggregation:
 
     def test_all_six_methods_exist(self):
         methods = {m.value for m in AggregationMethod}
-        assert methods == {"fedavg", "krum", "multi_krum", "trimmed_mean", "median", "phocas"}
+        assert methods == {
+            "fedavg",
+            "krum",
+            "multi_krum",
+            "trimmed_mean",
+            "median",
+            "phocas",
+        }
 
 
 # ===========================================================================
 # C8.3 — ZK-Proof Payroll Generation (Merkle + Proof Data)
 # ===========================================================================
 
+
 class TestC83_ZKProofGeneration:
 
     def test_merkle_root_uses_salt(self):
         """Merkle tree must include a per-entry salt (F8.3b fix)."""
         from blockchain.payroll_connector import PayrollConnector
+
         connector = PayrollConnector.__new__(PayrollConnector)
         entries = [_make_payroll_entry()]
         root = connector._compute_merkle_root(entries)
@@ -262,19 +282,26 @@ class TestC83_ZKProofGeneration:
     def test_merkle_root_different_with_different_periods(self):
         """Same salary, different period must produce different merkle roots."""
         from blockchain.payroll_connector import PayrollConnector
+
         connector = PayrollConnector.__new__(PayrollConnector)
         e1 = _make_payroll_entry(payment_period="2026-01")
         e2 = _make_payroll_entry(payment_period="2026-02")
         root1 = connector._compute_merkle_root([e1])
         root2 = connector._compute_merkle_root([e2])
-        assert root1 != root2, "Different periods must produce different roots (salt varies)"
+        assert (
+            root1 != root2
+        ), "Different periods must produce different roots (salt varies)"
 
     def test_proof_data_no_plaintext_totals(self):
         """Proof JSON must NOT contain plaintext salary totals."""
         from blockchain.payroll_connector import PayrollConnector
         import json
+
         connector = PayrollConnector.__new__(PayrollConnector)
-        entries = [_make_payroll_entry(), _make_payroll_entry(employee_id="BZ-12345-0002")]
+        entries = [
+            _make_payroll_entry(),
+            _make_payroll_entry(employee_id="BZ-12345-0002"),
+        ]
         merkle_root = connector._compute_merkle_root(entries)
         proof_json = connector._generate_zk_proof(entries, merkle_root)
         proof_data = json.loads(proof_json)
@@ -287,6 +314,7 @@ class TestC83_ZKProofGeneration:
     def test_per_entry_commitment_not_aggregate(self):
         """Each entry must produce its own leaf hash (not one aggregate)."""
         from blockchain.payroll_connector import PayrollConnector
+
         connector = PayrollConnector.__new__(PayrollConnector)
         entries = [
             _make_payroll_entry(employee_id="BZ-00001"),
@@ -300,6 +328,7 @@ class TestC83_ZKProofGeneration:
         """_generate_zk_proof must produce a valid JSON proof in any environment."""
         import json
         from blockchain.payroll_connector import PayrollConnector
+
         connector = PayrollConnector.__new__(PayrollConnector)
         entries = [_make_payroll_entry()]
         merkle_root = connector._compute_merkle_root(entries)
@@ -316,12 +345,14 @@ class TestC83_ZKProofGeneration:
 # C8.4 — ZK-Proof Verification
 # ===========================================================================
 
+
 class TestC84_ZKProofVerification:
 
     def test_verify_works_in_production(self):
         """PayrollProof.verify() must work in production with valid commitment proof."""
         import json
         from blockchain.payroll_connector import PayrollConnector
+
         connector = PayrollConnector.__new__(PayrollConnector)
         entries = [_make_payroll_entry()]
         merkle_root = connector._compute_merkle_root(entries)
@@ -338,6 +369,7 @@ class TestC84_ZKProofVerification:
         """verify() accepts a correctly generated commitment proof."""
         import json
         from blockchain.payroll_connector import PayrollConnector
+
         connector = PayrollConnector.__new__(PayrollConnector)
         entries = [_make_payroll_entry(), _make_payroll_entry(employee_id="BZ-00002")]
         merkle_root = connector._compute_merkle_root(entries)
@@ -384,6 +416,7 @@ class TestC84_ZKProofVerification:
         """verify() must reject proof where commitment doesn't match merkle_binding."""
         import json
         from blockchain.payroll_connector import PayrollConnector
+
         connector = PayrollConnector.__new__(PayrollConnector)
         entries = [_make_payroll_entry()]
         merkle_root = connector._compute_merkle_root(entries)
@@ -402,11 +435,13 @@ class TestC84_ZKProofVerification:
 # C8.5 — KYC/AML Compliance Coverage
 # ===========================================================================
 
+
 class TestC85_ComplianceCoverage:
 
     def test_verifier_factory_blocks_dev_in_production(self):
         """create_verifier must raise when mode='development' and NAWAL_ENV=production."""
         from blockchain.identity_verifier import create_verifier
+
         with patch.dict(os.environ, {"NAWAL_ENV": "production"}, clear=False):
             with pytest.raises(RuntimeError, match="cannot be used"):
                 create_verifier(mode="development")
@@ -414,6 +449,7 @@ class TestC85_ComplianceCoverage:
     def test_verifier_factory_dev_mode_returns_dummy(self):
         """create_verifier mode='development' returns DummyBelizeIDVerifier."""
         from blockchain.identity_verifier import DummyBelizeIDVerifier, create_verifier
+
         with patch.dict(os.environ, {"NAWAL_ENV": "development"}, clear=False):
             verifier = create_verifier(mode="development")
             assert isinstance(verifier, DummyBelizeIDVerifier)
@@ -421,16 +457,19 @@ class TestC85_ComplianceCoverage:
     def test_compliance_config_kyc_default_true(self):
         """ComplianceConfig defaults to require_kyc=True."""
         from config import ComplianceConfig
+
         cfg = ComplianceConfig()
         assert cfg.require_kyc is True
 
     def test_compliance_config_audit_logging_default_true(self):
         from config import ComplianceConfig
+
         cfg = ComplianceConfig()
         assert cfg.audit_logging is True
 
     def test_compliance_config_encryption_default_true(self):
         from config import ComplianceConfig
+
         cfg = ComplianceConfig()
         assert cfg.data_encryption is True
 
@@ -444,6 +483,7 @@ class TestC85_ComplianceCoverage:
 # ===========================================================================
 # C8.6 — Content Filtering Scope
 # ===========================================================================
+
 
 class TestC86_ContentFiltering:
 
@@ -499,13 +539,16 @@ class TestC86_ContentFiltering:
     def test_output_filter_allows_safe_text(self):
         """OutputFilter must pass safe text."""
         of = OutputFilter()
-        result = of.filter("What is Bitcoin?", "Bitcoin is a decentralized cryptocurrency.")
+        result = of.filter(
+            "What is Bitcoin?", "Bitcoin is a decentralized cryptocurrency."
+        )
         assert result.is_safe is True
         assert result.risk_level == RiskLevel.NONE or result.risk_level == RiskLevel.LOW
 
     def test_output_filter_imported_by_api_server(self):
         """api_server.py must import OutputFilter (C8.6 gap fix)."""
         import ast
+
         with open("api_server.py") as f:
             source = f.read()
         tree = ast.parse(source)
@@ -517,13 +560,14 @@ class TestC86_ContentFiltering:
                 elif isinstance(node, ast.Import):
                     for alias in node.names:
                         imports.append(alias.name)
-        assert any("output_filter" in imp for imp in imports), (
-            "OutputFilter must be imported by api_server.py"
-        )
+        assert any(
+            "output_filter" in imp for imp in imports
+        ), "OutputFilter must be imported by api_server.py"
 
     def test_input_screener_imported_by_api_server(self):
         """api_server.py must import InputScreener (C8.6 gap fix)."""
         import ast
+
         with open("api_server.py") as f:
             source = f.read()
         tree = ast.parse(source)
@@ -535,58 +579,67 @@ class TestC86_ContentFiltering:
                 elif isinstance(node, ast.Import):
                     for alias in node.names:
                         imports.append(alias.name)
-        assert any("input_screener" in imp for imp in imports), (
-            "InputScreener must be imported by api_server.py"
-        )
+        assert any(
+            "input_screener" in imp for imp in imports
+        ), "InputScreener must be imported by api_server.py"
 
 
 # ===========================================================================
 # C8.7 — Azure / Secret Handling
 # ===========================================================================
 
+
 class TestC87_SecretHandling:
 
     def test_no_hardcoded_secrets_in_security_module(self):
         """No hardcoded API keys, passwords, or seeds in security/ files."""
         import glob
+
         secret_patterns = [
-            re.compile(r'''(?:api_key|secret_key|password|seed_phrase)\s*=\s*['"][^'"]{8,}['"]''', re.I),
-            re.compile(r'''sk-[a-zA-Z0-9]{20,}'''),
-            re.compile(r'''-----BEGIN\s+(RSA|EC|PRIVATE)\s+KEY-----'''),
+            re.compile(
+                r"""(?:api_key|secret_key|password|seed_phrase)\s*=\s*['"][^'"]{8,}['"]""",
+                re.I,
+            ),
+            re.compile(r"""sk-[a-zA-Z0-9]{20,}"""),
+            re.compile(r"""-----BEGIN\s+(RSA|EC|PRIVATE)\s+KEY-----"""),
         ]
         for filepath in glob.glob("security/*.py"):
             with open(filepath) as f:
                 content = f.read()
             for pattern in secret_patterns:
                 match = pattern.search(content)
-                assert match is None, (
-                    f"Hardcoded secret in {filepath}: {match.group()[:40]}..."
-                )
+                assert (
+                    match is None
+                ), f"Hardcoded secret in {filepath}: {match.group()[:40]}..."
 
     def test_no_hardcoded_secrets_in_blockchain_module(self):
         """No hardcoded secrets in blockchain/ files."""
         import glob
+
         secret_patterns = [
-            re.compile(r'''(?:api_key|secret_key|password|seed_phrase)\s*=\s*['"][^'"]{8,}['"]''', re.I),
-            re.compile(r'''sk-[a-zA-Z0-9]{20,}'''),
+            re.compile(
+                r"""(?:api_key|secret_key|password|seed_phrase)\s*=\s*['"][^'"]{8,}['"]""",
+                re.I,
+            ),
+            re.compile(r"""sk-[a-zA-Z0-9]{20,}"""),
         ]
         for filepath in glob.glob("blockchain/*.py"):
             with open(filepath) as f:
                 content = f.read()
             for pattern in secret_patterns:
                 match = pattern.search(content)
-                assert match is None, (
-                    f"Hardcoded secret in {filepath}: {match.group()[:40]}..."
-                )
+                assert (
+                    match is None
+                ), f"Hardcoded secret in {filepath}: {match.group()[:40]}..."
 
     def test_api_key_header_only(self):
         """API key must only be accepted from X-API-Key header, not query params (F8.7a fix)."""
         with open("api_server.py") as f:
             source = f.read()
         # Ensure no query_params.get("api_key") in auth middleware
-        assert 'query_params.get("api_key")' not in source, (
-            "API key should not be accepted from query params (leaks in logs)"
-        )
+        assert (
+            'query_params.get("api_key")' not in source
+        ), "API key should not be accepted from query params (leaks in logs)"
 
     def test_env_example_no_real_seeds(self):
         """The .env.example must not contain real seed phrases or keys."""
@@ -596,13 +649,14 @@ class TestC87_SecretHandling:
         for line in content.splitlines():
             if line.startswith("BLOCKCHAIN_ACCOUNT_SEED"):
                 value = line.split("=", 1)[1].strip()
-                assert value == "" or value.startswith("#"), (
-                    "BLOCKCHAIN_ACCOUNT_SEED must be blank in .env.example"
-                )
+                assert value == "" or value.startswith(
+                    "#"
+                ), "BLOCKCHAIN_ACCOUNT_SEED must be blank in .env.example"
 
     def test_identity_verifier_blocks_dummy_in_production(self):
         """DummyBelizeIDVerifier must not be usable when NAWAL_ENV=production."""
         from blockchain.identity_verifier import create_verifier
+
         with patch.dict(os.environ, {"NAWAL_ENV": "production"}, clear=False):
             with pytest.raises(RuntimeError):
                 create_verifier(mode="development")
@@ -611,5 +665,5 @@ class TestC87_SecretHandling:
         """Production must disable /docs and /redoc endpoints."""
         with open("api_server.py") as f:
             source = f.read()
-        assert 'docs_url=None if _is_production else' in source
-        assert 'redoc_url=None if _is_production else' in source
+        assert "docs_url=None if _is_production else" in source
+        assert "redoc_url=None if _is_production else" in source

@@ -69,13 +69,15 @@ class NawalModelConfig:
     # Belizean-Specific
     belizean_vocab_extension: bool = True
     multilingual_mode: bool = True
-    supported_languages: List[str] = field(default_factory=lambda: [
-        "en",  # English
-        "es",  # Spanish
-        "bzj", # Belizean Kriol
-        "cab", # Garifuna
-        "mop"  # Mopan Maya
-    ])
+    supported_languages: List[str] = field(
+        default_factory=lambda: [
+            "en",  # English
+            "es",  # Spanish
+            "bzj",  # Belizean Kriol
+            "cab",  # Garifuna
+            "mop",  # Mopan Maya
+        ]
+    )
 
     # Model Metadata
     model_type: str = "nawal"
@@ -91,7 +93,7 @@ class NawalModelConfig:
             num_heads=12,
             intermediate_size=3072,
             max_position_embeddings=1024,
-            model_size="small"
+            model_size="small",
         )
 
     @classmethod
@@ -103,7 +105,7 @@ class NawalModelConfig:
             num_heads=16,
             intermediate_size=4096,
             max_position_embeddings=2048,
-            model_size="medium"
+            model_size="medium",
         )
 
     @classmethod
@@ -115,18 +117,18 @@ class NawalModelConfig:
             num_heads=24,
             intermediate_size=6144,
             max_position_embeddings=2048,
-            model_size="large"
+            model_size="large",
         )
 
     def save_to_json(self, path: str) -> None:
         """Save configuration to JSON file"""
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(self.__dict__, f, indent=2)
 
     @classmethod
     def load_from_json(cls, path: str) -> "NawalModelConfig":
         """Load configuration from JSON file"""
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             config_dict = json.load(f)
         return cls(**config_dict)
 
@@ -142,10 +144,10 @@ class NawalModelConfig:
         # Each block: QKV (3 * hidden^2), output proj (hidden^2),
         # FFN (2 * hidden * intermediate), LayerNorms (4 * hidden)
         per_block = (
-            3 * self.hidden_size * self.hidden_size +  # QKV
-            self.hidden_size * self.hidden_size +      # Attention output
-            2 * self.hidden_size * self.intermediate_size +  # FFN
-            4 * self.hidden_size  # LayerNorms
+            3 * self.hidden_size * self.hidden_size  # QKV
+            + self.hidden_size * self.hidden_size  # Attention output
+            + 2 * self.hidden_size * self.intermediate_size  # FFN
+            + 4 * self.hidden_size  # LayerNorms
         )
         transformer_params = self.num_layers * per_block
 

@@ -9,6 +9,7 @@ The Metacognitive layer "thinks about thinking":
 Phase 3: classical critic + confidence estimation.
 Phase 5: Quantum Imagination Engine overrides AbstractSimulator.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -27,6 +28,7 @@ class ConfidenceScore:
         explanation : Optional natural-language justification.
         metadata    : Extra calibration details.
     """
+
     value: float
     method: str = "unknown"
     explanation: Optional[str] = None
@@ -44,6 +46,7 @@ class CritiqueResult:
         revised_response : Critic's rewrite (if approved=False and rewrite possible).
         confidence       : Confidence in the critique itself.
     """
+
     approved: bool
     issues: List[str] = field(default_factory=list)
     revised_response: Optional[str] = None

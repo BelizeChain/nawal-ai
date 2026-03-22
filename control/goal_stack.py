@@ -20,6 +20,7 @@ Usage::
     gs.complete(g.goal_id)
     print(gs.history())           # [completed Goal]
 """
+
 from __future__ import annotations
 
 import threading
@@ -45,8 +46,8 @@ class GoalStack:
 
     def __init__(self, max_active_goals: int = 16) -> None:
         self.max_active_goals = max_active_goals
-        self._goals: Dict[str, Goal] = {}          # live goals
-        self._history: List[Goal] = []             # completed / failed
+        self._goals: Dict[str, Goal] = {}  # live goals
+        self._history: List[Goal] = []  # completed / failed
         self._lock = threading.RLock()
 
     # ------------------------------------------------------------------ #
@@ -129,7 +130,9 @@ class GoalStack:
                 if g.status == GoalStatus.ACTIVE:
                     g.status = GoalStatus.PENDING
             goal.status = GoalStatus.ACTIVE
-        logger.info(f"GoalStack activated goal_id={goal_id!r} desc={goal.description!r}")
+        logger.info(
+            f"GoalStack activated goal_id={goal_id!r} desc={goal.description!r}"
+        )
         return True
 
     def complete(self, goal_id: str) -> Goal:

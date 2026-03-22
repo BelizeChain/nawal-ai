@@ -5,6 +5,7 @@ The Valuation layer assigns scalar scores to candidate actions / plans,
 balancing multiple internal "drives" (curiosity, safety, alignment, novelty)
 and enforcing hard safety constraints before any action is dispatched.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -25,9 +26,10 @@ class DriveSignal:
         value  : Current drive intensity (0.0–1.0).
         weight : Relative importance in composite scoring.
     """
+
     name: str
-    value: float                   # 0.0 = unsatisfied, 1.0 = fully satisfied
-    weight: float = 1.0            # relative importance
+    value: float  # 0.0 = unsatisfied, 1.0 = fully satisfied
+    weight: float = 1.0  # relative importance
 
 
 class AbstractRewardModel(ABC):

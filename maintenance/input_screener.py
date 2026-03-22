@@ -18,6 +18,7 @@ The final ``RiskLevel`` is the maximum across all layers.
 All patterns are configurable at construction time so callers can add
 domain-specific rules without subclassing.
 """
+
 from __future__ import annotations
 
 import re
@@ -31,14 +32,12 @@ from maintenance.interfaces import (
     ScreeningResult,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Default block patterns                                                        #
 # --------------------------------------------------------------------------- #
 
 _BLOCKED: List[Tuple[str, str, RiskLevel]] = [
     # (pattern, label, severity)
-
     # Harm / physical violence
     (
         r"\b(how\s+to|steps\s+to)\s+.{0,20}(kill|murder|assault|bomb|poison|stab)\b",
@@ -109,10 +108,14 @@ _BLOCKED: List[Tuple[str, str, RiskLevel]] = [
 ]
 
 _PII_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
-    (r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b", "email_pii",    RiskLevel.LOW),
-    (r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b",                     "phone_pii",    RiskLevel.LOW),
-    (r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b",               "credit_card",  RiskLevel.MEDIUM),
-    (r"\b\d{3}-\d{2}-\d{4}\b",                                  "ssn_pii",      RiskLevel.MEDIUM),
+    (
+        r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
+        "email_pii",
+        RiskLevel.LOW,
+    ),
+    (r"\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b", "phone_pii", RiskLevel.LOW),
+    (r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b", "credit_card", RiskLevel.MEDIUM),
+    (r"\b\d{3}-\d{2}-\d{4}\b", "ssn_pii", RiskLevel.MEDIUM),
 ]
 
 _INJECTION_HEURISTICS: List[Tuple[str, str, RiskLevel]] = [
@@ -123,12 +126,13 @@ _INJECTION_HEURISTICS: List[Tuple[str, str, RiskLevel]] = [
 ]
 
 # Safe content: always passes
-_SAFE_PASSLENGTH = 10_000   # Characters — prompts beyond this get flagged LOW
+_SAFE_PASSLENGTH = 10_000  # Characters — prompts beyond this get flagged LOW
 
 
 # --------------------------------------------------------------------------- #
 # InputScreener                                                                 #
 # --------------------------------------------------------------------------- #
+
 
 class InputScreener(AbstractInputScreener):
     """
@@ -147,15 +151,16 @@ class InputScreener(AbstractInputScreener):
         pii_check: bool = True,
     ) -> None:
         self._patterns: List[Tuple[re.Pattern, str, RiskLevel]] = []
-        self._max_len  = max_prompt_len
+        self._max_len = max_prompt_len
         self._pii_check = pii_check
 
         for pat, label, level in _BLOCKED + (extra_patterns or []):
-            self._patterns.append((re.compile(pat, re.IGNORECASE | re.DOTALL), label, level))
+            self._patterns.append(
+                (re.compile(pat, re.IGNORECASE | re.DOTALL), label, level)
+            )
 
         self._pii: List[Tuple[re.Pattern, str, RiskLevel]] = [
-            (re.compile(p, re.IGNORECASE), lbl, lvl)
-            for p, lbl, lvl in _PII_PATTERNS
+            (re.compile(p, re.IGNORECASE), lbl, lvl) for p, lbl, lvl in _PII_PATTERNS
         ]
         self._heuristics: List[Tuple[re.Pattern, str, RiskLevel]] = [
             (re.compile(p, re.IGNORECASE | re.DOTALL), lbl, lvl)
@@ -182,9 +187,9 @@ class InputScreener(AbstractInputScreener):
         Returns a ScreeningResult where is_safe=False means the request
         should be blocked before reaching the model.
         """
-        flags: List[str]  = []
-        max_level         = RiskLevel.NONE
-        sanitized         = prompt
+        flags: List[str] = []
+        max_level = RiskLevel.NONE
+        sanitized = prompt
 
         # 1. Block patterns
         for compiled, label, level in self._patterns:
@@ -228,7 +233,9 @@ class InputScreener(AbstractInputScreener):
             metadata={"prompt_len": len(prompt)},
         )
 
-    def add_pattern(self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH) -> None:
+    def add_pattern(
+        self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH
+    ) -> None:
         """Register an additional block pattern at runtime.
 
         *pattern* may be a raw string or a pre-compiled ``re.Pattern``.
@@ -253,7 +260,13 @@ class InputScreener(AbstractInputScreener):
 # Helpers                                                                       #
 # --------------------------------------------------------------------------- #
 
-_RISK_ORDER = [RiskLevel.NONE, RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH, RiskLevel.BLOCKED]
+_RISK_ORDER = [
+    RiskLevel.NONE,
+    RiskLevel.LOW,
+    RiskLevel.MEDIUM,
+    RiskLevel.HIGH,
+    RiskLevel.BLOCKED,
+]
 
 
 def _max_risk(a: RiskLevel, b: RiskLevel) -> RiskLevel:

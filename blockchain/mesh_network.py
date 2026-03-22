@@ -44,6 +44,7 @@ from aiohttp import web
 
 try:
     from substrateinterface import SubstrateInterface, Keypair
+
     SUBSTRATE_AVAILABLE = True
 except ImportError:
     SUBSTRATE_AVAILABLE = False
@@ -57,6 +58,7 @@ except ImportError:
 
 class MessageType(Enum):
     """Types of mesh network messages."""
+
     PEER_DISCOVERY = "peer_discovery"
     PEER_ANNOUNCE = "peer_announce"
     FL_ROUND_START = "fl_round_start"
@@ -223,7 +225,9 @@ class MeshNetworkClient:
 
         # Peer management
         self.peers: Dict[str, PeerInfo] = {}
-        self.seen_messages: OrderedDict[str, float] = OrderedDict()  # msg_id -> timestamp for LRU
+        self.seen_messages: OrderedDict[str, float] = (
+            OrderedDict()
+        )  # msg_id -> timestamp for LRU
         self._seen_messages_max = 10000
         self.message_handlers: Dict[MessageType, List[Callable]] = {}
 
@@ -517,11 +521,15 @@ class MeshNetworkClient:
                     if metadata and "network_address" in metadata:
                         addr = metadata["network_address"]
                         if not _is_valid_multiaddr(addr):
-                            logger.warning(f"Invalid multiaddr from validator {validator_account}: {addr}")
+                            logger.warning(
+                                f"Invalid multiaddr from validator {validator_account}: {addr}"
+                            )
                             continue
 
                         peer = PeerInfo(
-                            peer_id=hashlib.sha256(validator_account.encode()).hexdigest()[:16],
+                            peer_id=hashlib.sha256(
+                                validator_account.encode()
+                            ).hexdigest()[:16],
                             account_id=validator_account,
                             multiaddr=addr,
                             public_key=metadata.get("public_key", ""),
@@ -568,7 +576,9 @@ class MeshNetworkClient:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         success_count = sum(1 for r in results if r is True)
 
-        logger.debug(f"Broadcast {message_type.value} to {success_count}/{len(tasks)} peers")
+        logger.debug(
+            f"Broadcast {message_type.value} to {success_count}/{len(tasks)} peers"
+        )
 
     async def _send_to_peer(
         self,
@@ -629,9 +639,7 @@ class MeshNetworkClient:
         # Look up sender's public key
         peer = self.peers.get(message.sender_id)
         if peer is None or not peer.public_key:
-            logger.debug(
-                f"Cannot verify message from unknown peer {message.sender_id}"
-            )
+            logger.debug(f"Cannot verify message from unknown peer {message.sender_id}")
             return False
 
         try:
@@ -704,7 +712,9 @@ class MeshNetworkClient:
             # Replay protection: reject stale messages
             age = now - message.timestamp
             if age > self._max_message_age:
-                logger.warning(f"Rejected stale message {message.message_id} (age={age:.0f}s)")
+                logger.warning(
+                    f"Rejected stale message {message.message_id} (age={age:.0f}s)"
+                )
                 return web.Response(status=400, text="message too old")
 
             # Deduplication via LRU OrderedDict
@@ -723,7 +733,9 @@ class MeshNetworkClient:
 
             # Update peer info
             if message.sender_id in self.peers:
-                self.peers[message.sender_id].last_seen = datetime.now(timezone.utc).timestamp()
+                self.peers[message.sender_id].last_seen = datetime.now(
+                    timezone.utc
+                ).timestamp()
 
             # Call registered handlers
             if message.message_type in self.message_handlers:
@@ -748,7 +760,11 @@ class MeshNetworkClient:
         """Forward message to random subset of peers (gossip protocol)."""
         import random
 
-        alive_peers = [p for p in self.peers.values() if p.is_alive() and p.peer_id != message.sender_id]
+        alive_peers = [
+            p
+            for p in self.peers.values()
+            if p.is_alive() and p.peer_id != message.sender_id
+        ]
 
         # Forward to gossip_fanout peers (or ~50% heuristic)
         if self.gossip_fanout is not None:
@@ -776,12 +792,14 @@ class MeshNetworkClient:
 
     async def _handle_health(self, request: web.Request) -> web.Response:
         """Health check endpoint."""
-        return web.json_response({
-            "status": "healthy",
-            "peer_id": self.peer_id,
-            "peers_count": len(self.peers),
-            "running": self._running,
-        })
+        return web.json_response(
+            {
+                "status": "healthy",
+                "peer_id": self.peer_id,
+                "peers_count": len(self.peers),
+                "running": self._running,
+            }
+        )
 
     async def _heartbeat_loop(self) -> None:
         """Send periodic heartbeats to peers."""
@@ -807,7 +825,8 @@ class MeshNetworkClient:
 
             # Remove dead peers
             dead_peers = [
-                peer_id for peer_id, peer in self.peers.items()
+                peer_id
+                for peer_id, peer in self.peers.items()
                 if not peer.is_alive(timeout=600)
             ]
 

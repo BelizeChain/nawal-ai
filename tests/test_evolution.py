@@ -19,10 +19,10 @@ from pathlib import Path
 from nawal.orchestrator import EvolutionOrchestrator
 from nawal.genome.population import Population
 
-
 # ============================================================================
 # Evolution Orchestrator Tests
 # ============================================================================
+
 
 class TestEvolutionOrchestrator:
     """Test EvolutionOrchestrator functionality."""
@@ -30,8 +30,7 @@ class TestEvolutionOrchestrator:
     def test_orchestrator_initialization(self, nawal_config, sample_dataloader):
         """Test EvolutionOrchestrator can be initialized."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
         assert orchestrator is not None
         assert orchestrator.config == nawal_config
@@ -39,19 +38,20 @@ class TestEvolutionOrchestrator:
     def test_initialize_population(self, nawal_config, sample_dataloader):
         """Test population initialization."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         assert orchestrator.population is not None
-        assert len(orchestrator.population.genomes) == nawal_config.evolution.population_size
+        assert (
+            len(orchestrator.population.genomes)
+            == nawal_config.evolution.population_size
+        )
 
     @pytest.mark.asyncio
     async def test_single_generation(self, nawal_config, sample_dataloader):
         """Test running single generation."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Run one generation internally
@@ -68,8 +68,7 @@ class TestEvolutionOrchestrator:
         """Test running multiple generations."""
         nawal_config.evolution.num_generations = 3
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Run evolution
@@ -83,8 +82,7 @@ class TestEvolutionOrchestrator:
         """Test fitness improves over generations."""
         nawal_config.evolution.num_generations = 3
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Run evolution
@@ -100,8 +98,7 @@ class TestEvolutionOrchestrator:
     def test_elitism(self, nawal_config, sample_dataloader):
         """Test elitism preserves best genomes."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Apply elitism
@@ -114,8 +111,7 @@ class TestEvolutionOrchestrator:
     def test_population_diversity(self, nawal_config, sample_dataloader):
         """Test population maintains diversity."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Check genome diversity
@@ -132,8 +128,7 @@ class TestEvolutionOrchestrator:
     def test_convergence_to_fitness_threshold(self, nawal_config, sample_dataloader):
         """Test evolution stops when fitness threshold reached."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Set some genomes with high fitness
@@ -151,14 +146,14 @@ class TestEvolutionOrchestrator:
 # Selection Strategy Tests
 # ============================================================================
 
+
 class TestSelectionStrategies:
     """Test different selection strategies."""
 
     def test_tournament_selection(self, nawal_config, sample_dataloader):
         """Test tournament selection."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Select parents using internal method
@@ -170,8 +165,7 @@ class TestSelectionStrategies:
     def test_roulette_wheel_selection(self, nawal_config, sample_dataloader):
         """Test roulette wheel selection."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Select parents
@@ -181,8 +175,7 @@ class TestSelectionStrategies:
     def test_rank_selection(self, nawal_config, sample_dataloader):
         """Test rank-based selection."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Select parents
@@ -194,15 +187,17 @@ class TestSelectionStrategies:
 # Checkpoint Management Tests
 # ============================================================================
 
+
 class TestEvolutionCheckpoints:
     """Test checkpoint saving and loading."""
 
     @pytest.mark.asyncio
-    async def test_save_checkpoint(self, nawal_config, sample_dataloader, checkpoint_dir):
+    async def test_save_checkpoint(
+        self, nawal_config, sample_dataloader, checkpoint_dir
+    ):
         """Test saving evolution checkpoint."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Run one generation
@@ -216,12 +211,13 @@ class TestEvolutionCheckpoints:
         assert len(checkpoints) > 0
 
     @pytest.mark.asyncio
-    async def test_load_checkpoint(self, nawal_config, sample_dataloader, checkpoint_dir):
+    async def test_load_checkpoint(
+        self, nawal_config, sample_dataloader, checkpoint_dir
+    ):
         """Test loading evolution checkpoint."""
         # Create and save checkpoint
         orchestrator1 = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
         await orchestrator1._run_generation(generation=0)
 
@@ -233,13 +229,14 @@ class TestEvolutionCheckpoints:
         assert orchestrator1.population is not None
 
     @pytest.mark.asyncio
-    async def test_resume_evolution(self, nawal_config, sample_dataloader, checkpoint_dir):
+    async def test_resume_evolution(
+        self, nawal_config, sample_dataloader, checkpoint_dir
+    ):
         """Test resuming evolution from checkpoint."""
         # Run 2 generations and save
         nawal_config.evolution.num_generations = 2
         orchestrator1 = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         await orchestrator1.evolve()
@@ -250,8 +247,7 @@ class TestEvolutionCheckpoints:
     def test_checkpoint_contains_history(self, nawal_config, sample_dataloader):
         """Test checkpoint includes evolution history."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Should start with empty history
@@ -262,14 +258,14 @@ class TestEvolutionCheckpoints:
 # Federated Evolution Tests
 # ============================================================================
 
+
 class TestFederatedEvolution:
     """Test evolution with federated learning."""
 
     def test_distributed_fitness_evaluation(self, nawal_config, sample_dataloader):
         """Test fitness evaluation across multiple validators."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Check population exists
@@ -279,8 +275,7 @@ class TestFederatedEvolution:
     def test_asynchronous_evolution(self, nawal_config, sample_dataloader):
         """Test asynchronous evolution updates."""
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Check structure
@@ -292,6 +287,7 @@ class TestFederatedEvolution:
 # Integration Tests
 # ============================================================================
 
+
 @pytest.mark.integration
 class TestEvolutionIntegration:
     """Integration tests for evolution orchestration."""
@@ -301,8 +297,7 @@ class TestEvolutionIntegration:
         """Test complete evolution pipeline."""
         nawal_config.evolution.num_generations = 2
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Evolve
@@ -325,8 +320,7 @@ class TestEvolutionIntegration:
         """Test evolution integrated with federated learning."""
         nawal_config.evolution.num_generations = 2
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Run evolution
@@ -339,6 +333,7 @@ class TestEvolutionIntegration:
 # Performance Tests
 # ============================================================================
 
+
 @pytest.mark.benchmark
 class TestEvolutionPerformance:
     """Performance benchmarks for evolution."""
@@ -350,8 +345,7 @@ class TestEvolutionPerformance:
 
         nawal_config.evolution.population_size = 10
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         start_time = time.time()
@@ -367,8 +361,7 @@ class TestEvolutionPerformance:
         import sys
 
         orchestrator = EvolutionOrchestrator(
-            config=nawal_config,
-            train_loader=sample_dataloader
+            config=nawal_config, train_loader=sample_dataloader
         )
 
         # Force garbage collection
@@ -376,7 +369,7 @@ class TestEvolutionPerformance:
 
         # Memory should be reasonable
         # (Hard to test precisely without platform-specific tools)
-        assert sys.getsizeof(orchestrator.population) < 1024 ** 3  # < 1GB
+        assert sys.getsizeof(orchestrator.population) < 1024**3  # < 1GB
 
 
 if __name__ == "__main__":

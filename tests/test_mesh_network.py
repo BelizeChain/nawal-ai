@@ -91,7 +91,7 @@ class TestMeshNetworkClient:
         assert restored.sender_id == original.sender_id
         assert restored.payload == original.payload
 
-    @patch('blockchain.mesh_network.SubstrateInterface')
+    @patch("blockchain.mesh_network.SubstrateInterface")
     async def test_peer_discovery(self, mock_substrate):
         """Test peer discovery from blockchain."""
         # Mock substrate connection
@@ -148,7 +148,7 @@ class TestMeshNetworkClient:
         await mesh.start()
 
         # Mock broadcast
-        with patch.object(mesh, '_broadcast_message') as mock_broadcast:
+        with patch.object(mesh, "_broadcast_message") as mock_broadcast:
             await mesh.announce_fl_round(
                 round_id="round_test_001",
                 dataset_name="test_dataset",

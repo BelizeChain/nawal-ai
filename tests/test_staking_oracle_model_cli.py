@@ -21,6 +21,7 @@ import torch.nn as nn
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _run(coro):
     """Run async coroutine synchronously, creating a fresh loop if needed."""
     try:
@@ -37,11 +38,13 @@ def _run(coro):
 # blockchain/staking_connector.py
 # ===========================================================================
 
+
 class TestStakingConnectorLifecycle:
     """Tests for connect / disconnect lifecycle."""
 
     def setup_method(self):
         from blockchain.staking_connector import StakingConnector
+
         self.StakingConnector = StakingConnector
 
     def _make_connector(self):
@@ -80,6 +83,7 @@ class TestStakingConnectorEnroll:
 
     def setup_method(self):
         from blockchain.staking_connector import StakingConnector
+
         self.StakingConnector = StakingConnector
 
     def _make_connected(self):
@@ -92,7 +96,11 @@ class TestStakingConnectorEnroll:
 
     def test_enroll_new_participant_returns_true(self):
         conn = self._make_connected()
-        result = _run(conn.enroll_participant("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", stake_amount=500))
+        result = _run(
+            conn.enroll_participant(
+                "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", stake_amount=500
+            )
+        )
         assert result is True
 
     def test_double_enroll_returns_false(self):
@@ -139,6 +147,7 @@ class TestStakingConnectorSubmitProof:
 
     def setup_method(self):
         from blockchain.staking_connector import StakingConnector, TrainingSubmission
+
         self.StakingConnector = StakingConnector
         self.TrainingSubmission = TrainingSubmission
 
@@ -208,6 +217,7 @@ class TestStakingConnectorClaimAndQuery:
 
     def setup_method(self):
         from blockchain.staking_connector import StakingConnector, TrainingSubmission
+
         self.StakingConnector = StakingConnector
         self.TrainingSubmission = TrainingSubmission
 
@@ -287,6 +297,7 @@ class TestStakingConnectorClaimAndQuery:
 
     def test_get_all_participants_returns_participant_info_objects(self):
         from blockchain.staking_connector import ParticipantInfo
+
         conn = self._make_connected()
         pid = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
         _run(conn.enroll_participant(pid, stake_amount=1000))
@@ -299,12 +310,14 @@ class TestStakingConnectorClaimAndQuery:
 # integration/oracle_pipeline.py — data classes and pure logic
 # ===========================================================================
 
+
 class TestIoTDeviceInfo:
     """Tests for IoTDeviceInfo dataclass."""
 
     def _make_device_info(self, **kwargs):
         from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
         from nawal.client.domain_models import ModelDomain
+
         defaults = dict(
             device_id=b"\x01\x02\x03",
             device_type=DeviceType.SENSOR,
@@ -324,8 +337,8 @@ class TestIoTDeviceInfo:
         assert info is not None
 
     def test_device_id_stored(self):
-        info = self._make_device_info(device_id=b"\xAB\xCD")
-        assert info.device_id == b"\xAB\xCD"
+        info = self._make_device_info(device_id=b"\xab\xcd")
+        assert info.device_id == b"\xab\xcd"
 
     def test_is_verified_field(self):
         info = self._make_device_info(is_verified=False)
@@ -337,6 +350,7 @@ class TestIoTDeviceInfo:
 
     def test_domain_field(self):
         from nawal.client.domain_models import ModelDomain
+
         info = self._make_device_info(domain=ModelDomain.MARINE)
         assert info.domain == ModelDomain.MARINE
 
@@ -346,9 +360,10 @@ class TestIoTDataSubmission:
 
     def _make_submission(self, **kwargs):
         from integration.oracle_pipeline import IoTDataSubmission
+
         defaults = dict(
             device_id=b"\x01\x02\x03",
-            data=b"\xDE\xAD\xBE\xEF",
+            data=b"\xde\xad\xbe\xef",
             feed_type="sensor_reading",
             location=None,
             timestamp=1700000000,
@@ -367,8 +382,8 @@ class TestIoTDataSubmission:
         assert sub.feed_type == "water_quality"
 
     def test_data_bytes(self):
-        sub = self._make_submission(data=b"\x00\xFF")
-        assert sub.data == b"\x00\xFF"
+        sub = self._make_submission(data=b"\x00\xff")
+        assert sub.data == b"\x00\xff"
 
     def test_quality_metrics_dict(self):
         sub = self._make_submission(quality_metrics={"score": 0.8})
@@ -380,10 +395,12 @@ class TestDeviceType:
 
     def test_sensor_value(self):
         from integration.oracle_pipeline import DeviceType
+
         assert DeviceType.SENSOR is not None
 
     def test_all_device_types_accessible(self):
         from integration.oracle_pipeline import DeviceType
+
         for dtype in DeviceType:
             assert dtype.value is not None
 
@@ -393,6 +410,7 @@ class TestDataPreprocessor:
 
     def _make_device_info(self, domain):
         from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
+
         return IoTDeviceInfo(
             device_id=b"\x01\x02\x03",
             device_type=DeviceType.SENSOR,
@@ -408,10 +426,12 @@ class TestDataPreprocessor:
     @staticmethod
     def _nawal_domain(name):
         from nawal.client.domain_models import ModelDomain
+
         return ModelDomain[name]
 
     def _make_submission(self, feed_type="sensor_reading"):
         from integration.oracle_pipeline import IoTDataSubmission
+
         return IoTDataSubmission(
             device_id=b"\x01\x02\x03",
             data=b"\x00" * 32,
@@ -424,39 +444,45 @@ class TestDataPreprocessor:
 
     def test_init(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
+
+        preprocessor = DataPreprocessor(device="cpu")
         assert preprocessor is not None
 
     def test_get_model_agritech(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
-        model = preprocessor.get_model(self._nawal_domain('AGRITECH'))
+
+        preprocessor = DataPreprocessor(device="cpu")
+        model = preprocessor.get_model(self._nawal_domain("AGRITECH"))
         assert model is not None
 
     def test_get_model_cached(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
-        domain = self._nawal_domain('AGRITECH')
+
+        preprocessor = DataPreprocessor(device="cpu")
+        domain = self._nawal_domain("AGRITECH")
         m1 = preprocessor.get_model(domain)
         m2 = preprocessor.get_model(domain)
         assert m1 is m2
 
     def test_get_model_tech(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
-        model = preprocessor.get_model(self._nawal_domain('TECH'))
+
+        preprocessor = DataPreprocessor(device="cpu")
+        model = preprocessor.get_model(self._nawal_domain("TECH"))
         assert model is not None
 
     def test_get_model_marine(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
-        model = preprocessor.get_model(self._nawal_domain('MARINE'))
+
+        preprocessor = DataPreprocessor(device="cpu")
+        model = preprocessor.get_model(self._nawal_domain("MARINE"))
         assert model is not None
 
     def test_preprocess_agritech_sensor(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
-        domain = self._nawal_domain('AGRITECH')
+
+        preprocessor = DataPreprocessor(device="cpu")
+        domain = self._nawal_domain("AGRITECH")
         device_info = self._make_device_info(domain)
         sub = self._make_submission(feed_type="sensor_reading")
         tensor, model = preprocessor.preprocess(sub, device_info)
@@ -464,8 +490,9 @@ class TestDataPreprocessor:
 
     def test_preprocess_marine_sensor(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
-        domain = self._nawal_domain('MARINE')
+
+        preprocessor = DataPreprocessor(device="cpu")
+        domain = self._nawal_domain("MARINE")
         device_info = self._make_device_info(domain)
         sub = self._make_submission(feed_type="sensor_reading")
         tensor, model = preprocessor.preprocess(sub, device_info)
@@ -473,8 +500,9 @@ class TestDataPreprocessor:
 
     def test_preprocess_tech_sensor(self):
         from integration.oracle_pipeline import DataPreprocessor
-        preprocessor = DataPreprocessor(device='cpu')
-        domain = self._nawal_domain('TECH')
+
+        preprocessor = DataPreprocessor(device="cpu")
+        domain = self._nawal_domain("TECH")
         device_info = self._make_device_info(domain)
         sub = self._make_submission(feed_type="sensor_reading")
         tensor, model = preprocessor.preprocess(sub, device_info)
@@ -486,61 +514,67 @@ class TestModelInferenceRunner:
 
     def test_init(self):
         from integration.oracle_pipeline import ModelInferenceRunner
+
         runner = ModelInferenceRunner()
         assert runner is not None
 
     def test_get_stats_empty(self):
         from integration.oracle_pipeline import ModelInferenceRunner
+
         runner = ModelInferenceRunner()
         stats = runner.get_stats()
         assert isinstance(stats, dict)
-        assert stats['total_inferences'] == 0
+        assert stats["total_inferences"] == 0
 
     def test_run_inference_increments_counter(self):
         from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from nawal.client.domain_models import ModelDomain
+
         runner = ModelInferenceRunner()
-        preprocessor = DataPreprocessor(device='cpu')
+        preprocessor = DataPreprocessor(device="cpu")
         domain = ModelDomain.TECH
         model = preprocessor.get_model(domain)
         # TechModel preprocess outputs [B, 100, 4] → flattens to 400
         input_tensor = torch.randn(1, 100, 4)
         runner.run_inference(model, input_tensor, domain)
         stats = runner.get_stats()
-        assert stats['total_inferences'] == 1
+        assert stats["total_inferences"] == 1
 
     def test_run_inference_calculates_average_time(self):
         from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from nawal.client.domain_models import ModelDomain
+
         runner = ModelInferenceRunner()
-        preprocessor = DataPreprocessor(device='cpu')
+        preprocessor = DataPreprocessor(device="cpu")
         domain = ModelDomain.TECH
         model = preprocessor.get_model(domain)
         input_tensor = torch.randn(1, 100, 4)
         runner.run_inference(model, input_tensor, domain)
         runner.run_inference(model, input_tensor, domain)
         stats = runner.get_stats()
-        assert 'average_time_ms' in stats
-        assert stats['total_inferences'] == 2
+        assert "average_time_ms" in stats
+        assert stats["total_inferences"] == 2
 
     def test_run_inference_domain_breakdown(self):
         from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from nawal.client.domain_models import ModelDomain
+
         runner = ModelInferenceRunner()
-        preprocessor = DataPreprocessor(device='cpu')
+        preprocessor = DataPreprocessor(device="cpu")
         domain = ModelDomain.TECH
         model = preprocessor.get_model(domain)
         input_tensor = torch.randn(1, 100, 4)
         runner.run_inference(model, input_tensor, domain)
         stats = runner.get_stats()
-        assert 'TECH' in stats['domain_breakdown']
-        assert stats['domain_breakdown']['TECH']['count'] == 1
+        assert "TECH" in stats["domain_breakdown"]
+        assert stats["domain_breakdown"]["TECH"]["count"] == 1
 
     def test_run_inference_bad_input_returns_dummy(self):
         from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from client.domain_models import ModelDomain
+
         runner = ModelInferenceRunner()
-        preprocessor = DataPreprocessor(device='cpu')
+        preprocessor = DataPreprocessor(device="cpu")
 
         # Use a mock model that raises an exception
         bad_model = MagicMock()
@@ -556,39 +590,43 @@ class TestOracleDataFetcherMocked:
     """Tests for OracleDataFetcher with mocked SubstrateInterface."""
 
     def test_init_with_mock_substrate(self):
-        with patch('integration.oracle_pipeline.SubstrateInterface') as mock_cls:
+        with patch("integration.oracle_pipeline.SubstrateInterface") as mock_cls:
             from integration.oracle_pipeline import OracleDataFetcher
+
             fetcher = OracleDataFetcher("ws://localhost:9944")
             assert fetcher is not None
             mock_cls.assert_called_once()
 
     def test_get_device_info_no_data(self):
-        with patch('integration.oracle_pipeline.SubstrateInterface') as mock_cls:
+        with patch("integration.oracle_pipeline.SubstrateInterface") as mock_cls:
             mock_instance = MagicMock()
             mock_instance.query.return_value.value = None
             mock_cls.return_value = mock_instance
             from integration.oracle_pipeline import OracleDataFetcher
+
             fetcher = OracleDataFetcher("ws://localhost:9944")
             result = fetcher.get_device_info(b"\x01\x02\x03")
             assert result is None
 
     def test_get_pending_submissions_empty(self):
-        with patch('integration.oracle_pipeline.SubstrateInterface') as mock_cls:
+        with patch("integration.oracle_pipeline.SubstrateInterface") as mock_cls:
             mock_instance = MagicMock()
             mock_instance.query.return_value.value = None
             mock_cls.return_value = mock_instance
             from integration.oracle_pipeline import OracleDataFetcher
+
             fetcher = OracleDataFetcher("ws://localhost:9944")
             result = fetcher.get_pending_submissions()
             assert isinstance(result, list)
             assert result == []
 
     def test_get_operator_stats_empty(self):
-        with patch('integration.oracle_pipeline.SubstrateInterface') as mock_cls:
+        with patch("integration.oracle_pipeline.SubstrateInterface") as mock_cls:
             mock_instance = MagicMock()
             mock_instance.query.return_value.value = None
             mock_cls.return_value = mock_instance
             from integration.oracle_pipeline import OracleDataFetcher
+
             fetcher = OracleDataFetcher("ws://localhost:9944")
             result = fetcher.get_operator_stats(
                 "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
@@ -600,23 +638,27 @@ class TestOracleDataFetcherMocked:
 # client/model.py — standalone utility functions
 # ===========================================================================
 
+
 class TestComputeModelHash:
     """Tests for compute_model_hash utility."""
 
     def test_returns_string(self):
         from client.model import compute_model_hash
+
         model = nn.Linear(10, 1)
         result = compute_model_hash(model)
         assert isinstance(result, str)
 
     def test_hash_length(self):
         from client.model import compute_model_hash
+
         model = nn.Linear(10, 1)
         result = compute_model_hash(model)
         assert len(result) == 16
 
     def test_same_model_same_hash(self):
         from client.model import compute_model_hash
+
         model = nn.Linear(10, 1)
         h1 = compute_model_hash(model)
         h2 = compute_model_hash(model)
@@ -624,6 +666,7 @@ class TestComputeModelHash:
 
     def test_different_weights_different_hash(self):
         from client.model import compute_model_hash
+
         m1 = nn.Linear(10, 1)
         m2 = nn.Linear(10, 1)
         nn.init.constant_(m1.weight, 0.0)
@@ -632,6 +675,7 @@ class TestComputeModelHash:
 
     def test_larger_model(self):
         from client.model import compute_model_hash
+
         model = nn.Sequential(
             nn.Linear(64, 32),
             nn.ReLU(),
@@ -647,22 +691,27 @@ class TestVersionsCompatible:
 
     def test_identical_versions_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "1.0.0") is True
 
     def test_same_major_minor_different_patch_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "1.0.5") is True
 
     def test_different_major_not_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "2.0.0") is False
 
     def test_different_minor_not_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("1.0.0", "1.1.0") is False
 
     def test_zero_versions_compatible(self):
         from client.model import versions_compatible
+
         assert versions_compatible("0.1.0", "0.1.3") is True
 
 
@@ -671,6 +720,7 @@ class TestSaveVersionedCheckpoint:
 
     def test_saves_file(self):
         from client.model import save_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.pt")
@@ -679,30 +729,33 @@ class TestSaveVersionedCheckpoint:
 
     def test_checkpoint_contains_state_dict(self):
         from client.model import save_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.pt")
             save_versioned_checkpoint(model, path)
-            ckpt = torch.load(path, map_location='cpu', weights_only=True)
+            ckpt = torch.load(path, map_location="cpu", weights_only=True)
             assert "model_state_dict" in ckpt
 
     def test_checkpoint_contains_hash(self):
         from client.model import save_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.pt")
             save_versioned_checkpoint(model, path)
-            ckpt = torch.load(path, map_location='cpu', weights_only=True)
+            ckpt = torch.load(path, map_location="cpu", weights_only=True)
             assert "model_hash" in ckpt
 
     def test_checkpoint_with_metadata(self):
         from client.model import save_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         metadata = {"epochs": 10, "loss": 0.42}
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test_meta.pt")
             save_versioned_checkpoint(model, path, metadata=metadata)
-            ckpt = torch.load(path, map_location='cpu', weights_only=True)
+            ckpt = torch.load(path, map_location="cpu", weights_only=True)
             assert ckpt["metadata"]["epochs"] == 10
 
 
@@ -711,6 +764,7 @@ class TestLoadVersionedCheckpoint:
 
     def test_load_round_trips_weights(self):
         from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         nn.init.constant_(model.weight, 2.0)
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -723,6 +777,7 @@ class TestLoadVersionedCheckpoint:
 
     def test_load_returns_metadata(self):
         from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+
         model = nn.Linear(8, 4)
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.pt")
@@ -736,6 +791,7 @@ class TestLoadVersionedCheckpoint:
 # cli/commands.py — CliRunner tests
 # ===========================================================================
 
+
 class TestCLIHelp:
     """Tests for CLI help text (covers option definitions)."""
 
@@ -743,6 +799,7 @@ class TestCLIHelp:
         try:
             from click.testing import CliRunner
             from cli.commands import cli
+
             self.runner = CliRunner()
             self.cli = cli
             self.available = True
@@ -755,38 +812,38 @@ class TestCLIHelp:
         return self.runner.invoke(self.cli, args)
 
     def test_root_help(self):
-        result = self._invoke(['--help'])
+        result = self._invoke(["--help"])
         assert result.exit_code == 0
-        assert 'Nawal' in result.output or 'Usage' in result.output
+        assert "Nawal" in result.output or "Usage" in result.output
 
     def test_root_version(self):
-        result = self._invoke(['--version'])
+        result = self._invoke(["--version"])
         assert result.exit_code == 0
 
     def test_train_help(self):
-        result = self._invoke(['train', '--help'])
+        result = self._invoke(["train", "--help"])
         assert result.exit_code == 0
-        assert '--dataset' in result.output or 'Usage' in result.output
+        assert "--dataset" in result.output or "Usage" in result.output
 
     def test_evolve_help(self):
-        result = self._invoke(['evolve', '--help'])
+        result = self._invoke(["evolve", "--help"])
         assert result.exit_code == 0
 
     def test_federate_help(self):
-        result = self._invoke(['federate', '--help'])
+        result = self._invoke(["federate", "--help"])
         assert result.exit_code == 0
 
     def test_validator_help(self):
-        result = self._invoke(['validator', '--help'])
+        result = self._invoke(["validator", "--help"])
         assert result.exit_code == 0
 
     def test_status_help(self):
-        result = self._invoke(['status', '--help'])
+        result = self._invoke(["status", "--help"])
         # Just check that it doesn't crash
         assert result.exit_code in (0, 2)
 
     def test_config_help(self):
-        result = self._invoke(['config', '--help'])
+        result = self._invoke(["config", "--help"])
         assert result.exit_code in (0, 2)
 
 
@@ -797,6 +854,7 @@ class TestCLITrainCommand:
         try:
             from click.testing import CliRunner
             from cli.commands import cli
+
             self.runner = CliRunner()
             self.cli = cli
             self.available = True
@@ -809,24 +867,24 @@ class TestCLITrainCommand:
         return self.runner.invoke(self.cli, args)
 
     def test_train_datasets_option(self):
-        result = self._invoke(['train', '--help'])
+        result = self._invoke(["train", "--help"])
         assert result.exit_code == 0
 
     def test_train_epochs_option(self):
-        result = self._invoke(['train', '--help'])
-        assert '--epochs' in result.output or result.exit_code == 0
+        result = self._invoke(["train", "--help"])
+        assert "--epochs" in result.output or result.exit_code == 0
 
     def test_train_runs_and_exits(self):
         # Should fail gracefully when nawal.training is not available
-        result = self._invoke(['train'])
+        result = self._invoke(["train"])
         assert result.exit_code in (0, 1)
 
     def test_evolve_runs_and_exits(self):
-        result = self._invoke(['evolve'])
+        result = self._invoke(["evolve"])
         assert result.exit_code in (0, 1)
 
     def test_federate_runs_and_exits(self):
-        result = self._invoke(['federate'])
+        result = self._invoke(["federate"])
         assert result.exit_code in (0, 1)
 
 
@@ -837,6 +895,7 @@ class TestCLIVerboseFlag:
         try:
             from click.testing import CliRunner
             from cli.commands import cli
+
             self.runner = CliRunner()
             self.cli = cli
             self.available = True
@@ -849,11 +908,11 @@ class TestCLIVerboseFlag:
         return self.runner.invoke(self.cli, args)
 
     def test_verbose_flag(self):
-        result = self._invoke(['--verbose', '--help'])
+        result = self._invoke(["--verbose", "--help"])
         assert result.exit_code == 0
 
     def test_verbose_shorthand(self):
-        result = self._invoke(['-v', '--help'])
+        result = self._invoke(["-v", "--help"])
         assert result.exit_code == 0
 
 
@@ -861,11 +920,13 @@ class TestCLIVerboseFlag:
 # client/data_loader.py
 # ===========================================================================
 
+
 class TestComplianceDataFilter:
     """Tests for ComplianceDataFilter."""
 
     def setup_method(self):
         from client.data_loader import ComplianceDataFilter
+
         self.ComplianceDataFilter = ComplianceDataFilter
 
     def test_init(self):
@@ -888,8 +949,8 @@ class TestComplianceDataFilter:
     def test_filter_batch_passes_clean_batch(self):
         cf = self.ComplianceDataFilter()
         batch = {
-            'input_ids': torch.zeros(2, 10).long(),
-            'attention_mask': torch.ones(2, 10).long(),
+            "input_ids": torch.zeros(2, 10).long(),
+            "attention_mask": torch.ones(2, 10).long(),
         }
         result = cf.filter_batch(batch)
         # Should return a batch (possibly filtered or original)
@@ -898,8 +959,8 @@ class TestComplianceDataFilter:
     def test_filter_batch_tracks_count(self):
         cf = self.ComplianceDataFilter()
         batch = {
-            'input_ids': torch.zeros(2, 10).long(),
-            'attention_mask': torch.ones(2, 10).long(),
+            "input_ids": torch.zeros(2, 10).long(),
+            "attention_mask": torch.ones(2, 10).long(),
         }
         cf.filter_batch(batch)
         assert cf.total_processed >= 0
@@ -914,6 +975,7 @@ class TestBelizeDataLoaderInit:
 
     def test_init_basic(self):
         from client.data_loader import BelizeDataLoader, ComplianceDataFilter
+
         cf = ComplianceDataFilter()
         loader = BelizeDataLoader(
             participant_id="participant_001",
@@ -924,6 +986,7 @@ class TestBelizeDataLoaderInit:
 
     def test_init_stores_participant_id(self):
         from client.data_loader import BelizeDataLoader, ComplianceDataFilter
+
         cf = ComplianceDataFilter()
         loader = BelizeDataLoader(
             participant_id="p42",
@@ -934,6 +997,7 @@ class TestBelizeDataLoaderInit:
 
     def test_init_stores_batch_size(self):
         from client.data_loader import BelizeDataLoader, ComplianceDataFilter
+
         cf = ComplianceDataFilter()
         loader = BelizeDataLoader(
             participant_id="p1",
@@ -944,6 +1008,7 @@ class TestBelizeDataLoaderInit:
 
     def test_init_no_compliance_filter(self):
         from client.data_loader import BelizeDataLoader
+
         try:
             loader = BelizeDataLoader(
                 participant_id="p1",
@@ -955,6 +1020,7 @@ class TestBelizeDataLoaderInit:
 
     def test_compliance_filter_attached(self):
         from client.data_loader import BelizeDataLoader, ComplianceDataFilter
+
         cf = ComplianceDataFilter()
         loader = BelizeDataLoader(
             participant_id="p1",

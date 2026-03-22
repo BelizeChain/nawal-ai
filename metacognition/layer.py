@@ -33,6 +33,7 @@ PhaseHook:
     ``QuantumImagination.simulate()`` — the MetacognitionLayer interface is
     unchanged.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -47,10 +48,10 @@ from metacognition.confidence_calibrator import ConfidenceCalibrator
 from metacognition.internal_simulator import InternalSimulator
 from metacognition.identity_module import IdentityModule
 
-
 # --------------------------------------------------------------------------- #
 # Reflection result                                                            #
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class ReflectionResult:
@@ -67,6 +68,7 @@ class ReflectionResult:
         issues            : Aggregated list of issue strings.
         self_description  : Brief identity string (injected into responses).
     """
+
     best_candidate: str
     approved: bool
     confidence: ConfidenceScore
@@ -79,6 +81,7 @@ class ReflectionResult:
 # --------------------------------------------------------------------------- #
 # MetacognitionLayer                                                           #
 # --------------------------------------------------------------------------- #
+
 
 class MetacognitionLayer:
     """
@@ -97,23 +100,19 @@ class MetacognitionLayer:
 
     def __init__(
         self,
-        critic:              Optional[SelfCritic]           = None,
-        consistency_checker: Optional[ConsistencyChecker]   = None,
-        calibrator:          Optional[ConfidenceCalibrator] = None,
-        simulator:           Optional[InternalSimulator]    = None,
-        identity:            Optional[IdentityModule]       = None,
-        valuation_layer:     Optional[Any]                   = None,
-        persist_path:        Optional[str]                   = None,
+        critic: Optional[SelfCritic] = None,
+        consistency_checker: Optional[ConsistencyChecker] = None,
+        calibrator: Optional[ConfidenceCalibrator] = None,
+        simulator: Optional[InternalSimulator] = None,
+        identity: Optional[IdentityModule] = None,
+        valuation_layer: Optional[Any] = None,
+        persist_path: Optional[str] = None,
     ) -> None:
-        self._critic   = critic              or SelfCritic()
-        self._checker  = consistency_checker or ConsistencyChecker()
-        self._calib    = calibrator          or ConfidenceCalibrator()
-        self._sim      = simulator           or InternalSimulator(
-            valuation_layer=valuation_layer
-        )
-        self._identity = identity            or IdentityModule(
-            persist_path=persist_path
-        )
+        self._critic = critic or SelfCritic()
+        self._checker = consistency_checker or ConsistencyChecker()
+        self._calib = calibrator or ConfidenceCalibrator()
+        self._sim = simulator or InternalSimulator(valuation_layer=valuation_layer)
+        self._identity = identity or IdentityModule(persist_path=persist_path)
 
     # ------------------------------------------------------------------ #
     # Public API                                                           #
@@ -187,9 +186,12 @@ class MetacognitionLayer:
                 crit_conf = best_critique.confidence
                 if crit_conf is not None:
                     signals["critic_score"] = crit_conf.value
-            if plan_score      is not None: signals["plan_score"] = plan_score
-            if memory_relevance is not None: signals["memory"]    = memory_relevance
-            if safety_score     is not None: signals["safety"]    = safety_score
+            if plan_score is not None:
+                signals["plan_score"] = plan_score
+            if memory_relevance is not None:
+                signals["memory"] = memory_relevance
+            if safety_score is not None:
+                signals["safety"] = safety_score
 
             confidence = self._calib.calibrate(signals, ctx)
 
@@ -309,7 +311,8 @@ class MetacognitionLayer:
                 pool,
                 key=lambda i: (
                     critiques[i].confidence.value
-                    if critiques[i].confidence is not None else 0.5
+                    if critiques[i].confidence is not None
+                    else 0.5
                 ),
             )
 

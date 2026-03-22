@@ -94,9 +94,7 @@ class SovereigntyMetrics:
         else:
             self._total_deepseek += 1
 
-    def sovereignty_rate(
-        self, window_minutes: Optional[int] = None
-    ) -> float:
+    def sovereignty_rate(self, window_minutes: Optional[int] = None) -> float:
         """
         Fraction of queries handled by Nawal within the last *window_minutes*.
 
@@ -112,7 +110,11 @@ class SovereigntyMetrics:
             A value in ``[0.0, 1.0]``.  Returns ``0.0`` if no events fall
             within the window.
         """
-        window = window_minutes if window_minutes is not None else self._default_window_minutes
+        window = (
+            window_minutes
+            if window_minutes is not None
+            else self._default_window_minutes
+        )
         cutoff = time.monotonic() - window * 60.0
         events_in_window = [e for e in self._events if e[0] >= cutoff]
         if not events_in_window:
@@ -169,7 +171,11 @@ class SovereigntyMetrics:
             ``total_sovereignty_rate``, ``total_nawal``, ``total_deepseek``,
             ``total_queries``.
         """
-        w = window_minutes if window_minutes is not None else self._default_window_minutes
+        w = (
+            window_minutes
+            if window_minutes is not None
+            else self._default_window_minutes
+        )
         return {
             "window_minutes": w,
             "window_sovereignty_rate": self.sovereignty_rate(w),

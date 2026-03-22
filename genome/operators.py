@@ -31,7 +31,6 @@ from .encoding import (
     Hyperparameters,
 )
 
-
 # =============================================================================
 # Enums & Configuration
 # =============================================================================
@@ -41,41 +40,41 @@ class MutationType(Enum):
     """Types of mutations that can occur to a genome."""
 
     # Layer-level mutations
-    ADD_LAYER = auto()           # Add new layer to architecture
-    REMOVE_LAYER = auto()        # Remove existing layer
-    REPLACE_LAYER = auto()       # Replace layer with different type
-    MODIFY_LAYER = auto()        # Modify layer parameters
+    ADD_LAYER = auto()  # Add new layer to architecture
+    REMOVE_LAYER = auto()  # Remove existing layer
+    REPLACE_LAYER = auto()  # Replace layer with different type
+    MODIFY_LAYER = auto()  # Modify layer parameters
 
     # Hyperparameter mutations
-    LEARNING_RATE = auto()       # Mutate learning rate
-    BATCH_SIZE = auto()          # Mutate batch size
-    OPTIMIZER = auto()           # Change optimizer
-    PRECISION = auto()           # Change training precision
+    LEARNING_RATE = auto()  # Mutate learning rate
+    BATCH_SIZE = auto()  # Mutate batch size
+    OPTIMIZER = auto()  # Change optimizer
+    PRECISION = auto()  # Change training precision
 
     # Architecture-level mutations
     ADD_SKIP_CONNECTION = auto()  # Add residual connection
-    ADD_ATTENTION = auto()       # Add attention mechanism
-    ADD_MOE = auto()             # Add Mixture of Experts
-    ADD_SSM = auto()             # Add State Space Model
+    ADD_ATTENTION = auto()  # Add attention mechanism
+    ADD_MOE = auto()  # Add Mixture of Experts
+    ADD_SSM = auto()  # Add State Space Model
 
 
 class CrossoverType(Enum):
     """Types of crossover operations between parent genomes."""
 
-    UNIFORM = auto()             # Random selection from each parent
-    SINGLE_POINT = auto()        # Split at single point
-    TWO_POINT = auto()           # Split at two points
-    LAYER_WISE = auto()          # Exchange complete layers
-    HYPERPARAMETER = auto()      # Exchange hyperparameters only
+    UNIFORM = auto()  # Random selection from each parent
+    SINGLE_POINT = auto()  # Split at single point
+    TWO_POINT = auto()  # Split at two points
+    LAYER_WISE = auto()  # Exchange complete layers
+    HYPERPARAMETER = auto()  # Exchange hyperparameters only
 
 
 class SelectionStrategy(Enum):
     """Strategies for selecting parents from population."""
 
-    TOURNAMENT = auto()          # Tournament selection (k individuals)
-    ROULETTE = auto()            # Fitness-proportional selection
-    RANK = auto()                # Rank-based selection
-    ELITE = auto()               # Select top performers only
+    TOURNAMENT = auto()  # Tournament selection (k individuals)
+    ROULETTE = auto()  # Fitness-proportional selection
+    RANK = auto()  # Rank-based selection
+    ELITE = auto()  # Select top performers only
 
 
 # =============================================================================
@@ -115,9 +114,12 @@ class MutationConfig:
             errors.append("max_layers must be >= min_layers")
 
         total_rate = (
-            self.add_layer_rate + self.remove_layer_rate +
-            self.replace_layer_rate + self.modify_layer_rate +
-            self.hyperparameter_rate + self.architecture_rate
+            self.add_layer_rate
+            + self.remove_layer_rate
+            + self.replace_layer_rate
+            + self.modify_layer_rate
+            + self.hyperparameter_rate
+            + self.architecture_rate
         )
 
         if not (0.99 <= total_rate <= 1.01):
@@ -271,19 +273,23 @@ class MutationOperator:
         # Hyperparameter mutations (distributed)
         cumulative += self.config.hyperparameter_rate
         if roll < cumulative:
-            return random.choice([
-                MutationType.LEARNING_RATE,
-                MutationType.BATCH_SIZE,
-                MutationType.OPTIMIZER,
-                MutationType.PRECISION,
-            ])
+            return random.choice(
+                [
+                    MutationType.LEARNING_RATE,
+                    MutationType.BATCH_SIZE,
+                    MutationType.OPTIMIZER,
+                    MutationType.PRECISION,
+                ]
+            )
 
         # Architecture mutations (distributed)
-        return random.choice([
-            MutationType.ADD_ATTENTION,
-            MutationType.ADD_MOE,
-            MutationType.ADD_SSM,
-        ])
+        return random.choice(
+            [
+                MutationType.ADD_ATTENTION,
+                MutationType.ADD_MOE,
+                MutationType.ADD_SSM,
+            ]
+        )
 
     def _mutate_add_layer(self, genome: Genome) -> None:
         """Add a new layer to the genome."""
@@ -300,12 +306,14 @@ class MutationOperator:
         # Select layer type
         if self.config.prefer_modern_layers and random.random() < 0.6:
             # Prefer modern architectures
-            layer_type = random.choice([
-                LayerType.MIXTURE_OF_EXPERTS,
-                LayerType.STATE_SPACE_MODEL,
-                LayerType.FLASH_ATTENTION,
-                LayerType.MULTIHEAD_ATTENTION,
-            ])
+            layer_type = random.choice(
+                [
+                    LayerType.MIXTURE_OF_EXPERTS,
+                    LayerType.STATE_SPACE_MODEL,
+                    LayerType.FLASH_ATTENTION,
+                    LayerType.MULTIHEAD_ATTENTION,
+                ]
+            )
         else:
             # Any layer type
             layer_type = random.choice(list(LayerType))
@@ -392,17 +400,23 @@ class MutationOperator:
             new_hidden = max(64, min(4096, int(layer.hidden_size * multiplier)))
             # Ensure hidden_size is divisible by num_heads
             if layer.num_heads:
-                new_hidden = max(layer.num_heads, (new_hidden // layer.num_heads) * layer.num_heads)
+                new_hidden = max(
+                    layer.num_heads, (new_hidden // layer.num_heads) * layer.num_heads
+                )
             layer.hidden_size = new_hidden
 
         # Modify type-specific parameters
-        if hasattr(layer, 'num_heads') and layer.num_heads:
+        if hasattr(layer, "num_heads") and layer.num_heads:
             # Pick num_heads that evenly divides hidden_size
-            candidates = [h for h in [4, 8, 12, 16] if layer.hidden_size and layer.hidden_size % h == 0]
+            candidates = [
+                h
+                for h in [4, 8, 12, 16]
+                if layer.hidden_size and layer.hidden_size % h == 0
+            ]
             if candidates:
                 layer.num_heads = random.choice(candidates)
 
-        if hasattr(layer, 'num_experts') and layer.num_experts:
+        if hasattr(layer, "num_experts") and layer.num_experts:
             layer.num_experts = random.choice([4, 8, 16, 32])
 
     def _mutate_learning_rate(self, genome: Genome) -> None:
@@ -522,9 +536,11 @@ class CrossoverConfig:
         errors = []
 
         total_rate = (
-            self.uniform_rate + self.single_point_rate +
-            self.two_point_rate + self.layer_wise_rate +
-            self.hyperparameter_rate
+            self.uniform_rate
+            + self.single_point_rate
+            + self.two_point_rate
+            + self.layer_wise_rate
+            + self.hyperparameter_rate
         )
 
         if not (0.99 <= total_rate <= 1.01):
@@ -673,24 +689,22 @@ class CrossoverOperator:
 
         # Split encoder layers
         if len(parent1.encoder_layers) > 0 and len(parent2.encoder_layers) > 0:
-            split_point = random.randint(0, min(
-                len(parent1.encoder_layers),
-                len(parent2.encoder_layers)
-            ))
+            split_point = random.randint(
+                0, min(len(parent1.encoder_layers), len(parent2.encoder_layers))
+            )
             child.encoder_layers = (
-                parent1.encoder_layers[:split_point] +
-                parent2.encoder_layers[split_point:]
+                parent1.encoder_layers[:split_point]
+                + parent2.encoder_layers[split_point:]
             )
 
         # Split decoder layers (same logic)
         if len(parent1.decoder_layers) > 0 and len(parent2.decoder_layers) > 0:
-            split_point = random.randint(0, min(
-                len(parent1.decoder_layers),
-                len(parent2.decoder_layers)
-            ))
+            split_point = random.randint(
+                0, min(len(parent1.decoder_layers), len(parent2.decoder_layers))
+            )
             child.decoder_layers = (
-                parent1.decoder_layers[:split_point] +
-                parent2.decoder_layers[split_point:]
+                parent1.decoder_layers[:split_point]
+                + parent2.decoder_layers[split_point:]
             )
         elif parent2.decoder_layers:
             child.decoder_layers = copy.deepcopy(parent2.decoder_layers)
@@ -707,9 +721,9 @@ class CrossoverOperator:
             point2 = random.randint(point1, min_len)
 
             child.encoder_layers = (
-                parent1.encoder_layers[:point1] +
-                parent2.encoder_layers[point1:point2] +
-                parent1.encoder_layers[point2:]
+                parent1.encoder_layers[:point1]
+                + parent2.encoder_layers[point1:point2]
+                + parent1.encoder_layers[point2:]
             )
 
         # Apply same logic to decoder layers
@@ -719,9 +733,9 @@ class CrossoverOperator:
             point2 = random.randint(point1, min_len)
 
             child.decoder_layers = (
-                parent1.decoder_layers[:point1] +
-                parent2.decoder_layers[point1:point2] +
-                parent1.decoder_layers[point2:]
+                parent1.decoder_layers[:point1]
+                + parent2.decoder_layers[point1:point2]
+                + parent1.decoder_layers[point2:]
             )
         elif parent2.decoder_layers and not parent1.decoder_layers:
             child.decoder_layers = copy.deepcopy(parent2.decoder_layers)
@@ -758,18 +772,23 @@ class CrossoverOperator:
 
         # Mix hyperparameters
         child.hyperparameters.learning_rate = (
-            parent1.hyperparameters.learning_rate + parent2.hyperparameters.learning_rate
+            parent1.hyperparameters.learning_rate
+            + parent2.hyperparameters.learning_rate
         ) / 2
 
-        child.hyperparameters.batch_size = random.choice([
-            parent1.hyperparameters.batch_size,
-            parent2.hyperparameters.batch_size,
-        ])
+        child.hyperparameters.batch_size = random.choice(
+            [
+                parent1.hyperparameters.batch_size,
+                parent2.hyperparameters.batch_size,
+            ]
+        )
 
-        child.hyperparameters.optimizer = random.choice([
-            parent1.hyperparameters.optimizer,
-            parent2.hyperparameters.optimizer,
-        ])
+        child.hyperparameters.optimizer = random.choice(
+            [
+                parent1.hyperparameters.optimizer,
+                parent2.hyperparameters.optimizer,
+            ]
+        )
 
         return child
 
@@ -787,10 +806,10 @@ class EvolutionConfig:
     crossover_config: CrossoverConfig = field(default_factory=CrossoverConfig)
 
     # Evolution strategy
-    mutation_rate: float = 0.3       # Probability of mutation
-    crossover_rate: float = 0.7      # Probability of crossover
+    mutation_rate: float = 0.3  # Probability of mutation
+    crossover_rate: float = 0.7  # Probability of crossover
 
-    elitism_count: int = 2           # Number of elite genomes to preserve
+    elitism_count: int = 2  # Number of elite genomes to preserve
 
     def validate(self) -> tuple[bool, list[str]]:
         """Validate complete configuration."""

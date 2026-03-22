@@ -18,10 +18,10 @@ from unittest.mock import MagicMock, patch, PropertyMock
 import numpy as np
 import pytest
 
-
 # ======================================================================
 # 1. maintenance/layer.py — feed_telemetry + check_telemetry_anomaly
 # ======================================================================
+
 
 class TestMaintenanceLayerQuantumPath:
     """Covers L166-171 (auto-fit) and L180-181 (check_telemetry_anomaly)."""
@@ -75,6 +75,7 @@ class TestMaintenanceLayerQuantumPath:
 # 2. maintenance/output_filter.py — hallucination hints
 # ======================================================================
 
+
 class TestOutputFilterHallucination:
     """Covers L211-212 (hallucination hint match)."""
 
@@ -93,6 +94,7 @@ class TestOutputFilterHallucination:
 # ======================================================================
 # 3. maintenance/self_repair.py — alert callback, rollback, episodic log
 # ======================================================================
+
 
 class TestSelfRepairGaps2:
     """Covers L132-133 (alert callback), L165-169 (rollback), L250-251 (episodic log fail)."""
@@ -168,6 +170,7 @@ class TestSelfRepairGaps2:
 # 4. memory/semantic.py — many edge cases
 # ======================================================================
 
+
 class TestSemanticMemoryGaps:
     """Covers: empty records, expired get, no-nx fallback, cosine zero, meta_matches."""
 
@@ -183,13 +186,15 @@ class TestSemanticMemoryGaps:
         from memory.interfaces import MemoryRecord
 
         sm = SemanticMemory()
-        sm.store(MemoryRecord(
-            key="old",
-            content="old data",
-            embedding=[1.0, 0.0, 0.0],
-            ttl=0.001,
-            timestamp=time.time() - 10,
-        ))
+        sm.store(
+            MemoryRecord(
+                key="old",
+                content="old data",
+                embedding=[1.0, 0.0, 0.0],
+                ttl=0.001,
+                timestamp=time.time() - 10,
+            )
+        )
         results = sm.retrieve([1.0, 0.0, 0.0], top_k=5)
         assert results == []
 
@@ -198,13 +203,15 @@ class TestSemanticMemoryGaps:
         from memory.interfaces import MemoryRecord
 
         sm = SemanticMemory()
-        sm.store(MemoryRecord(
-            key="expiring",
-            content="will expire",
-            embedding=[1.0, 0.0, 0.0],
-            ttl=0.001,
-            timestamp=time.time() - 10,
-        ))
+        sm.store(
+            MemoryRecord(
+                key="expiring",
+                content="will expire",
+                embedding=[1.0, 0.0, 0.0],
+                ttl=0.001,
+                timestamp=time.time() - 10,
+            )
+        )
         result = sm.get("expiring")
         assert result is None
 
@@ -213,11 +220,13 @@ class TestSemanticMemoryGaps:
         from memory.interfaces import MemoryRecord
 
         sm = SemanticMemory()
-        sm.store(MemoryRecord(
-            key="no_emb",
-            content="no embedding",
-            embedding=None,
-        ))
+        sm.store(
+            MemoryRecord(
+                key="no_emb",
+                content="no embedding",
+                embedding=None,
+            )
+        )
         results = sm.retrieve([1.0, 0.0, 0.0], top_k=5)
         assert len(results) == 1
 
@@ -327,6 +336,7 @@ class TestSemanticMemoryGaps:
 # 5. metacognition/confidence_calibrator.py — add/remove signal
 # ======================================================================
 
+
 class TestConfidenceCalibratorGaps:
     """Covers L153 (add_signal), L156 (remove_signal), L188-192 (_extract_signal failure)."""
 
@@ -355,6 +365,7 @@ class TestConfidenceCalibratorGaps:
 # ======================================================================
 # 6. metacognition/identity_module.py — update/capability/history trim/save/load
 # ======================================================================
+
 
 class TestIdentityModuleGaps:
     """Covers L154-158, L209, L294, L311-312, L339-341."""
@@ -433,6 +444,7 @@ class TestIdentityModuleGaps:
 # 7. metacognition/self_critic.py — various check factories + auto_fix
 # ======================================================================
 
+
 class TestSelfCriticGaps:
     """Covers L81, L102-115, L172, L249-251, L287, L332-333, L337-338."""
 
@@ -450,7 +462,9 @@ class TestSelfCriticGaps:
 
         check = _check_goal_alignment(min_overlap=0.9)
         fn = check
-        result = fn("completely unrelated text here", {"goal": "agriculture farming harvest"})
+        result = fn(
+            "completely unrelated text here", {"goal": "agriculture farming harvest"}
+        )
         assert result is not None
         assert "overlap" in result.lower()
 
@@ -459,7 +473,10 @@ class TestSelfCriticGaps:
 
         check = _check_goal_alignment(min_overlap=0.3)
         fn = check
-        result = fn("agriculture and farming are great topics for harvest", {"goal": "agriculture farming harvest"})
+        result = fn(
+            "agriculture and farming are great topics for harvest",
+            {"goal": "agriculture farming harvest"},
+        )
         assert result is None
 
     def test_goal_alignment_no_goal(self):
@@ -559,6 +576,7 @@ class TestSelfCriticGaps:
 # 8. perception/multimodal_cortex.py — projection fusion
 # ======================================================================
 
+
 class TestMultimodalCortexProjection:
     """Covers L46-47, L55, L145, L198-217, L221-224 (_project_fuse)."""
 
@@ -574,7 +592,9 @@ class TestMultimodalCortexProjection:
         # Should trigger _project_fuse
         from perception.interfaces import WorldState
 
-        ws = WorldState(text_embedding=embeddings["text"], image_embedding=embeddings["image"])
+        ws = WorldState(
+            text_embedding=embeddings["text"], image_embedding=embeddings["image"]
+        )
         result = mc.fuse(ws)
         assert len(result) == 32
 
@@ -582,8 +602,9 @@ class TestMultimodalCortexProjection:
         from perception.multimodal_cortex import MultimodalCortex
         from perception.interfaces import WorldState
 
-        mc = MultimodalCortex(hidden_dim=16, fusion_strategy="weighted",
-                              text_weight=2.0, image_weight=1.0)
+        mc = MultimodalCortex(
+            hidden_dim=16, fusion_strategy="weighted", text_weight=2.0, image_weight=1.0
+        )
         ws = WorldState(
             text_embedding=[1.0] * 16,
             image_embedding=[0.5] * 16,
@@ -605,6 +626,7 @@ class TestMultimodalCortexProjection:
 # ======================================================================
 # 9. perception/text_cortex.py — hash embed + bert fallback
 # ======================================================================
+
 
 class TestTextCortexGaps:
     """Covers L142, L175, L193-208, L212-237."""
@@ -640,6 +662,7 @@ class TestTextCortexGaps:
 # 10. perception/visual_cortex.py — preprocess branches, stub mode
 # ======================================================================
 
+
 class TestVisualCortexGaps:
     """Covers L45-47, L53-54, L122, L131-132, L152-156, L173-187, L212-217."""
 
@@ -647,6 +670,7 @@ class TestVisualCortexGaps:
         """Create a valid minimal PNG in memory."""
         from PIL import Image
         import io
+
         img = Image.new("RGB", (4, 4), color=(128, 64, 32))
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -686,6 +710,7 @@ class TestVisualCortexGaps:
 # ======================================================================
 # 11. perception/auditory_cortex.py — stub mode
 # ======================================================================
+
 
 class TestAuditoryCortexGaps:
     """Covers various uncovered lines in auditory processing."""
@@ -734,6 +759,7 @@ class TestAuditoryCortexGaps:
 # 12. quantum/quantum_anomaly.py — simulated/quantum score paths
 # ======================================================================
 
+
 class TestQuantumAnomalyGaps:
     """Covers L126, L140-143, L204-206, L246-247, L265-266, L287."""
 
@@ -761,7 +787,9 @@ class TestQuantumAnomalyGaps:
 
         connector = MagicMock()
         connector.kinich_available = True
-        qad = QuantumAnomalyDetector(connector=connector, simulation_mode=True, rff_components=32)
+        qad = QuantumAnomalyDetector(
+            connector=connector, simulation_mode=True, rff_components=32
+        )
         X_train = np.random.randn(20, 8)
         qad.fit(X_train)
         scores = qad._quantum_score(np.random.randn(3, 8))
@@ -772,7 +800,9 @@ class TestQuantumAnomalyGaps:
 
         connector = MagicMock()
         connector.kinich_available = True
-        qad = QuantumAnomalyDetector(connector=connector, simulation_mode=True, rff_components=32)
+        qad = QuantumAnomalyDetector(
+            connector=connector, simulation_mode=True, rff_components=32
+        )
         X_train = np.random.randn(20, 8)
         qad.fit(X_train)
         predictions = qad.predict(np.random.randn(5, 8))
@@ -782,6 +812,7 @@ class TestQuantumAnomalyGaps:
 # ======================================================================
 # 13. quantum/quantum_imagination.py — quantum sample + simulate_one
 # ======================================================================
+
 
 class TestQuantumImaginationGaps:
     """Covers L168-170, L292-293, L319-323, L346."""
@@ -793,7 +824,9 @@ class TestQuantumImaginationGaps:
         connector.kinich_available = True
         qi = QuantumImagination(connector=connector, simulation_mode=True)
         futures = qi._quantum_sample(
-            {"key": "val"}, [{"action": "move"}, {"action": "wait"}], n=3,
+            {"key": "val"},
+            [{"action": "move"}, {"action": "wait"}],
+            n=3,
         )
         assert len(futures) > 0
 
@@ -808,7 +841,9 @@ class TestQuantumImaginationGaps:
 
         qi = QuantumImagination(internal_simulator=mock_sim, simulation_mode=True)
         traj, value = qi._simulate_one(
-            {"state": "s0"}, {"action": "go"}, jitter=True,
+            {"state": "s0"},
+            {"action": "go"},
+            jitter=True,
         )
         assert isinstance(value, float)
         assert len(traj) > 0
@@ -818,7 +853,9 @@ class TestQuantumImaginationGaps:
 
         qi = QuantumImagination(simulation_mode=True)
         traj, value = qi._simulate_one(
-            {"state": "s0"}, {"speed": True, "safety": True}, jitter=False,
+            {"state": "s0"},
+            {"speed": True, "safety": True},
+            jitter=False,
         )
         assert isinstance(value, float)
         assert len(traj) > 0
@@ -831,7 +868,9 @@ class TestQuantumImaginationGaps:
 
         qi = QuantumImagination(internal_simulator=mock_sim, simulation_mode=True)
         traj, value = qi._simulate_one(
-            {"state": "s0"}, {"action": "go"}, jitter=False,
+            {"state": "s0"},
+            {"action": "go"},
+            jitter=False,
         )
         assert isinstance(value, float)
 
@@ -839,6 +878,7 @@ class TestQuantumImaginationGaps:
 # ======================================================================
 # 14. quantum/quantum_memory.py — delegate methods + quantum path
 # ======================================================================
+
 
 class TestQuantumMemoryGaps:
     """Covers L147-149, L238, L253, L285-289, L298-302, L308-309, L316, L319, L325."""
@@ -918,9 +958,13 @@ class TestQuantumMemoryGaps:
 
         # Add some records
         for i in range(5):
-            qm._store.store(MemoryRecord(
-                key=f"r{i}", content=f"content {i}", embedding=[float(i)] * 768,
-            ))
+            qm._store.store(
+                MemoryRecord(
+                    key=f"r{i}",
+                    content=f"content {i}",
+                    embedding=[float(i)] * 768,
+                )
+            )
 
         results = qm._quantum_retrieve([1.0] * 768, top_k=3, filters=None)
         assert isinstance(results, list)
@@ -929,6 +973,7 @@ class TestQuantumMemoryGaps:
 # ======================================================================
 # 15. quantum/quantum_optimizer.py — qaoa_rank + composite_score + energy
 # ======================================================================
+
 
 class TestQuantumOptimizerGaps:
     """Covers L147-149, L239-240, L260-261, L284-290, L301."""
@@ -954,7 +999,10 @@ class TestQuantumOptimizerGaps:
 
         qpo = QuantumPlanOptimizer(simulation_mode=True)
         plan = Plan(
-            plan_id="p1", goal_id="g1", steps=[], score=0.5,
+            plan_id="p1",
+            goal_id="g1",
+            steps=[],
+            score=0.5,
             metadata={"efficiency": 0.8, "safety": 0.9},
         )
         score = qpo._composite_score(plan, ["efficiency", "safety"])
@@ -966,7 +1014,10 @@ class TestQuantumOptimizerGaps:
 
         qpo = QuantumPlanOptimizer(simulation_mode=True)
         plan = Plan(
-            plan_id="p1", goal_id="g1", steps=[], score=0.5,
+            plan_id="p1",
+            goal_id="g1",
+            steps=[],
+            score=0.5,
             metadata={"efficiency": "not_a_number"},
         )
         score = qpo._composite_score(plan, ["efficiency"])
@@ -987,6 +1038,7 @@ class TestQuantumOptimizerGaps:
 # ======================================================================
 # 16. hybrid/engine.py — auto-load teacher, export
 # ======================================================================
+
 
 class TestHybridEngineGaps2:
     """Covers L127-128 (auto-load), L141-143 (_ensure_teacher), L271 (export)."""
@@ -1014,6 +1066,7 @@ class TestHybridEngineGaps2:
 # ======================================================================
 # 17. control/controller.py — interrupt, tick edge cases
 # ======================================================================
+
 
 class TestExecutiveControllerGaps:
     """Covers L150-153, L191-194, L209-212, L215-217, L230-234, L242-243, L318-337."""
@@ -1064,8 +1117,10 @@ class TestExecutiveControllerGaps:
 
         # Make planner return a plan but executor raise
         fake_plan = Plan(
-            plan_id="fp1", goal_id="g1",
-            steps=[{"tool": "noop"}], score=0.5,
+            plan_id="fp1",
+            goal_id="g1",
+            steps=[{"tool": "noop"}],
+            score=0.5,
         )
         ctrl._planner.generate_plans = MagicMock(return_value=[fake_plan])
         ctrl._executor.execute = MagicMock(side_effect=RuntimeError("exec boom"))
@@ -1080,13 +1135,19 @@ class TestExecutiveControllerGaps:
         ctrl.add_goal("test goal", priority=5)
 
         fake_plan = Plan(
-            plan_id="fp1", goal_id="g1",
-            steps=[{"tool": "noop"}], score=0.5,
+            plan_id="fp1",
+            goal_id="g1",
+            steps=[{"tool": "noop"}],
+            score=0.5,
         )
         ctrl._planner.generate_plans = MagicMock(return_value=[fake_plan])
-        ctrl._executor.execute = MagicMock(return_value={
-            "status": "failed", "outputs": [], "error": "step failed",
-        })
+        ctrl._executor.execute = MagicMock(
+            return_value={
+                "status": "failed",
+                "outputs": [],
+                "error": "step failed",
+            }
+        )
         result = ctrl.tick()
         assert result["status"] == "failed"
 
@@ -1105,6 +1166,7 @@ class TestExecutiveControllerGaps:
 # ======================================================================
 # 18. control/executor.py — interrupt, builtins, async
 # ======================================================================
+
 
 class TestToolExecutorGaps:
     """Covers L129-131, L185-187, L198-210, L228-240, L266-273."""
@@ -1189,6 +1251,7 @@ class TestToolExecutorGaps:
 # 19. control/goal_stack.py — activate wrong status, block, active, peek
 # ======================================================================
 
+
 class TestGoalStackGaps2:
     """Covers L122-126, L152, L173-177, L200-201, L235."""
 
@@ -1242,6 +1305,7 @@ class TestGoalStackGaps2:
 # 20. control/planner.py — plan for wrong status, constraints
 # ======================================================================
 
+
 class TestPlannerGaps2:
     """Covers L162-166, L197, L233, L262-266."""
 
@@ -1289,6 +1353,7 @@ class TestPlannerGaps2:
 # ======================================================================
 # 21. valuation/reward.py — drive evaluators + edge cases
 # ======================================================================
+
 
 class TestRewardModelGaps:
     """Covers L36-37, L78, L108, L110, L199-201, L240."""
@@ -1350,6 +1415,7 @@ class TestRewardModelGaps:
 # 22. valuation/safety.py — pattern match + extra_check exception
 # ======================================================================
 
+
 class TestSafetyFilterGaps2:
     """Covers L156-157 (pattern match), L167 (extra_check exception)."""
 
@@ -1377,6 +1443,7 @@ class TestSafetyFilterGaps2:
 # 23. action/tools/web_search.py — live search fallback
 # ======================================================================
 
+
 class TestWebSearchGaps:
     """Covers L90-94 (live search failure fallback)."""
 
@@ -1392,6 +1459,7 @@ class TestWebSearchGaps:
 # ======================================================================
 # 24. action/tools/code_sandbox.py — plain exec + restricted import
 # ======================================================================
+
 
 class TestCodeSandboxGaps:
     """Covers L167-183 (plain exec fallback), L188 (restricted import)."""
@@ -1422,6 +1490,7 @@ class TestCodeSandboxGaps:
 # ======================================================================
 # 25. action/tools/memory_tool.py — read/write edge cases
 # ======================================================================
+
 
 class TestMemoryToolGaps:
     """Covers L91, L107-109, L179, L189-191, L199, L201-203."""
@@ -1461,7 +1530,9 @@ class TestMemoryToolGaps:
 
         mwt = MemoryWriteTool(memory_manager=None)
         result = mwt.run(content="test data")
-        assert "stub" in str(result.output.get("mode", "")) or "record_id" in result.output
+        assert (
+            "stub" in str(result.output.get("mode", "")) or "record_id" in result.output
+        )
 
     def test_write_with_manager(self):
         from action.tools.memory_tool import MemoryWriteTool
@@ -1478,6 +1549,7 @@ class TestMemoryToolGaps:
 # ======================================================================
 # 26. monitoring/metrics.py — uncovered branches (L23-24, L143, L283-299)
 # ======================================================================
+
 
 class TestMonitoringMetricsGaps:
     """Covers remaining lines in monitoring/metrics.py."""
@@ -1507,6 +1579,7 @@ class TestMonitoringMetricsGaps:
 # 27. security/secure_aggregation.py — uncovered branches
 # ======================================================================
 
+
 class TestSecureAggGaps:
     """Covers L38-43, L157, L260-266, L281, L299, L428, L661-667."""
 
@@ -1523,6 +1596,7 @@ class TestSecureAggGaps:
 # ======================================================================
 # 28. api/inference_server.py — uncovered branches
 # ======================================================================
+
 
 class TestInferenceServerGaps:
     """Covers inference server components."""

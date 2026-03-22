@@ -25,17 +25,16 @@ spec:
           ports:
             - containerPort: 8080
               name: api
+          envFrom:
+            - configMapRef:
+                name: belizechain-config
+            - secretRef:
+                name: belizechain-secrets
           env:
             - name: BLOCKCHAIN_RPC
               value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
             - name: ENVIRONMENT
               value: "production"
-            - name: LOG_LEVEL
-              value: "info"
-            - name: NAWAL_ENV
-              value: "production"
-            - name: NAWAL_API_HOST
-              value: "0.0.0.0"
           livenessProbe:
             httpGet:
               path: /health

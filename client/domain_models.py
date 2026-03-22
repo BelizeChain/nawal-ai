@@ -56,6 +56,7 @@ class ModelDomain(Enum):
     }
     ```
     """
+
     GENERAL = 0
     AGRITECH = 1
     MARINE = 2
@@ -98,7 +99,9 @@ class DomainDataConfig:
 
     # Text preprocessing
     max_sequence_length: int = 512
-    tokenizer_name: str = "character"  # Nawal character tokenizer (built-in, no external deps)
+    tokenizer_name: str = (
+        "character"  # Nawal character tokenizer (built-in, no external deps)
+    )
 
     # Domain-specific thresholds
     quality_threshold: float = 0.7
@@ -256,25 +259,24 @@ class DomainModel(ABC):
 
         if layer_type == LayerType.LINEAR:
             return nn.Linear(
-                params.get('in_features', 512),
-                params.get('out_features', 512)
+                params.get("in_features", 512), params.get("out_features", 512)
             )
         elif layer_type == LayerType.CONV2D:
             return nn.Conv2d(
-                params.get('in_channels', 3),
-                params.get('out_channels', 64),
-                params.get('kernel_size', 3),
-                padding=params.get('padding', 1)
+                params.get("in_channels", 3),
+                params.get("out_channels", 64),
+                params.get("kernel_size", 3),
+                padding=params.get("padding", 1),
             )
         elif layer_type == LayerType.RELU:
             return nn.ReLU()
         elif layer_type == LayerType.DROPOUT:
-            return nn.Dropout(params.get('p', 0.1))
+            return nn.Dropout(params.get("p", 0.1))
         elif layer_type == LayerType.BATCH_NORM:
-            num_features = params.get('num_features', 512)
+            num_features = params.get("num_features", 512)
             return nn.BatchNorm1d(num_features)
         elif layer_type == LayerType.LAYER_NORM:
-            normalized_shape = params.get('normalized_shape', 512)
+            normalized_shape = params.get("normalized_shape", 512)
             return nn.LayerNorm(normalized_shape)
         else:
             logger.warning(f"Unknown layer type: {layer_type}")
@@ -292,6 +294,7 @@ class DomainModel(ABC):
 # ============================================================================
 # AGRITECH DOMAIN MODEL
 # ============================================================================
+
 
 class AgriTechModel(DomainModel):
     """
@@ -342,14 +345,14 @@ class AgriTechModel(DomainModel):
         - Sensor readings (soil moisture, pH, temperature)
         - Weather data
         """
-        feed_type = raw_data.get('feed_type', 'unknown')
+        feed_type = raw_data.get("feed_type", "unknown")
 
-        if feed_type == 'drone_imagery':
-            return self._preprocess_drone_imagery(raw_data['data'])
-        elif feed_type == 'sensor_reading':
-            return self._preprocess_sensor_data(raw_data['data'])
-        elif feed_type == 'weather_data':
-            return self._preprocess_weather_data(raw_data['data'])
+        if feed_type == "drone_imagery":
+            return self._preprocess_drone_imagery(raw_data["data"])
+        elif feed_type == "sensor_reading":
+            return self._preprocess_sensor_data(raw_data["data"])
+        elif feed_type == "weather_data":
+            return self._preprocess_weather_data(raw_data["data"])
         else:
             raise ValueError(f"Unknown feed type for AgriTech: {feed_type}")
 
@@ -357,7 +360,8 @@ class AgriTechModel(DomainModel):
         """Preprocess drone imagery with NDVI calculation"""
         # Convert bytes to PIL Image
         import io
-        image = Image.open(io.BytesIO(image_data)).convert('RGB')
+
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
 
         # Resize to standard size
         image = image.resize(self.config.image_size)
@@ -391,19 +395,21 @@ class AgriTechModel(DomainModel):
 
         # Apply sliding window
         if len(readings) > self.config.sensor_window_size:
-            readings = readings[-self.config.sensor_window_size:]
+            readings = readings[-self.config.sensor_window_size :]
         else:
             # Pad if too short
             readings = np.pad(
                 readings,
                 (0, self.config.sensor_window_size - len(readings)),
-                mode='constant'
+                mode="constant",
             )
 
         # Normalize
-        if self.config.sensor_normalization == 'minmax':
-            readings = (readings - readings.min()) / (readings.max() - readings.min() + 1e-8)
-        elif self.config.sensor_normalization == 'zscore':
+        if self.config.sensor_normalization == "minmax":
+            readings = (readings - readings.min()) / (
+                readings.max() - readings.min() + 1e-8
+            )
+        elif self.config.sensor_normalization == "zscore":
             readings = (readings - readings.mean()) / (readings.std() + 1e-8)
 
         return torch.from_numpy(readings).float().unsqueeze(0)
@@ -440,20 +446,21 @@ class AgriTechModel(DomainModel):
             crop_health = (ndvi * 0.7 + (1 - pest_prob) * 0.3).mean(dim=[1, 2, 3])
 
             return {
-                'predictions': crop_health,
-                'confidence': torch.sigmoid(crop_health),
-                'ndvi': ndvi,
-                'pest_probability': pest_prob,
-                'features': features,
+                "predictions": crop_health,
+                "confidence": torch.sigmoid(crop_health),
+                "ndvi": ndvi,
+                "pest_probability": pest_prob,
+                "features": features,
             }
         else:  # Sensor data (B, T)
             # Time series prediction
             predictions = torch.sigmoid(features[:, -1])  # Last timestep
 
             return {
-                'predictions': predictions,
-                'confidence': torch.abs(predictions - 0.5) * 2,  # Distance from uncertain (0.5)
-                'features': features,
+                "predictions": predictions,
+                "confidence": torch.abs(predictions - 0.5)
+                * 2,  # Distance from uncertain (0.5)
+                "features": features,
             }
 
     def calculate_improvement(
@@ -472,8 +479,8 @@ class AgriTechModel(DomainModel):
         """
         if ground_truth is not None:
             # Calculate accuracy improvements
-            old_error = torch.abs(old_predictions['predictions'] - ground_truth).mean()
-            new_error = torch.abs(new_predictions['predictions'] - ground_truth).mean()
+            old_error = torch.abs(old_predictions["predictions"] - ground_truth).mean()
+            new_error = torch.abs(new_predictions["predictions"] - ground_truth).mean()
 
             # Improvement is reduction in error
             improvement = max(0.0, (old_error - new_error).item())
@@ -482,8 +489,8 @@ class AgriTechModel(DomainModel):
             improvement = min(1.0, improvement * 10)  # Scale up small improvements
         else:
             # Without ground truth, use confidence improvement
-            old_conf = old_predictions['confidence'].mean()
-            new_conf = new_predictions['confidence'].mean()
+            old_conf = old_predictions["confidence"].mean()
+            new_conf = new_predictions["confidence"].mean()
             improvement = max(0.0, (new_conf - old_conf).item())
 
         return improvement
@@ -513,17 +520,14 @@ class AgriTechModel(DomainModel):
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2),
-
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(2),
-
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((1, 1)),
-
             # Classification head
             nn.Flatten(),
             nn.Linear(256, 128),
@@ -554,6 +558,7 @@ class AgriTechModel(DomainModel):
 # ============================================================================
 # MARINE DOMAIN MODEL
 # ============================================================================
+
 
 class MarineModel(DomainModel):
     """
@@ -603,19 +608,20 @@ class MarineModel(DomainModel):
         - Water quality sensor data
         - Coastal imagery for erosion monitoring
         """
-        feed_type = raw_data.get('feed_type', 'unknown')
+        feed_type = raw_data.get("feed_type", "unknown")
 
-        if feed_type in ['drone_imagery', 'camera_feed']:
-            return self._preprocess_underwater_imagery(raw_data['data'])
-        elif feed_type == 'sensor_reading':
-            return self._preprocess_water_quality(raw_data['data'])
+        if feed_type in ["drone_imagery", "camera_feed"]:
+            return self._preprocess_underwater_imagery(raw_data["data"])
+        elif feed_type == "sensor_reading":
+            return self._preprocess_water_quality(raw_data["data"])
         else:
             raise ValueError(f"Unknown feed type for Marine: {feed_type}")
 
     def _preprocess_underwater_imagery(self, image_data: bytes) -> torch.Tensor:
         """Preprocess underwater imagery with color correction"""
         import io
-        image = Image.open(io.BytesIO(image_data)).convert('RGB')
+
+        image = Image.open(io.BytesIO(image_data)).convert("RGB")
 
         # Underwater images need special color correction (blue/green dominance)
         # Apply red channel enhancement
@@ -653,12 +659,14 @@ class MarineModel(DomainModel):
         # Apply domain-specific normalization
         if len(readings) >= 4:
             # Standard ranges for marine waters
-            ranges = np.array([
-                [30, 40],    # Salinity (PSU)
-                [5, 10],     # Dissolved oxygen (mg/L)
-                [7.5, 8.5],  # pH
-                [24, 30],    # Temperature (°C)
-            ])
+            ranges = np.array(
+                [
+                    [30, 40],  # Salinity (PSU)
+                    [5, 10],  # Dissolved oxygen (mg/L)
+                    [7.5, 8.5],  # pH
+                    [24, 30],  # Temperature (°C)
+                ]
+            )
 
             normalized = []
             for i, reading in enumerate(readings[:4]):
@@ -694,22 +702,22 @@ class MarineModel(DomainModel):
             biodiversity = torch.sigmoid(species_logits.max(dim=1)[0])
 
             return {
-                'predictions': coral_health.mean(dim=[1, 2, 3]),
-                'confidence': torch.sigmoid(coral_health.mean(dim=[1, 2, 3])),
-                'coral_health': coral_health,
-                'species_detected': species_logits,
-                'biodiversity_index': biodiversity,
-                'features': features,
+                "predictions": coral_health.mean(dim=[1, 2, 3]),
+                "confidence": torch.sigmoid(coral_health.mean(dim=[1, 2, 3])),
+                "coral_health": coral_health,
+                "species_detected": species_logits,
+                "biodiversity_index": biodiversity,
+                "features": features,
             }
         else:  # Sensor data
             # Water quality index
             water_quality = torch.sigmoid(features.mean(dim=1))
 
             return {
-                'predictions': water_quality,
-                'confidence': torch.abs(water_quality - 0.5) * 2,
-                'water_quality': water_quality,
-                'features': features,
+                "predictions": water_quality,
+                "confidence": torch.abs(water_quality - 0.5) * 2,
+                "water_quality": water_quality,
+                "features": features,
             }
 
     def calculate_improvement(
@@ -720,13 +728,13 @@ class MarineModel(DomainModel):
     ) -> float:
         """Calculate improvement in marine health prediction"""
         if ground_truth is not None:
-            old_error = torch.abs(old_predictions['predictions'] - ground_truth).mean()
-            new_error = torch.abs(new_predictions['predictions'] - ground_truth).mean()
+            old_error = torch.abs(old_predictions["predictions"] - ground_truth).mean()
+            new_error = torch.abs(new_predictions["predictions"] - ground_truth).mean()
             improvement = max(0.0, (old_error - new_error).item())
             improvement = min(1.0, improvement * 10)
         else:
-            old_conf = old_predictions['confidence'].mean()
-            new_conf = new_predictions['confidence'].mean()
+            old_conf = old_predictions["confidence"].mean()
+            new_conf = new_predictions["confidence"].mean()
             improvement = max(0.0, (new_conf - old_conf).item())
 
         return improvement
@@ -753,17 +761,14 @@ class MarineModel(DomainModel):
             nn.BatchNorm2d(64),
             nn.ReLU(),
             nn.MaxPool2d(2),
-
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.MaxPool2d(2),
-
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
             nn.ReLU(),
             nn.AdaptiveAvgPool2d((1, 1)),
-
             nn.Flatten(),
             nn.Linear(256, 128),
             nn.ReLU(),
@@ -794,6 +799,7 @@ class MarineModel(DomainModel):
 # ============================================================================
 # EDUCATION DOMAIN MODEL
 # ============================================================================
+
 
 class EducationModel(DomainModel):
     """
@@ -850,10 +856,10 @@ class EducationModel(DomainModel):
         - Performance time series
         - Learning content embeddings
         """
-        feed_type = raw_data.get('feed_type', 'unknown')
+        feed_type = raw_data.get("feed_type", "unknown")
 
-        if feed_type == 'phone_collection':
-            return self._preprocess_student_data(raw_data['data'])
+        if feed_type == "phone_collection":
+            return self._preprocess_student_data(raw_data["data"])
         else:
             raise ValueError(f"Unknown feed type for Education: {feed_type}")
 
@@ -861,16 +867,17 @@ class EducationModel(DomainModel):
         """Preprocess student interaction data"""
         # Parse student data (JSON format expected)
         import json
+
         try:
-            student_data = json.loads(data.decode('utf-8'))
+            student_data = json.loads(data.decode("utf-8"))
 
             # Convert to feature vector
             # Features: [time_spent, completion_rate, quiz_scores, interaction_count]
             features = [
-                student_data.get('time_spent_minutes', 0) / 60.0,  # Normalize to hours
-                student_data.get('completion_rate', 0) / 100.0,
-                student_data.get('average_quiz_score', 0) / 100.0,
-                student_data.get('interaction_count', 0) / 100.0,
+                student_data.get("time_spent_minutes", 0) / 60.0,  # Normalize to hours
+                student_data.get("completion_rate", 0) / 100.0,
+                student_data.get("average_quiz_score", 0) / 100.0,
+                student_data.get("interaction_count", 0) / 100.0,
             ]
 
             tensor = torch.tensor(features, dtype=torch.float32)
@@ -907,12 +914,12 @@ class EducationModel(DomainModel):
         learning_style = torch.softmax(learning_style_logits, dim=1)
 
         return {
-            'predictions': performance / 100.0,  # Normalize to 0-1
-            'confidence': torch.abs(performance - 50) / 50,
-            'performance_prediction': performance,
-            'learning_style': learning_style,
-            'intervention_needed': intervention_needed,
-            'features': features,
+            "predictions": performance / 100.0,  # Normalize to 0-1
+            "confidence": torch.abs(performance - 50) / 50,
+            "performance_prediction": performance,
+            "learning_style": learning_style,
+            "intervention_needed": intervention_needed,
+            "features": features,
         }
 
     def calculate_improvement(
@@ -923,13 +930,15 @@ class EducationModel(DomainModel):
     ) -> float:
         """Calculate improvement in student performance prediction"""
         if ground_truth is not None:
-            old_error = torch.abs(old_predictions['predictions'] - ground_truth).mean()
-            new_error = torch.abs(new_predictions['predictions'] - ground_truth).mean()
+            old_error = torch.abs(old_predictions["predictions"] - ground_truth).mean()
+            new_error = torch.abs(new_predictions["predictions"] - ground_truth).mean()
             improvement = max(0.0, (old_error - new_error).item())
-            improvement = min(1.0, improvement * 5)  # Education needs precise predictions
+            improvement = min(
+                1.0, improvement * 5
+            )  # Education needs precise predictions
         else:
-            old_conf = old_predictions['confidence'].mean()
-            new_conf = new_predictions['confidence'].mean()
+            old_conf = old_predictions["confidence"].mean()
+            new_conf = new_predictions["confidence"].mean()
             improvement = max(0.0, (new_conf - old_conf).item())
 
         return improvement
@@ -967,6 +976,7 @@ class EducationModel(DomainModel):
 # ============================================================================
 # TECH DOMAIN MODEL
 # ============================================================================
+
 
 class TechModel(DomainModel):
     """
@@ -1015,10 +1025,10 @@ class TechModel(DomainModel):
         - Event sequences
         - Performance traces
         """
-        feed_type = raw_data.get('feed_type', 'unknown')
+        feed_type = raw_data.get("feed_type", "unknown")
 
-        if feed_type in ['sensor_reading', 'phone_collection']:
-            return self._preprocess_metrics(raw_data['data'])
+        if feed_type in ["sensor_reading", "phone_collection"]:
+            return self._preprocess_metrics(raw_data["data"])
         else:
             raise ValueError(f"Unknown feed type for Tech: {feed_type}")
 
@@ -1039,12 +1049,12 @@ class TechModel(DomainModel):
 
         # Reshape to (timesteps, features)
         if len(metrics) >= self.config.sensor_window_size * 4:
-            metrics = metrics[:self.config.sensor_window_size * 4]
+            metrics = metrics[: self.config.sensor_window_size * 4]
             metrics = metrics.reshape(self.config.sensor_window_size, 4)
         else:
             # Pad if needed
             target_len = self.config.sensor_window_size * 4
-            metrics = np.pad(metrics, (0, target_len - len(metrics)), mode='constant')
+            metrics = np.pad(metrics, (0, target_len - len(metrics)), mode="constant")
             metrics = metrics.reshape(self.config.sensor_window_size, 4)
 
         # Normalize to 0-100 range (percentage)
@@ -1081,12 +1091,12 @@ class TechModel(DomainModel):
         incident_prob = torch.sigmoid(features[:, 1])
 
         return {
-            'predictions': performance,
-            'confidence': torch.abs(performance - 0.5) * 2,
-            'anomaly_score': anomaly_score,
-            'performance_prediction': performance,
-            'incident_probability': incident_prob,
-            'features': features,
+            "predictions": performance,
+            "confidence": torch.abs(performance - 0.5) * 2,
+            "anomaly_score": anomaly_score,
+            "performance_prediction": performance,
+            "incident_probability": incident_prob,
+            "features": features,
         }
 
     def calculate_improvement(
@@ -1097,13 +1107,13 @@ class TechModel(DomainModel):
     ) -> float:
         """Calculate improvement in infrastructure monitoring"""
         if ground_truth is not None:
-            old_error = torch.abs(old_predictions['predictions'] - ground_truth).mean()
-            new_error = torch.abs(new_predictions['predictions'] - ground_truth).mean()
+            old_error = torch.abs(old_predictions["predictions"] - ground_truth).mean()
+            new_error = torch.abs(new_predictions["predictions"] - ground_truth).mean()
             improvement = max(0.0, (old_error - new_error).item())
             improvement = min(1.0, improvement * 10)
         else:
-            old_conf = old_predictions['confidence'].mean()
-            new_conf = new_predictions['confidence'].mean()
+            old_conf = old_predictions["confidence"].mean()
+            new_conf = new_predictions["confidence"].mean()
             improvement = max(0.0, (new_conf - old_conf).item())
 
         return improvement
@@ -1150,6 +1160,7 @@ class TechModel(DomainModel):
 # ============================================================================
 # DOMAIN MODEL FACTORY
 # ============================================================================
+
 
 class DomainModelFactory:
     """Factory for creating domain-specific models"""
@@ -1265,6 +1276,7 @@ class DomainModelFactory:
 # UTILITY FUNCTIONS
 # ============================================================================
 
+
 def calculate_quality_score(
     accuracy: int,
     timeliness: int,
@@ -1293,11 +1305,11 @@ def calculate_quality_score(
         Quality score 0-1000
     """
     weighted_sum = (
-        accuracy * 30 +
-        timeliness * 20 +
-        completeness * 15 +
-        consistency * 20 +
-        provenance * 15
+        accuracy * 30
+        + timeliness * 20
+        + completeness * 15
+        + consistency * 20
+        + provenance * 15
     )
     return weighted_sum // 10  # Scale to 0-1000
 
@@ -1328,29 +1340,29 @@ def prepare_oracle_submission(
     data_hash = hashlib.sha256(data).digest()
 
     # Extract confidence for provenance score
-    confidence = predictions.get('confidence', torch.tensor([0.5])).mean().item()
+    confidence = predictions.get("confidence", torch.tensor([0.5])).mean().item()
     provenance = int(confidence * 100)
 
     # Calculate overall quality score
     quality_score = calculate_quality_score(
-        accuracy=quality_metrics.get('accuracy', 80),
-        timeliness=quality_metrics.get('timeliness', 100),
-        completeness=quality_metrics.get('completeness', 100),
-        consistency=quality_metrics.get('consistency', 85),
+        accuracy=quality_metrics.get("accuracy", 80),
+        timeliness=quality_metrics.get("timeliness", 100),
+        completeness=quality_metrics.get("completeness", 100),
+        consistency=quality_metrics.get("consistency", 85),
         provenance=provenance,
     )
 
     return {
-        'device_id': device_id,
-        'feed_type_index': 10,  # DroneImagery (example)
-        'domain_index': domain.to_index(),
-        'data': data,
-        'data_hash': data_hash,
-        'location': None,  # Optional GPS coordinates
-        'accuracy': quality_metrics.get('accuracy', 80),
-        'timeliness': quality_metrics.get('timeliness', 100),
-        'completeness': quality_metrics.get('completeness', 100),
-        'consistency': quality_metrics.get('consistency', 85),
-        'provenance': provenance,
-        'quality_score': quality_score,
+        "device_id": device_id,
+        "feed_type_index": 10,  # DroneImagery (example)
+        "domain_index": domain.to_index(),
+        "data": data,
+        "data_hash": data_hash,
+        "location": None,  # Optional GPS coordinates
+        "accuracy": quality_metrics.get("accuracy", 80),
+        "timeliness": quality_metrics.get("timeliness", 100),
+        "completeness": quality_metrics.get("completeness", 100),
+        "consistency": quality_metrics.get("consistency", 85),
+        "provenance": provenance,
+        "quality_score": quality_score,
     }

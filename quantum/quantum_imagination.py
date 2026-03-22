@@ -43,6 +43,7 @@ Public API
     )
     best = qi.best_action(futures)
 """
+
 from __future__ import annotations
 
 import time
@@ -52,10 +53,10 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from loguru import logger
 
-
 # --------------------------------------------------------------------------- #
 # Data classes                                                                  #
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class SimulatedState:
@@ -70,17 +71,19 @@ class SimulatedState:
         n_samples   : Number of quantum samples this state is derived from.
         metadata    : Arbitrary extra data from the rollout.
     """
-    action:      Dict[str, Any]
-    trajectory:  List[Dict[str, Any]]   = field(default_factory=list)
-    value:       float                  = 0.0
-    uncertainty: float                  = 0.0
-    n_samples:   int                    = 1
-    metadata:    Dict[str, Any]         = field(default_factory=dict)
+
+    action: Dict[str, Any]
+    trajectory: List[Dict[str, Any]] = field(default_factory=list)
+    value: float = 0.0
+    uncertainty: float = 0.0
+    n_samples: int = 1
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #
 # QuantumImagination                                                           #
 # --------------------------------------------------------------------------- #
+
 
 class QuantumImagination:
     """
@@ -114,17 +117,17 @@ class QuantumImagination:
         noise_scale: float = 0.05,
         random_state: int = 42,
     ) -> None:
-        self._simulator           = internal_simulator
-        self._connector           = connector
+        self._simulator = internal_simulator
+        self._connector = connector
         self.fallback_to_classical = fallback_to_classical
-        self.simulation_mode      = simulation_mode
-        self.n_qubits             = n_qubits
-        self.n_samples            = n_samples
-        self.noise_scale          = noise_scale
+        self.simulation_mode = simulation_mode
+        self.n_qubits = n_qubits
+        self.n_samples = n_samples
+        self.noise_scale = noise_scale
         self._rng = np.random.default_rng(random_state)
 
         self.stats: Dict[str, int] = {
-            "quantum_calls":   0,
+            "quantum_calls": 0,
             "simulated_calls": 0,
             "classical_calls": 0,
         }
@@ -230,13 +233,15 @@ class QuantumImagination:
         for action in actions:
             for _ in range(n):
                 traj, value = self._simulate_one(state, action, jitter=False)
-                results.append(SimulatedState(
-                    action=action,
-                    trajectory=traj,
-                    value=value,
-                    uncertainty=0.0,
-                    n_samples=1,
-                ))
+                results.append(
+                    SimulatedState(
+                        action=action,
+                        trajectory=traj,
+                        value=value,
+                        uncertainty=0.0,
+                        n_samples=1,
+                    )
+                )
         return results
 
     # ·· Simulated quantum ···············································
@@ -266,14 +271,16 @@ class QuantumImagination:
             mean_val = float(np.mean(sample_values))
             uncertainty = float(np.std(sample_values))
 
-            results.append(SimulatedState(
-                action=action,
-                trajectory=traj_0,
-                value=mean_val,
-                uncertainty=uncertainty,
-                n_samples=n,
-                metadata={"sample_values": sample_values},
-            ))
+            results.append(
+                SimulatedState(
+                    action=action,
+                    trajectory=traj_0,
+                    value=mean_val,
+                    uncertainty=uncertainty,
+                    n_samples=n,
+                    metadata={"sample_values": sample_values},
+                )
+            )
         return results
 
     # ·· Quantum (Kinich) ················································
@@ -289,7 +296,9 @@ class QuantumImagination:
         PhaseHook — Phase 5: replace with Kinich superposition circuit.
         Falls back to stochastic simulation.
         """
-        logger.debug("QuantumImagination: Kinich live — using stochastic proxy (Phase 5 TBD)")
+        logger.debug(
+            "QuantumImagination: Kinich live — using stochastic proxy (Phase 5 TBD)"
+        )
         return self._simulated_sample(state, actions, n)
 
     # ------------------------------------------------------------------ #
@@ -313,11 +322,13 @@ class QuantumImagination:
         if self._simulator is not None:
             try:
                 result = self._simulator.simulate(state=state, action=action)
-                traj   = getattr(result, "trajectory", [{"state": state, "action": action}])
-                value  = float(getattr(result, "value", 0.5))
+                traj = getattr(
+                    result, "trajectory", [{"state": state, "action": action}]
+                )
+                value = float(getattr(result, "value", 0.5))
                 if jitter:
                     value += float(self._rng.normal(0, self.noise_scale))
-                    value  = max(0.0, min(1.0, value))
+                    value = max(0.0, min(1.0, value))
                 return traj, value
             except Exception as exc:
                 logger.debug(f"QuantumImagination: InternalSimulator failed: {exc}")
@@ -325,13 +336,12 @@ class QuantumImagination:
         # Built-in heuristic: score by how many "positive" keys the action has
         positive_keys = {"speed", "accuracy", "safety", "quality", "efficiency"}
         raw_score = sum(
-            1.0 for k, v in action.items()
-            if k in positive_keys and v
+            1.0 for k, v in action.items() if k in positive_keys and v
         ) / max(len(positive_keys), 1)
 
         if jitter:
             raw_score += float(self._rng.normal(0, self.noise_scale))
-            raw_score  = max(0.0, min(1.0, raw_score))
+            raw_score = max(0.0, min(1.0, raw_score))
 
         traj = [{"state": state, "action": action, "next_state": {**state, **action}}]
         return traj, raw_score

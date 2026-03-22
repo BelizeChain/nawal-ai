@@ -31,17 +31,18 @@ from loguru import logger
 try:
     from substrateinterface import SubstrateInterface, Keypair
     from substrateinterface.exceptions import SubstrateRequestException
+
     SUBSTRATE_AVAILABLE = True
 except ImportError:
     SUBSTRATE_AVAILABLE = False
     logger.warning(
-        "substrate-interface not available. "
-        "Install: pip install substrate-interface"
+        "substrate-interface not available. " "Install: pip install substrate-interface"
     )
 
 
 class NetworkType(Enum):
     """BelizeChain network types."""
+
     LOCAL = "local"
     TESTNET = "testnet"
     MAINNET = "mainnet"
@@ -58,6 +59,7 @@ class ChainConfig:
         type_registry: Custom type definitions
         ss58_format: Address format (42 for Substrate default)
     """
+
     network: NetworkType = NetworkType.LOCAL
     rpc_url: str = "ws://127.0.0.1:9944"
     type_registry: Optional[Dict] = None
@@ -101,6 +103,7 @@ class ExtrinsicReceipt:
         events: List of events emitted
         error: Error message if failed
     """
+
     extrinsic_hash: str
     block_hash: Optional[str] = None
     block_number: Optional[int] = None
@@ -195,14 +198,11 @@ class SubstrateClient:
                 runtime_version = self.substrate.runtime_version
 
                 self._connected = True
-                logger.success(
-                    f"Connected to {chain} "
-                    f"(runtime: {runtime_version})"
-                )
+                logger.success(f"Connected to {chain} " f"(runtime: {runtime_version})")
                 return
 
             except Exception as e:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
                     f"Connection attempt {attempt + 1}/{max_retries} failed: {e}."
                     + (f" Retrying in {delay}s" if attempt < max_retries - 1 else "")
@@ -257,11 +257,10 @@ class SubstrateClient:
             )
 
             logger.debug(
-                f"Queried {module}.{storage_function}: "
-                f"{str(result)[:100]}"
+                f"Queried {module}.{storage_function}: " f"{str(result)[:100]}"
             )
 
-            return result.value if hasattr(result, 'value') else result
+            return result.value if hasattr(result, "value") else result
 
         except SubstrateRequestException as e:
             logger.error(f"Storage query failed: {e}")
@@ -367,7 +366,7 @@ class SubstrateClient:
 
                 # Get block number
                 block = self.substrate.get_block(block_hash=result.block_hash)
-                receipt.block_number = block['header']['number']
+                receipt.block_number = block["header"]["number"]
 
                 # Get events
                 receipt.events = self._get_extrinsic_events(result)
@@ -389,13 +388,15 @@ class SubstrateClient:
         """Extract events from extrinsic result."""
         events = []
 
-        if hasattr(result, 'triggered_events'):
+        if hasattr(result, "triggered_events"):
             for event in result.triggered_events:
-                events.append({
-                    'module': event.value['module_id'],
-                    'event': event.value['event_id'],
-                    'attributes': event.value.get('attributes', {}),
-                })
+                events.append(
+                    {
+                        "module": event.value["module_id"],
+                        "event": event.value["event_id"],
+                        "attributes": event.value.get("attributes", {}),
+                    }
+                )
 
         return events
 
@@ -425,7 +426,7 @@ class SubstrateClient:
             Block number
         """
         block = self.get_block(block_hash=block_hash)
-        return block['header']['number']
+        return block["header"]["number"]
 
     def get_events(self, block_hash: Optional[str] = None) -> List[Dict]:
         """
@@ -444,10 +445,10 @@ class SubstrateClient:
 
         return [
             {
-                'module': event.value['module_id'],
-                'event': event.value['event_id'],
-                'attributes': event.value.get('attributes', {}),
-                'block_hash': block_hash,
+                "module": event.value["module_id"],
+                "event": event.value["event_id"],
+                "attributes": event.value.get("attributes", {}),
+                "block_hash": block_hash,
             }
             for event in events
         ]
@@ -473,20 +474,19 @@ class SubstrateClient:
             self.connect()
 
         logger.info(
-            f"Subscribing to events: "
-            f"module={module_filter}, event={event_filter}"
+            f"Subscribing to events: " f"module={module_filter}, event={event_filter}"
         )
 
         def event_handler(obj, update_nr, subscription_id):
             """Handle incoming events."""
-            block_hash = obj['header']['parentHash']
+            block_hash = obj["header"]["parentHash"]
             events = self.get_events(block_hash=block_hash)
 
             for event in events:
                 # Apply filters
-                if module_filter and event['module'] != module_filter:
+                if module_filter and event["module"] != module_filter:
                     continue
-                if event_filter and event['event'] != event_filter:
+                if event_filter and event["event"] != event_filter:
                     continue
 
                 # Call user callback
@@ -518,7 +518,7 @@ class SubstrateClient:
             constant_name=constant_name,
         )
 
-        return result.value if hasattr(result, 'value') else result
+        return result.value if hasattr(result, "value") else result
 
     def get_metadata(self) -> Dict:
         """Get runtime metadata."""
@@ -554,7 +554,7 @@ class SubstrateClient:
             Free balance in plancks
         """
         account_info = self.get_account_info(address)
-        return account_info['data']['free']
+        return account_info["data"]["free"]
 
     @staticmethod
     def create_keypair(

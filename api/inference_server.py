@@ -43,10 +43,12 @@ async def lifespan(app: FastAPI):
     try:
         model = BelizeChainLLM.from_checkpoint(
             checkpoint_path="checkpoints/final_checkpoint.pt",
-            device="cuda" if torch.cuda.is_available() else "cpu"
+            device="cuda" if torch.cuda.is_available() else "cpu",
         )
         model.eval()
-        logger.info(f"Model loaded successfully ({model.num_parameters():,} parameters)")
+        logger.info(
+            f"Model loaded successfully ({model.num_parameters():,} parameters)"
+        )
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         model = None
@@ -75,6 +77,7 @@ app = FastAPI(
 # =============================================================================
 # Rate Limiting
 # =============================================================================
+
 
 class _RateLimiter:
     """Simple in-memory sliding-window rate limiter."""
@@ -116,16 +119,24 @@ async def rate_limit_middleware(request, call_next):
 
 class InferenceRequest(BaseModel):
     """Request schema for text generation"""
-    prompt: str = Field(..., min_length=1, max_length=2048, description="Input text prompt")
-    max_tokens: int = Field(512, ge=1, le=2048, description="Maximum tokens to generate")
+
+    prompt: str = Field(
+        ..., min_length=1, max_length=2048, description="Input text prompt"
+    )
+    max_tokens: int = Field(
+        512, ge=1, le=2048, description="Maximum tokens to generate"
+    )
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: float = Field(0.9, ge=0.0, le=1.0, description="Nucleus sampling threshold")
     stream: bool = Field(False, description="Enable streaming response")
-    belizeid: Optional[str] = Field(None, description="BelizeID for authenticated requests")
+    belizeid: Optional[str] = Field(
+        None, description="BelizeID for authenticated requests"
+    )
 
 
 class InferenceResponse(BaseModel):
     """Response schema for text generation"""
+
     text: str
     tokens_generated: int
     inference_time_ms: float
@@ -135,6 +146,7 @@ class InferenceResponse(BaseModel):
 
 class ModelInfo(BaseModel):
     """Model metadata response"""
+
     model_name: str
     version: str
     parameters: int
@@ -145,11 +157,14 @@ class ModelInfo(BaseModel):
 
 class BatchInferenceResponse(BaseModel):
     """Response for batch inference."""
+
     results: List[Dict[str, Any]]
     total: int
 
 
-async def verify_belizeid(request: Request, belizeid: Optional[str] = Header(None)) -> str:
+async def verify_belizeid(
+    request: Request, belizeid: Optional[str] = Header(None)
+) -> str:
     """Dependency: Verify BelizeID authentication (required)."""
     if not belizeid:
         raise HTTPException(status_code=401, detail="BelizeID header required")
@@ -187,10 +202,7 @@ async def get_model_info(request: Request):
         parameters=model.num_parameters(),
         training_rounds=model.training_rounds,
         last_updated=model.last_updated.isoformat(),
-        privacy_budget={
-            "epsilon": model.privacy_epsilon,
-            "delta": model.privacy_delta
-        }
+        privacy_budget={"epsilon": model.privacy_epsilon, "delta": model.privacy_delta},
     )
 
 
@@ -198,7 +210,7 @@ async def get_model_info(request: Request):
 async def generate_text(
     request: InferenceRequest,
     http_request: Request,
-    belizeid: str = Depends(verify_belizeid)
+    belizeid: str = Depends(verify_belizeid),
 ):
     """Generate text from prompt (non-streaming)"""
     model = http_request.app.state.model
@@ -215,37 +227,43 @@ async def generate_text(
                 prompt=request.prompt,
                 max_tokens=request.max_tokens,
                 temperature=request.temperature,
-                top_p=request.top_p
+                top_p=request.top_p,
             )
 
-        inference_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+        inference_time = (
+            datetime.now(timezone.utc) - start_time
+        ).total_seconds() * 1000
 
         # Log metrics
         await http_request.app.state.metrics.log_inference(
             user_id=belizeid,
             prompt_length=len(request.prompt),
             output_length=len(output),
-            inference_time=inference_time
+            inference_time=inference_time,
         )
 
         return InferenceResponse(
             text=output,
-            tokens_generated=len(output.split()),  # DESIGN NOTE: swap for tokenizer.encode(output) when tokenizer is available
+            tokens_generated=len(
+                output.split()
+            ),  # DESIGN NOTE: swap for tokenizer.encode(output) when tokenizer is available
             inference_time_ms=inference_time,
             model_version=model.version,
-            timestamp=datetime.now(timezone.utc).isoformat()
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Inference error: {e}")
-        raise HTTPException(status_code=500, detail="Inference failed. Check server logs.")
+        raise HTTPException(
+            status_code=500, detail="Inference failed. Check server logs."
+        )
 
 
 @app.post("/infer/stream", status_code=200)
 async def generate_text_stream(
     request: InferenceRequest,
     http_request: Request,
-    belizeid: str = Depends(verify_belizeid)
+    belizeid: str = Depends(verify_belizeid),
 ):
     """Generate text with streaming response"""
     model = http_request.app.state.model
@@ -259,7 +277,7 @@ async def generate_text_stream(
                 prompt=request.prompt,
                 max_tokens=request.max_tokens,
                 temperature=request.temperature,
-                top_p=request.top_p
+                top_p=request.top_p,
             ):
                 yield json.dumps({"token": token}) + "\n"
                 await asyncio.sleep(0.01)  # Small delay for streaming
@@ -267,17 +285,14 @@ async def generate_text_stream(
             logger.error(f"Streaming error: {e}")
             yield json.dumps({"error": "Streaming failed"}) + "\n"
 
-    return StreamingResponse(
-        token_generator(),
-        media_type="application/x-ndjson"
-    )
+    return StreamingResponse(token_generator(), media_type="application/x-ndjson")
 
 
 @app.post("/batch/infer", response_model=BatchInferenceResponse, status_code=200)
 async def batch_inference(
     requests: List[InferenceRequest],
     http_request: Request,
-    belizeid: str = Depends(verify_belizeid)
+    belizeid: str = Depends(verify_belizeid),
 ):
     """Process multiple inference requests in batch"""
     model = http_request.app.state.model
@@ -330,6 +345,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         app,
         host=os.getenv("NAWAL_INFERENCE_HOST", "127.0.0.1"),

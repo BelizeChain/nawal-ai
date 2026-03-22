@@ -16,6 +16,7 @@ from loguru import logger
 # Optional Click library
 try:
     import click
+
     CLICK_AVAILABLE = True
 except ImportError:
     CLICK_AVAILABLE = False
@@ -50,9 +51,21 @@ def cli(ctx, config: Optional[str], verbose: bool):
 @click.option("--epochs", "-e", type=int, default=10, help="Number of epochs")
 @click.option("--batch-size", "-b", type=int, default=32, help="Batch size")
 @click.option("--learning-rate", "-lr", type=float, default=0.001, help="Learning rate")
-@click.option("--checkpoint-dir", type=click.Path(), default="./checkpoints", help="Checkpoint directory")
+@click.option(
+    "--checkpoint-dir",
+    type=click.Path(),
+    default="./checkpoints",
+    help="Checkpoint directory",
+)
 @click.pass_context
-def train(ctx, dataset: str, epochs: int, batch_size: int, learning_rate: float, checkpoint_dir: str):
+def train(
+    ctx,
+    dataset: str,
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    checkpoint_dir: str,
+):
     """Train AI model locally."""
     logger.info(f"Starting local training: dataset={dataset}, epochs={epochs}")
 
@@ -77,6 +90,7 @@ def train(ctx, dataset: str, epochs: int, batch_size: int, learning_rate: float,
 
         # Create simple model (placeholder)
         import torch.nn as nn
+
         model = nn.Sequential(
             nn.Linear(512, 256),
             nn.ReLU(),
@@ -101,11 +115,25 @@ def train(ctx, dataset: str, epochs: int, batch_size: int, learning_rate: float,
 @click.option("--population", "-p", type=int, default=50, help="Population size")
 @click.option("--mutation-rate", "-m", type=float, default=0.1, help="Mutation rate")
 @click.option("--crossover-rate", "-x", type=float, default=0.7, help="Crossover rate")
-@click.option("--checkpoint-dir", type=click.Path(), default="./evolution", help="Checkpoint directory")
+@click.option(
+    "--checkpoint-dir",
+    type=click.Path(),
+    default="./evolution",
+    help="Checkpoint directory",
+)
 @click.pass_context
-def evolve(ctx, generations: int, population: int, mutation_rate: float, crossover_rate: float, checkpoint_dir: str):
+def evolve(
+    ctx,
+    generations: int,
+    population: int,
+    mutation_rate: float,
+    crossover_rate: float,
+    checkpoint_dir: str,
+):
     """Run evolutionary optimization."""
-    logger.info(f"Starting evolution: generations={generations}, population={population}")
+    logger.info(
+        f"Starting evolution: generations={generations}, population={population}"
+    )
 
     try:
         from nawal.orchestrator import EvolutionOrchestrator
@@ -145,7 +173,9 @@ def evolve(ctx, generations: int, population: int, mutation_rate: float, crossov
 @cli.command()
 @click.option("--num-clients", "-n", type=int, default=10, help="Number of clients")
 @click.option("--rounds", "-r", type=int, default=100, help="Federated rounds")
-@click.option("--min-clients", "-m", type=int, default=5, help="Minimum clients per round")
+@click.option(
+    "--min-clients", "-m", type=int, default=5, help="Minimum clients per round"
+)
 @click.option("--port", "-p", type=int, default=8080, help="Server port")
 @click.pass_context
 def federate(ctx, num_clients: int, rounds: int, min_clients: int, port: int):
@@ -186,14 +216,32 @@ def validator():
 @click.option("--email", required=True, help="Contact email")
 @click.option("--legal-name", help="Legal entity name")
 @click.option("--tax-id", help="Tax ID")
-@click.option("--keypair-uri", required=True, help="Keypair URI (e.g. seed phrase or //Alice for dev)")
-@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
-def validator_register(name: str, email: str, legal_name: Optional[str], tax_id: Optional[str], keypair_uri: str, chain: str):
+@click.option(
+    "--keypair-uri",
+    required=True,
+    help="Keypair URI (e.g. seed phrase or //Alice for dev)",
+)
+@click.option(
+    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
+)
+def validator_register(
+    name: str,
+    email: str,
+    legal_name: Optional[str],
+    tax_id: Optional[str],
+    keypair_uri: str,
+    chain: str,
+):
     """Register validator identity on-chain."""
     logger.info(f"Registering validator: {name}")
 
     try:
-        from nawal.blockchain import SubstrateClient, ChainConfig, ValidatorManager, ValidatorIdentity
+        from nawal.blockchain import (
+            SubstrateClient,
+            ChainConfig,
+            ValidatorManager,
+            ValidatorIdentity,
+        )
 
         # Connect to chain
         if chain == "local":
@@ -235,17 +283,37 @@ def validator_register(name: str, email: str, legal_name: Optional[str], tax_id:
 
 @validator.command(name="submit-fitness")
 @click.option("--quality", type=float, required=True, help="Quality score (0-100)")
-@click.option("--timeliness", type=float, required=True, help="Timeliness score (0-100)")
+@click.option(
+    "--timeliness", type=float, required=True, help="Timeliness score (0-100)"
+)
 @click.option("--honesty", type=float, required=True, help="Honesty score (0-100)")
 @click.option("--round", type=int, required=True, help="Training round")
-@click.option("--keypair-uri", required=True, help="Keypair URI (e.g. seed phrase or //Alice for dev)")
-@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
-def validator_submit_fitness(quality: float, timeliness: float, honesty: float, round: int, keypair_uri: str, chain: str):
+@click.option(
+    "--keypair-uri",
+    required=True,
+    help="Keypair URI (e.g. seed phrase or //Alice for dev)",
+)
+@click.option(
+    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
+)
+def validator_submit_fitness(
+    quality: float,
+    timeliness: float,
+    honesty: float,
+    round: int,
+    keypair_uri: str,
+    chain: str,
+):
     """Submit PoUW fitness score."""
     logger.info(f"Submitting fitness: Q={quality}, T={timeliness}, H={honesty}")
 
     try:
-        from nawal.blockchain import SubstrateClient, ChainConfig, StakingInterface, FitnessScore
+        from nawal.blockchain import (
+            SubstrateClient,
+            ChainConfig,
+            StakingInterface,
+            FitnessScore,
+        )
 
         # Connect to chain
         if chain == "local":
@@ -292,19 +360,42 @@ def genome():
 
 
 @genome.command(name="store")
-@click.option("--genome-file", type=click.Path(exists=True), required=True, help="Genome JSON file")
+@click.option(
+    "--genome-file",
+    type=click.Path(exists=True),
+    required=True,
+    help="Genome JSON file",
+)
 @click.option("--fitness", type=float, required=True, help="Fitness score")
 @click.option("--generation", type=int, required=True, help="Generation number")
-@click.option("--keypair-uri", required=True, help="Keypair URI (e.g. seed phrase or //Alice for dev)")
-@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
+@click.option(
+    "--keypair-uri",
+    required=True,
+    help="Keypair URI (e.g. seed phrase or //Alice for dev)",
+)
+@click.option(
+    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
+)
 @click.option("--storage", default="local", type=click.Choice(["local", "pakit"]))
-def genome_store(genome_file: str, fitness: float, generation: int, keypair_uri: str, chain: str, storage: str):
+def genome_store(
+    genome_file: str,
+    fitness: float,
+    generation: int,
+    keypair_uri: str,
+    chain: str,
+    storage: str,
+):
     """Store genome on-chain."""
     logger.info(f"Storing genome: generation={generation}, fitness={fitness}")
 
     try:
         import json
-        from nawal.blockchain import SubstrateClient, ChainConfig, GenomeRegistry, StorageBackend
+        from nawal.blockchain import (
+            SubstrateClient,
+            ChainConfig,
+            GenomeRegistry,
+            StorageBackend,
+        )
 
         # Load genome
         with open(genome_file, "r") as f:
@@ -346,14 +437,21 @@ def genome_store(genome_file: str, fitness: float, generation: int, keypair_uri:
 @genome.command(name="get")
 @click.argument("genome_id")
 @click.option("--output", "-o", type=click.Path(), help="Output file path")
-@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
+@click.option(
+    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
+)
 def genome_get(genome_id: str, output: Optional[str], chain: str):
     """Retrieve genome from chain."""
     logger.info(f"Retrieving genome: {genome_id[:16]}...")
 
     try:
         import json
-        from nawal.blockchain import SubstrateClient, ChainConfig, GenomeRegistry, StorageBackend
+        from nawal.blockchain import (
+            SubstrateClient,
+            ChainConfig,
+            GenomeRegistry,
+            StorageBackend,
+        )
 
         # Connect to chain
         if chain == "local":
@@ -401,6 +499,7 @@ def config(ctx, init: bool, validate: bool, show: bool):
         logger.info("Initializing default configuration")
         try:
             from nawal.cli.config_manager import ConfigManager
+
             manager = ConfigManager()
             manager.create_default_config(Path(config_file))
             logger.success(f"Config created: {config_file}")
@@ -412,6 +511,7 @@ def config(ctx, init: bool, validate: bool, show: bool):
         logger.info(f"Validating config: {config_file}")
         try:
             from nawal.cli.config_manager import ConfigManager
+
             manager = ConfigManager()
             manager.load_config(Path(config_file))
             logger.success("Config is valid")
@@ -423,6 +523,7 @@ def config(ctx, init: bool, validate: bool, show: bool):
         try:
             from nawal.cli.config_manager import ConfigManager
             import yaml
+
             manager = ConfigManager()
             config_data = manager.load_config(Path(config_file))
             click.echo(yaml.dump(config_data, default_flow_style=False))

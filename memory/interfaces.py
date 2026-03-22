@@ -4,6 +4,7 @@ Memory interfaces — Abstract Base Classes for all memory subsystems.
 All concrete memory implementations (WorkingMemory, EpisodicMemory,
 SemanticMemory, QuantumHippocampus) must implement AbstractMemory.
 """
+
 from __future__ import annotations
 
 import time
@@ -25,6 +26,7 @@ class MemoryRecord:
         timestamp : Unix epoch creation time.
         ttl       : Time-to-live in seconds; None = permanent.
     """
+
     key: str
     content: Any
     embedding: Optional[List[float]] = None

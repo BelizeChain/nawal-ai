@@ -144,8 +144,10 @@ class Nawal(nn.Module):
         self.language_detector = LanguageDetector(config.supported_languages)
         self.compliance_filter = ComplianceFilter()
 
-        logger.info(f"Initialized Nawal with {config.num_layers} layers, "
-                   f"{config.hidden_size} hidden size, {len(self.tokenizer)} vocab size")
+        logger.info(
+            f"Initialized Nawal with {config.num_layers} layers, "
+            f"{config.hidden_size} hidden size, {len(self.tokenizer)} vocab size"
+        )
 
     def _init_belizean_tokenizer(self):
         """Initialize tokenizer with Belizean vocabulary extension.
@@ -156,7 +158,12 @@ class Nawal(nn.Module):
                 etc.).  Approximately 300+ additional tokens.
         """
         # Use Nawal's built-in character tokenizer (extends vocab with Belizean tokens)
-        from data.tokenizers import NawalTokenizerWrapper, TokenizerConfig, TokenizerType
+        from data.tokenizers import (
+            NawalTokenizerWrapper,
+            TokenizerConfig,
+            TokenizerType,
+        )
+
         tokenizer = NawalTokenizerWrapper(
             TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER)
         )
@@ -172,28 +179,57 @@ class Nawal(nn.Module):
         """Get comprehensive list of Belizean-specific tokens"""
         return [
             # Currencies and Financial
-            "DALLA", "bBZD", "Mahogany", "BZD",
-
+            "DALLA",
+            "bBZD",
+            "Mahogany",
+            "BZD",
             # Government Institutions
-            "FSC", "GOB", "BLEAC", "MoF", "CBB", "FIU",
-            "BelizeID", "NHI", "SSI",
-
+            "FSC",
+            "GOB",
+            "BLEAC",
+            "MoF",
+            "CBB",
+            "FIU",
+            "BelizeID",
+            "NHI",
+            "SSI",
             # Legal and Compliance
-            "KYC", "AML", "PoUW", "XCM",
-
+            "KYC",
+            "AML",
+            "PoUW",
+            "XCM",
             # Geographic Locations
-            "Belmopan", "Cayo", "Toledo", "Corozal",
-            "Orange Walk", "Stann Creek", "Dangriga",
-            "San Ignacio", "Punta Gorda", "Belize City",
-
+            "Belmopan",
+            "Cayo",
+            "Toledo",
+            "Corozal",
+            "Orange Walk",
+            "Stann Creek",
+            "Dangriga",
+            "San Ignacio",
+            "Punta Gorda",
+            "Belize City",
             # Cultural and Ethnic Groups
-            "Kriol", "Garifuna", "Maya", "Mestizo", "Mennonite",
-            "Q'eqchi'", "Mopan", "Yucatec",
-
+            "Kriol",
+            "Garifuna",
+            "Maya",
+            "Mestizo",
+            "Mennonite",
+            "Q'eqchi'",
+            "Mopan",
+            "Yucatec",
             # Blockchain Technology
-            "BelizeChain", "Nawal", "Kinich", "Pakit",
-            "BelizeX", "LandLedger", "substrate", "polkadot",
-            "WASM", "IPFS", "Arweave",
+            "BelizeChain",
+            "Nawal",
+            "Kinich",
+            "Pakit",
+            "BelizeX",
+            "LandLedger",
+            "substrate",
+            "polkadot",
+            "WASM",
+            "IPFS",
+            "Arweave",
         ]
 
     def forward(
@@ -348,7 +384,9 @@ class Nawal(nn.Module):
             logger.warning(f"Model not found at {model_path}, creating new instance")
             return cls(**kwargs)
 
-    def save_to_belizechain(self, version: str, save_directory: str = None, ipfs_node: str = None):
+    def save_to_belizechain(
+        self, version: str, save_directory: str = None, ipfs_node: str = None
+    ):
         """
         Save model to local storage and optionally to BelizeChain's Pakit (IPFS/Arweave)
 
@@ -375,7 +413,9 @@ class Nawal(nn.Module):
                 # from pakit.storage import upload_to_ipfs
                 # ipfs_hash = upload_to_ipfs(save_directory, ipfs_node)
                 # logger.info(f"Uploaded to IPFS: {ipfs_hash}")
-                logger.warning("Pakit upload requires pakit service - install pakit dependencies")
+                logger.warning(
+                    "Pakit upload requires pakit service - install pakit dependencies"
+                )
             except Exception as e:
                 logger.warning(f"Pakit upload failed (optional): {e}")
 
@@ -407,7 +447,9 @@ class LanguageDetector:
             return "bzj"  # Belizean Kriol
 
         # Check for Spanish
-        spanish_score = sum(1 for marker in self.spanish_markers if marker in text_lower)
+        spanish_score = sum(
+            1 for marker in self.spanish_markers if marker in text_lower
+        )
         if spanish_score >= 2:
             return "es"
 
@@ -421,9 +463,9 @@ class ComplianceFilter:
     def __init__(self):
         # Patterns that should be filtered/redacted
         self.sensitive_patterns = [
-            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN-like patterns
-            r'\b\d{16}\b',              # Credit card numbers
-            r'\bpwd\s*[:=]\s*\S+',      # Passwords
+            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN-like patterns
+            r"\b\d{16}\b",  # Credit card numbers
+            r"\bpwd\s*[:=]\s*\S+",  # Passwords
         ]
 
     def filter(self, text: str) -> str:

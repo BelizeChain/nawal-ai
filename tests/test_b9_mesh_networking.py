@@ -39,7 +39,6 @@ from blockchain.mesh_network import (
     ConsensusRound,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -54,10 +53,14 @@ def _make_peer(peer_id: str, pub_hex: str = "", alive: bool = True) -> PeerInfo:
 
 
 def _hex_pub(key: ed25519.Ed25519PrivateKey) -> str:
-    return key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw,
-    ).hex()
+    return (
+        key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PublicFormat.Raw,
+        )
+        .hex()
+    )
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -149,7 +152,9 @@ class TestC91Ed25519:
 
             msg = mesh._create_message(MessageType.HEARTBEAT, {"ts": 1})
             # Backdate timestamp beyond max age
-            msg.timestamp = datetime.now(timezone.utc).timestamp() - (mesh._max_message_age + 60)
+            msg.timestamp = datetime.now(timezone.utc).timestamp() - (
+                mesh._max_message_age + 60
+            )
             # Re-sign with backdated timestamp
             msg.signature = None
             msg_bytes = json.dumps(msg.to_dict()).encode()
@@ -248,12 +253,16 @@ class TestC92GossipDedup:
         # Create 10 alive peers
         for i in range(10):
             k = ed25519.Ed25519PrivateKey.generate()
-            mesh.peers[f"p{i}"] = _make_peer(f"p{i:03d}", pub_hex=_hex_pub(k), alive=True)
+            mesh.peers[f"p{i}"] = _make_peer(
+                f"p{i:03d}", pub_hex=_hex_pub(k), alive=True
+            )
 
         msg = mesh._create_message(MessageType.HEARTBEAT, {"f": 1})
         msg.ttl = 3
 
-        with patch.object(mesh, "_send_to_peer_raw", new_callable=AsyncMock) as mock_send:
+        with patch.object(
+            mesh, "_send_to_peer_raw", new_callable=AsyncMock
+        ) as mock_send:
             mock_send.return_value = True
             await mesh._gossip_forward(msg)
             assert mock_send.call_count <= 3
@@ -280,7 +289,11 @@ class TestC93PeerDiscovery:
         mesh.substrate = MagicMock()
         mesh.substrate.query.side_effect = [
             ["5Gval1"],  # Validators list
-            {"network_address": "/ip4/10.0.0.1/tcp/9090", "public_key": "aa" * 32, "stake": 5000},
+            {
+                "network_address": "/ip4/10.0.0.1/tcp/9090",
+                "public_key": "aa" * 32,
+                "stake": 5000,
+            },
         ]
 
         result = await mesh.discover_peers()
@@ -317,12 +330,18 @@ class TestC93PeerDiscovery:
         mesh.substrate = MagicMock()
         mesh.substrate.query.side_effect = [
             ["5Gval1"],
-            {"network_address": "not-a-valid-address", "public_key": "bb" * 32, "stake": 1000},
+            {
+                "network_address": "not-a-valid-address",
+                "public_key": "bb" * 32,
+                "stake": 1000,
+            },
         ]
 
         result = await mesh.discover_peers()
         # Invalid address should be filtered out
-        valid_peers = [p for p in mesh.peers.values() if _is_valid_multiaddr(p.multiaddr)]
+        valid_peers = [
+            p for p in mesh.peers.values() if _is_valid_multiaddr(p.multiaddr)
+        ]
         # The invalid peer should not be in the peer list
         for p in mesh.peers.values():
             assert _is_valid_multiaddr(p.multiaddr)
@@ -466,9 +485,7 @@ class TestC94ConsensusProtocol:
     async def test_full_consensus_flow(self):
         """Propose → receive enough votes → round finalizes."""
         client = self._build_client()
-        client.peers = {
-            f"p{i}": _make_peer(f"p{i}", alive=True) for i in range(4)
-        }
+        client.peers = {f"p{i}": _make_peer(f"p{i}", alive=True) for i in range(4)}
         client._broadcast_message = AsyncMock()
 
         cr = await client.propose_consensus("r_full", "hash_full")
@@ -497,7 +514,11 @@ class TestC94ConsensusProtocol:
             message_id="m_unk",
             sender_id="voter_x",
             message_type=MessageType.CONSENSUS_VOTE,
-            payload={"round_id": "no_such_round", "voter_id": "voter_x", "approve": True},
+            payload={
+                "round_id": "no_such_round",
+                "voter_id": "voter_x",
+                "approve": True,
+            },
             timestamp=datetime.now(timezone.utc).timestamp(),
             signature="",
         )

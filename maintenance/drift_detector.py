@@ -27,6 +27,7 @@ Integration
 
 Thread safety: all writes are protected by a mutex lock.
 """
+
 from __future__ import annotations
 
 import threading
@@ -42,23 +43,23 @@ from maintenance.interfaces import (
     RiskLevel,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Default drift thresholds (fractional deviation)                               #
 # --------------------------------------------------------------------------- #
 
 DEFAULT_THRESHOLDS: Dict[str, float] = {
-    "confidence_mean":   0.15,   # 15% drop triggers alert
-    "safety_block_rate": 0.05,   # 5pp increase triggers alert
-    "response_length":   0.30,   # 30% change triggers alert
-    "latency_ms":        0.50,   # 50% increase triggers alert
-    "error_rate":        0.05,   # 5pp increase triggers alert
+    "confidence_mean": 0.15,  # 15% drop triggers alert
+    "safety_block_rate": 0.05,  # 5pp increase triggers alert
+    "response_length": 0.30,  # 30% change triggers alert
+    "latency_ms": 0.50,  # 50% increase triggers alert
+    "error_rate": 0.05,  # 5pp increase triggers alert
 }
 
 
 # --------------------------------------------------------------------------- #
 # DriftDetector                                                                 #
 # --------------------------------------------------------------------------- #
+
 
 class DriftDetector(AbstractDriftDetector):
     """
@@ -81,9 +82,9 @@ class DriftDetector(AbstractDriftDetector):
     ) -> None:
         self._thresholds = {**DEFAULT_THRESHOLDS, **(thresholds or {})}
         self._window_size = window_size
-        self._min_obs     = min_observations
+        self._min_obs = min_observations
 
-        self._lock   = threading.Lock()
+        self._lock = threading.Lock()
         self._baseline: Optional[Dict[str, float]] = None
         self._baseline_id: Optional[str] = None
         self._observations: Deque[Dict[str, float]] = deque(maxlen=window_size)
@@ -106,7 +107,7 @@ class DriftDetector(AbstractDriftDetector):
             metrics       : Dict of metric_name → float value at baseline.
         """
         with self._lock:
-            self._baseline    = dict(metrics)
+            self._baseline = dict(metrics)
             self._baseline_id = checkpoint_id
             self._observations.clear()
 
@@ -129,7 +130,7 @@ class DriftDetector(AbstractDriftDetector):
         """
         with self._lock:
             baseline = self._baseline
-            obs      = list(self._observations)
+            obs = list(self._observations)
 
         if baseline is None:
             return DriftReport(
@@ -148,8 +149,8 @@ class DriftDetector(AbstractDriftDetector):
             )
 
         # Compute per-metric drift
-        alerts: List[str]          = []
-        drift_scores: List[float]  = []
+        alerts: List[str] = []
+        drift_scores: List[float] = []
         metrics_out: Dict[str, float] = {}
 
         for key, base_val in baseline.items():
@@ -160,14 +161,14 @@ class DriftDetector(AbstractDriftDetector):
                 continue
 
             current = float(np.mean(recent_vals))
-            rel_dev  = abs(current - base_val) / (abs(base_val) + 1e-9)
+            rel_dev = abs(current - base_val) / (abs(base_val) + 1e-9)
 
-            metrics_out[f"{key}_baseline"]  = base_val
-            metrics_out[f"{key}_current"]   = current
-            metrics_out[f"{key}_rel_dev"]   = rel_dev
+            metrics_out[f"{key}_baseline"] = base_val
+            metrics_out[f"{key}_current"] = current
+            metrics_out[f"{key}_rel_dev"] = rel_dev
 
             threshold = self._thresholds.get(key, 0.20)
-            capped    = min(rel_dev / max(threshold, 1e-9), 1.0)
+            capped = min(rel_dev / max(threshold, 1e-9), 1.0)
             drift_scores.append(capped)
 
             if rel_dev > threshold:
@@ -177,7 +178,7 @@ class DriftDetector(AbstractDriftDetector):
                 )
 
         drift_score = float(np.mean(drift_scores)) if drift_scores else 0.0
-        is_drifted  = len(alerts) > 0
+        is_drifted = len(alerts) > 0
 
         if is_drifted:
             logger.warning(
@@ -213,7 +214,7 @@ class DriftDetector(AbstractDriftDetector):
     def reset(self) -> None:
         """Clear observations and baseline."""
         with self._lock:
-            self._baseline    = None
+            self._baseline = None
             self._baseline_id = None
             self._observations.clear()
         logger.info("DriftDetector: reset")

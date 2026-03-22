@@ -26,6 +26,7 @@ Usage::
     ))
     top = em.retrieve(query_embedding=encoder.encode("budget"), top_k=5)
 """
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,6 @@ from loguru import logger
 
 from memory.interfaces import AbstractMemory, MemoryRecord
 
-
 # --------------------------------------------------------------------------- #
 # Backend detection                                                             #
 # --------------------------------------------------------------------------- #
@@ -46,6 +46,7 @@ from memory.interfaces import AbstractMemory, MemoryRecord
 try:
     import chromadb
     from chromadb.config import Settings as ChromaSettings
+
     CHROMA_AVAILABLE = True
 except ImportError:
     CHROMA_AVAILABLE = False
@@ -60,6 +61,7 @@ try:
         FieldCondition,
         MatchValue,
     )
+
     QDRANT_AVAILABLE = True
 except ImportError:
     QDRANT_AVAILABLE = False
@@ -68,6 +70,7 @@ except ImportError:
 # --------------------------------------------------------------------------- #
 # NumpyStore — zero-dep in-memory fallback                                     #
 # --------------------------------------------------------------------------- #
+
 
 class _NumpyStore:
     """Pure-numpy in-memory vector store used when no DB is installed."""
@@ -115,6 +118,7 @@ class _NumpyStore:
 # --------------------------------------------------------------------------- #
 # EpisodicMemory                                                               #
 # --------------------------------------------------------------------------- #
+
 
 class EpisodicMemory(AbstractMemory):
     """
@@ -212,7 +216,9 @@ class EpisodicMemory(AbstractMemory):
             self._qdrant_upsert(record)
         else:
             self._numpy_store.upsert(record)  # type: ignore[union-attr]
-        logger.debug(f"EpisodicMemory stored key={record.key!r} backend={self._backend}")
+        logger.debug(
+            f"EpisodicMemory stored key={record.key!r} backend={self._backend}"
+        )
 
     def retrieve(
         self,
@@ -281,8 +287,10 @@ class EpisodicMemory(AbstractMemory):
 
     def _chroma_upsert(self, record: MemoryRecord) -> None:
         emb = record.embedding or []
-        meta = {k: (v if isinstance(v, (str, int, float, bool)) else json.dumps(v))
-                for k, v in record.metadata.items()}
+        meta = {
+            k: (v if isinstance(v, (str, int, float, bool)) else json.dumps(v))
+            for k, v in record.metadata.items()
+        }
         meta["_content"] = str(record.content)
         meta["_timestamp"] = record.timestamp
         meta["_ttl"] = record.ttl if record.ttl is not None else -1.0
@@ -312,7 +320,10 @@ class EpisodicMemory(AbstractMemory):
             conditions = [{"$and": [{k: {"$eq": v}} for k, v in filters.items()]}]
             where = conditions[0] if len(conditions) == 1 else {"$and": conditions}
 
-        kwargs: Dict[str, Any] = {"n_results": top_k, "include": ["metadatas", "documents", "embeddings", "distances"]}
+        kwargs: Dict[str, Any] = {
+            "n_results": top_k,
+            "include": ["metadatas", "documents", "embeddings", "distances"],
+        }
         if where:
             kwargs["where"] = where
 
@@ -350,14 +361,22 @@ class EpisodicMemory(AbstractMemory):
         if not ids:
             return None
         meta = dict(result["metadatas"][0])
-        content = meta.pop("_content", result["documents"][0] if result.get("documents") else "")
+        content = meta.pop(
+            "_content", result["documents"][0] if result.get("documents") else ""
+        )
         timestamp = float(meta.pop("_timestamp", 0.0))
         ttl_raw = meta.pop("_ttl", -1.0)
         ttl = float(ttl_raw) if ttl_raw != -1.0 else None
         embs = result.get("embeddings")
         emb = list(embs[0]) if embs else None
-        rec = MemoryRecord(key=ids[0], content=content, embedding=emb,
-                           metadata=meta, timestamp=timestamp, ttl=ttl)
+        rec = MemoryRecord(
+            key=ids[0],
+            content=content,
+            embedding=emb,
+            metadata=meta,
+            timestamp=timestamp,
+            ttl=ttl,
+        )
         return None if rec.is_expired() else rec
 
     # ------------------------------------------------------------------ #
@@ -383,7 +402,10 @@ class EpisodicMemory(AbstractMemory):
     ) -> List[MemoryRecord]:
         qdrant_filter = None
         if filters:
-            must = [FieldCondition(key=k, match=MatchValue(value=v)) for k, v in filters.items()]
+            must = [
+                FieldCondition(key=k, match=MatchValue(value=v))
+                for k, v in filters.items()
+            ]
             qdrant_filter = Filter(must=must)
 
         hits = self._qdrant.search(  # type: ignore[union-attr]
@@ -453,6 +475,7 @@ class EpisodicMemory(AbstractMemory):
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
+
 
 def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
     norm_a = float(np.linalg.norm(a))

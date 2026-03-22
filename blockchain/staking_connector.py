@@ -24,6 +24,7 @@ from loguru import logger
 try:
     from substrateinterface import SubstrateInterface, Keypair
     from substrateinterface.exceptions import SubstrateRequestException
+
     SUBSTRATE_AVAILABLE = True
 except ImportError:
     SUBSTRATE_AVAILABLE = False
@@ -32,13 +33,13 @@ except ImportError:
 # Import Community connector for SRS integration
 try:
     from .community_connector import CommunityConnector
+
     COMMUNITY_AVAILABLE = True
 except ImportError:
     COMMUNITY_AVAILABLE = False
     logger.warning("CommunityConnector not available, SRS tracking disabled")
 
 from .rewards import PLANCK_PER_DALLA
-
 
 # =============================================================================
 # Data Classes
@@ -78,7 +79,9 @@ class TrainingSubmission:
     honesty_score: float  # 0-100
     fitness_score: float  # Weighted average
     model_hash: str  # Hash of model weights
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     def validate(self) -> list[str]:
         """Validate submission data."""
@@ -149,19 +152,22 @@ class StakingConnector:
             )
         self.mock_mode = mock_mode
         if self.mock_mode:
-            logger.warning("StakingConnector running in MOCK MODE — no real blockchain interaction")
+            logger.warning(
+                "StakingConnector running in MOCK MODE — no real blockchain interaction"
+            )
         self.substrate: SubstrateInterface | None = None
         self.is_connected = False
 
         # Community pallet integration
-        self.enable_community_tracking = enable_community_tracking and COMMUNITY_AVAILABLE
+        self.enable_community_tracking = (
+            enable_community_tracking and COMMUNITY_AVAILABLE
+        )
         self.community_connector: CommunityConnector | None = None
 
         if self.enable_community_tracking:
             try:
                 self.community_connector = CommunityConnector(
-                    websocket_url=node_url,
-                    mock_mode=mock_mode
+                    websocket_url=node_url, mock_mode=mock_mode
                 )
                 logger.info("Community SRS tracking ENABLED")
             except Exception as e:
@@ -229,7 +235,7 @@ class StakingConnector:
                 return True
 
             except Exception as e:
-                delay = base_delay * (2 ** attempt)
+                delay = base_delay * (2**attempt)
                 logger.warning(
                     "Connection attempt failed",
                     attempt=attempt + 1,
@@ -273,6 +279,7 @@ class StakingConnector:
         if not self.mock_mode and SUBSTRATE_AVAILABLE:
             try:
                 from substrateinterface.utils.ss58 import ss58_decode
+
                 ss58_decode(account_id)
             except Exception:
                 logger.error("Invalid SS58 address", account_id=account_id)
@@ -307,11 +314,11 @@ class StakingConnector:
         try:
             # Create enrollment call
             call = self.substrate.compose_call(
-                call_module='Staking',
-                call_function='enroll_ai_trainer',
+                call_module="Staking",
+                call_function="enroll_ai_trainer",
                 call_params={
-                    'stake_amount': stake_amount,
-                }
+                    "stake_amount": stake_amount,
+                },
             )
 
             # Create and submit extrinsic
@@ -378,9 +385,9 @@ class StakingConnector:
         try:
             # Create unenrollment call
             call = self.substrate.compose_call(
-                call_module='Staking',
-                call_function='unenroll_ai_trainer',
-                call_params={}
+                call_module="Staking",
+                call_function="unenroll_ai_trainer",
+                call_params={},
             )
 
             # Create and submit extrinsic
@@ -433,28 +440,30 @@ class StakingConnector:
         try:
             # Query staking storage
             result = self.substrate.query(
-                module='Staking',
-                storage_function='AITrainers',
+                module="Staking",
+                storage_function="AITrainers",
                 params=[account_id],
             )
 
             if result.value:
                 return ParticipantInfo(
                     account_id=account_id,
-                    stake_amount=result.value['stake_amount'],
-                    is_enrolled=result.value['is_enrolled'],
-                    training_rounds_completed=result.value['rounds_completed'],
-                    total_samples_trained=result.value['total_samples'],
-                    avg_fitness_score=result.value['avg_fitness'],
-                    last_submission=result.value.get('last_submission'),
-                    slashed_amount=result.value.get('slashed_amount', 0),
-                    reputation_score=result.value.get('reputation', 100.0),
+                    stake_amount=result.value["stake_amount"],
+                    is_enrolled=result.value["is_enrolled"],
+                    training_rounds_completed=result.value["rounds_completed"],
+                    total_samples_trained=result.value["total_samples"],
+                    avg_fitness_score=result.value["avg_fitness"],
+                    last_submission=result.value.get("last_submission"),
+                    slashed_amount=result.value.get("slashed_amount", 0),
+                    reputation_score=result.value.get("reputation", 100.0),
                 )
 
             return None
 
         except Exception as e:
-            logger.error("Failed to get participant info", account_id=account_id, error=str(e))
+            logger.error(
+                "Failed to get participant info", account_id=account_id, error=str(e)
+            )
             return None
 
     async def submit_training_proof(
@@ -491,7 +500,9 @@ class StakingConnector:
         if self.mock_mode:
             # Check if participant is enrolled
             if submission.participant_id not in self._mock_participants:
-                logger.error("Participant not enrolled", participant_id=submission.participant_id)
+                logger.error(
+                    "Participant not enrolled", participant_id=submission.participant_id
+                )
                 return False
 
             # Mock submission
@@ -505,8 +516,8 @@ class StakingConnector:
             # Update average fitness (running average)
             n = participant.training_rounds_completed
             participant.avg_fitness_score = (
-                (participant.avg_fitness_score * (n - 1) + submission.fitness_score) / n
-            )
+                participant.avg_fitness_score * (n - 1) + submission.fitness_score
+            ) / n
             participant.last_submission = submission.timestamp
 
             self._submitted_proofs.add(proof_key)
@@ -526,18 +537,20 @@ class StakingConnector:
         try:
             # Create submission call
             call = self.substrate.compose_call(
-                call_module='Staking',
-                call_function='submit_training_proof',
+                call_module="Staking",
+                call_function="submit_training_proof",
                 call_params={
-                    'round_number': submission.round_number,
-                    'genome_id': submission.genome_id,
-                    'samples_trained': submission.samples_trained,
-                    'training_time': int(submission.training_time * 1000),  # Convert to ms
-                    'quality_score': int(submission.quality_score * 100),  # Fixed point
-                    'timeliness_score': int(submission.timeliness_score * 100),
-                    'honesty_score': int(submission.honesty_score * 100),
-                    'model_hash': submission.model_hash,
-                }
+                    "round_number": submission.round_number,
+                    "genome_id": submission.genome_id,
+                    "samples_trained": submission.samples_trained,
+                    "training_time": int(
+                        submission.training_time * 1000
+                    ),  # Convert to ms
+                    "quality_score": int(submission.quality_score * 100),  # Fixed point
+                    "timeliness_score": int(submission.timeliness_score * 100),
+                    "honesty_score": int(submission.honesty_score * 100),
+                    "model_hash": submission.model_hash,
+                },
             )
 
             # Create and submit extrinsic
@@ -565,21 +578,29 @@ class StakingConnector:
                 # Record participation in Community pallet for SRS tracking
                 if self.enable_community_tracking and self.community_connector:
                     try:
-                        success, tx_hash = await self.community_connector.record_federated_learning_contribution(
-                            account_id=submission.participant_id,
-                            round_number=submission.round_number,
-                            quality_score=submission.quality_score,
-                            samples_trained=submission.samples_trained,
-                            training_duration_seconds=int(submission.training_time)
+                        success, tx_hash = (
+                            await self.community_connector.record_federated_learning_contribution(
+                                account_id=submission.participant_id,
+                                round_number=submission.round_number,
+                                quality_score=submission.quality_score,
+                                samples_trained=submission.samples_trained,
+                                training_duration_seconds=int(submission.training_time),
+                            )
                         )
 
                         if success:
-                            logger.info(f"Community participation recorded (SRS updated): {tx_hash}")
+                            logger.info(
+                                f"Community participation recorded (SRS updated): {tx_hash}"
+                            )
                         else:
-                            logger.warning("Failed to record community participation (SRS not updated)")
+                            logger.warning(
+                                "Failed to record community participation (SRS not updated)"
+                            )
 
                     except Exception as e:
-                        logger.error(f"Community tracking error (continuing anyway): {e}")
+                        logger.error(
+                            f"Community tracking error (continuing anyway): {e}"
+                        )
 
                 return True
             else:
@@ -620,7 +641,9 @@ class StakingConnector:
                 participant = self._mock_participants[account_id]
                 # Simple reward calculation: 10 DALLA per round * avg fitness
                 reward = int(
-                    participant.training_rounds_completed * 10 * PLANCK_PER_DALLA  # 10 DALLA
+                    participant.training_rounds_completed
+                    * 10
+                    * PLANCK_PER_DALLA  # 10 DALLA
                     * (participant.avg_fitness_score / 100)
                 )
                 logger.info(
@@ -638,9 +661,9 @@ class StakingConnector:
         try:
             # Create claim call
             call = self.substrate.compose_call(
-                call_module='Staking',
-                call_function='claim_training_rewards',
-                call_params={}
+                call_module="Staking",
+                call_function="claim_training_rewards",
+                call_params={},
             )
 
             # Create and submit extrinsic
@@ -658,9 +681,11 @@ class StakingConnector:
                 # Extract reward amount from events
                 reward_amount = 0
                 for event in receipt.triggered_events:
-                    if event.value['module_id'] == 'Staking' and \
-                       event.value['event_id'] == 'RewardsClaimed':
-                        reward_amount = event.value['attributes']['amount']
+                    if (
+                        event.value["module_id"] == "Staking"
+                        and event.value["event_id"] == "RewardsClaimed"
+                    ):
+                        reward_amount = event.value["attributes"]["amount"]
                         break
 
                 logger.info(
@@ -692,8 +717,8 @@ class StakingConnector:
 
         try:
             result = self.substrate.query(
-                module='Staking',
-                storage_function='TotalAITrainerStake',
+                module="Staking",
+                storage_function="TotalAITrainerStake",
             )
             return result.value if result.value else 0
         except Exception as e:
@@ -711,23 +736,25 @@ class StakingConnector:
         try:
             # Query all AI trainers
             result = self.substrate.query_map(
-                module='Staking',
-                storage_function='AITrainers',
+                module="Staking",
+                storage_function="AITrainers",
             )
 
             participants = []
             for account_id, data in result:
-                participants.append(ParticipantInfo(
-                    account_id=str(account_id),
-                    stake_amount=data.value['stake_amount'],
-                    is_enrolled=data.value['is_enrolled'],
-                    training_rounds_completed=data.value['rounds_completed'],
-                    total_samples_trained=data.value['total_samples'],
-                    avg_fitness_score=data.value['avg_fitness'],
-                    last_submission=data.value.get('last_submission'),
-                    slashed_amount=data.value.get('slashed_amount', 0),
-                    reputation_score=data.value.get('reputation', 100.0),
-                ))
+                participants.append(
+                    ParticipantInfo(
+                        account_id=str(account_id),
+                        stake_amount=data.value["stake_amount"],
+                        is_enrolled=data.value["is_enrolled"],
+                        training_rounds_completed=data.value["rounds_completed"],
+                        total_samples_trained=data.value["total_samples"],
+                        avg_fitness_score=data.value["avg_fitness"],
+                        last_submission=data.value.get("last_submission"),
+                        slashed_amount=data.value.get("slashed_amount", 0),
+                        reputation_score=data.value.get("reputation", 100.0),
+                    )
+                )
 
             return participants
 

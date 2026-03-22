@@ -5,6 +5,7 @@ Each sensory modality (text, image, audio) is an AbstractCortex that
 produces a WorldState — the unified representation of "what is happening"
 passed downstream to the Core Cortex and Memory systems.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -32,6 +33,7 @@ class PerceptionWorldState:
         metadata         : Modality-specific annotations (confidence, lang, …).
         fused_embedding  : Multimodal fusion vector (set by SensoryHub).
     """
+
     text_embedding: Optional[List[float]] = None
     image_embedding: Optional[List[float]] = None
     audio_embedding: Optional[List[float]] = None

@@ -34,7 +34,6 @@ from nawal.genome import Genome, ModelBuilder, GenomeModel
 from nawal.server import ModelUpdate, TrainingMetrics
 from security.differential_privacy import create_dp_optimizer
 
-
 # =============================================================================
 # Training Configuration
 # =============================================================================
@@ -139,22 +138,34 @@ class GenomeTrainer:
         self.rounds_completed: int = 0
 
         # Data poisoning detection state
-        self.prediction_history: list[dict[str, torch.Tensor]] = []  # Last 30 prediction distributions
+        self.prediction_history: list[dict[str, torch.Tensor]] = (
+            []
+        )  # Last 30 prediction distributions
         self.loss_history: list[float] = []  # Last 50 loss values
-        self.activation_patterns: list[dict[str, torch.Tensor]] = []  # Last 20 activation snapshots
-        self.clean_data_baseline: dict[str, float] | None = None  # Baseline statistics on clean data
+        self.activation_patterns: list[dict[str, torch.Tensor]] = (
+            []
+        )  # Last 20 activation snapshots
+        self.clean_data_baseline: dict[str, float] | None = (
+            None  # Baseline statistics on clean data
+        )
 
         # Differential privacy state
         self.dp_config: Any | None = None  # DifferentialPrivacy config if enabled
-        self.gradient_clip_history: list[float] = []  # Last 30 gradient norms before clipping
+        self.gradient_clip_history: list[float] = (
+            []
+        )  # Last 30 gradient norms before clipping
         self.noise_scale_history: list[float] = []  # Last 30 noise scales applied
-        self.privacy_spent_history: list[tuple[float, int]] = []  # (epsilon_spent, steps) tracking
+        self.privacy_spent_history: list[tuple[float, int]] = (
+            []
+        )  # (epsilon_spent, steps) tracking
 
         # Data leakage detection state
         self.training_losses: list[float] = []  # Last 50 training losses
         self.validation_losses: list[float] = []  # Last 50 validation losses
         self.prediction_confidences: list[float] = []  # Last 100 prediction confidences
-        self.weight_update_magnitudes: list[float] = []  # Last 30 weight update magnitudes
+        self.weight_update_magnitudes: list[float] = (
+            []
+        )  # Last 30 weight update magnitudes
 
         logger.info(
             "Initialized GenomeTrainer",
@@ -163,7 +174,9 @@ class GenomeTrainer:
             mixed_precision=config.mixed_precision,
         )
 
-    def set_genome(self, genome: Genome, initial_weights: dict[str, torch.Tensor] | None = None) -> None:
+    def set_genome(
+        self, genome: Genome, initial_weights: dict[str, torch.Tensor] | None = None
+    ) -> None:
         """
         Set genome to train.
 
@@ -227,7 +240,7 @@ class GenomeTrainer:
         Returns:
             Dictionary of metrics
         """
-        if not hasattr(self, 'model'):
+        if not hasattr(self, "model"):
             raise ValueError("No model set. Call set_model() first.")
 
         model = self.model
@@ -237,10 +250,10 @@ class GenomeTrainer:
         optimizer = torch.optim.Adam(model.parameters(), lr=self.config.learning_rate)
 
         # Setup loss function based on config
-        loss_function = getattr(self.config, 'loss_function', 'cross_entropy')
-        if loss_function == 'mse':
+        loss_function = getattr(self.config, "loss_function", "cross_entropy")
+        if loss_function == "mse":
             criterion = nn.MSELoss()
-        elif loss_function == 'cross_entropy':
+        elif loss_function == "cross_entropy":
             criterion = nn.CrossEntropyLoss()
         else:
             criterion = nn.CrossEntropyLoss()  # Default
@@ -268,7 +281,9 @@ class GenomeTrainer:
                     # Extract logits and calculate loss
                     logits = outputs.get("logits", outputs.get("output", None))
                     if logits is None:
-                        raise ValueError("Model output dict must contain 'logits' or 'output' key")
+                        raise ValueError(
+                            "Model output dict must contain 'logits' or 'output' key"
+                        )
 
                     # Handle different output shapes
                     if logits.dim() == 3:  # (batch, seq, vocab)
@@ -305,7 +320,9 @@ class GenomeTrainer:
 
             # Gradient clipping
             if self.config.gradient_clip:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), self.config.gradient_clip)
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), self.config.gradient_clip
+                )
 
             optimizer.step()
 
@@ -329,17 +346,17 @@ class GenomeTrainer:
         Returns:
             Dictionary of metrics
         """
-        if not hasattr(self, 'model'):
+        if not hasattr(self, "model"):
             raise ValueError("No model set. Call set_model() first.")
 
         model = self.model
         model.eval()
 
         # Setup loss function based on config
-        loss_function = getattr(self.config, 'loss_function', 'cross_entropy')
-        if loss_function == 'mse':
+        loss_function = getattr(self.config, "loss_function", "cross_entropy")
+        if loss_function == "mse":
             criterion = nn.MSELoss()
-        elif loss_function == 'cross_entropy':
+        elif loss_function == "cross_entropy":
             criterion = nn.CrossEntropyLoss()
         else:
             criterion = nn.CrossEntropyLoss()  # Default
@@ -371,7 +388,9 @@ class GenomeTrainer:
                     else:
                         logits = outputs.get("logits", outputs.get("output", None))
                         if logits is None:
-                            raise ValueError("Model output dict must contain 'logits' or 'output' key")
+                            raise ValueError(
+                                "Model output dict must contain 'logits' or 'output' key"
+                            )
 
                     # Use logits for subsequent processing
                     outputs = logits if logits is not None else outputs["output"]
@@ -445,9 +464,9 @@ class GenomeTrainer:
 
         # Combined fitness
         fitness = (
-            quality_weight * quality_score +
-            timeliness_weight * timeliness_score +
-            honesty_weight * honesty_score
+            quality_weight * quality_score
+            + timeliness_weight * timeliness_score
+            + honesty_weight * honesty_score
         )
 
         return max(0.0, min(1.0, fitness))  # Clamp to [0, 1]
@@ -469,13 +488,13 @@ class GenomeTrainer:
         import torch
         from pathlib import Path
 
-        if not hasattr(self, 'model'):
+        if not hasattr(self, "model"):
             raise ValueError("No model to save")
 
         checkpoint = {
-            'epoch': epoch,
-            'model_state_dict': self.model.state_dict(),
-            'metrics': metrics,
+            "epoch": epoch,
+            "model_state_dict": self.model.state_dict(),
+            "metrics": metrics,
         }
 
         path = Path(filepath)
@@ -497,7 +516,7 @@ class GenomeTrainer:
         import torch
         from pathlib import Path
 
-        if not hasattr(self, 'model'):
+        if not hasattr(self, "model"):
             raise ValueError("No model to load checkpoint into")
 
         path = Path(filepath)
@@ -506,9 +525,9 @@ class GenomeTrainer:
 
         checkpoint = torch.load(path, map_location=self.device, weights_only=True)
 
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        epoch = checkpoint['epoch']
-        metrics = checkpoint['metrics']
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        epoch = checkpoint["epoch"]
+        metrics = checkpoint["metrics"]
 
         logger.info(f"Checkpoint loaded from {path} (epoch {epoch})")
 
@@ -539,7 +558,7 @@ class GenomeTrainer:
         Returns:
             Dictionary of final metrics with history
         """
-        if not hasattr(self, 'model'):
+        if not hasattr(self, "model"):
             raise ValueError("No model set. Call set_model() first.")
 
         # Handle positional arguments for backward compatibility
@@ -558,7 +577,9 @@ class GenomeTrainer:
         if train_data is None:
             raise ValueError("Must provide training data loader")
 
-        num_epochs = epochs or getattr(self.config, 'epochs', None) or self.config.local_epochs
+        num_epochs = (
+            epochs or getattr(self.config, "epochs", None) or self.config.local_epochs
+        )
 
         history = {
             "train_loss": [],
@@ -575,7 +596,9 @@ class GenomeTrainer:
                 val_metrics = self.evaluate(val_data)
                 history["val_loss"].append(val_metrics["loss"])
 
-            logger.info(f"Epoch {epoch + 1}/{start_epoch + num_epochs} - Loss: {train_metrics['loss']:.4f}")
+            logger.info(
+                f"Epoch {epoch + 1}/{start_epoch + num_epochs} - Loss: {train_metrics['loss']:.4f}"
+            )
 
         # Final evaluation on validation set if provided, otherwise on training set
         eval_data = val_data if val_data is not None else train_data
@@ -654,7 +677,10 @@ class GenomeTrainer:
 
             for batch_idx, batch in enumerate(train_loader):
                 # Check timeout
-                if time.time() - self.training_start_time > self.config.training_timeout:
+                if (
+                    time.time() - self.training_start_time
+                    > self.config.training_timeout
+                ):
                     logger.warning("Training timeout reached")
                     break
 
@@ -757,7 +783,9 @@ class GenomeTrainer:
         quality_score = self._calculate_quality_score(avg_loss, val_loss)
         timeliness_score = self._calculate_timeliness_score(training_time)
         honesty_score = self._calculate_honesty_score()
-        fitness_score = 0.4 * quality_score + 0.3 * timeliness_score + 0.3 * honesty_score
+        fitness_score = (
+            0.4 * quality_score + 0.3 * timeliness_score + 0.3 * honesty_score
+        )
 
         # Create training metrics
         metrics = TrainingMetrics(
@@ -1012,7 +1040,9 @@ class GenomeTrainer:
         # Check 4: Data poisoning detection (if data available)
         if predictions is not None or losses or activations:
             try:
-                poisoning_score = self._detect_data_poisoning(predictions, losses, activations)
+                poisoning_score = self._detect_data_poisoning(
+                    predictions, losses, activations
+                )
                 scores.append(("data_poisoning", poisoning_score))
             except Exception as e:
                 logger.error(f"Data poisoning detection failed: {e}")
@@ -1025,12 +1055,20 @@ class GenomeTrainer:
                 scores.append(("differential_privacy", dp_score))
             except Exception as e:
                 logger.error(f"Differential privacy verification failed: {e}")
-                scores.append(("differential_privacy", 0.0))  # Fail-closed: assume worst
+                scores.append(
+                    ("differential_privacy", 0.0)
+                )  # Fail-closed: assume worst
 
         # Check 6: Data leakage detection (train/val losses, predictions, gradients)
-        if (self.training_losses or self.validation_losses) or predictions is not None or gradients is not None:
+        if (
+            (self.training_losses or self.validation_losses)
+            or predictions is not None
+            or gradients is not None
+        ):
             try:
-                leakage_score = self._verify_data_leakage(gradients=gradients, predictions=predictions)
+                leakage_score = self._verify_data_leakage(
+                    gradients=gradients, predictions=predictions
+                )
                 scores.append(("data_leakage", leakage_score))
             except Exception as e:
                 logger.error(f"Data leakage verification failed: {e}")
@@ -1043,34 +1081,34 @@ class GenomeTrainer:
         # Dynamic weighting based on available checks
         if len(scores) == 6:  # All checks available (including DP and leakage)
             final_score = (
-                scores[0][1] * 0.12 +  # Gradient norms
-                scores[1][1] * 0.28 +  # Byzantine behavior
-                scores[2][1] * 0.10 +  # Weight magnitudes
-                scores[3][1] * 0.22 +  # Data poisoning
-                scores[4][1] * 0.18 +  # Differential privacy
-                scores[5][1] * 0.10    # Data leakage
+                scores[0][1] * 0.12  # Gradient norms
+                + scores[1][1] * 0.28  # Byzantine behavior
+                + scores[2][1] * 0.10  # Weight magnitudes
+                + scores[3][1] * 0.22  # Data poisoning
+                + scores[4][1] * 0.18  # Differential privacy
+                + scores[5][1] * 0.10  # Data leakage
             )
         elif len(scores) == 5:  # Without DP (data poisoning + leakage may be included)
             # If five checks, assume leakage or DP is missing; keep previous weighting but slightly adjust
             final_score = (
-                scores[0][1] * 0.18 +  # Gradient norms
-                scores[1][1] * 0.33 +  # Byzantine behavior
-                scores[2][1] * 0.12 +  # Weight magnitudes
-                scores[3][1] * 0.27 +  # Data poisoning
-                scores[4][1] * 0.10    # Remaining check (DP or leakage)
+                scores[0][1] * 0.18  # Gradient norms
+                + scores[1][1] * 0.33  # Byzantine behavior
+                + scores[2][1] * 0.12  # Weight magnitudes
+                + scores[3][1] * 0.27  # Data poisoning
+                + scores[4][1] * 0.10  # Remaining check (DP or leakage)
             )
         elif len(scores) == 4:  # Without DP and leakage (data poisoning included)
             final_score = (
-                scores[0][1] * 0.20 +  # Gradient norms
-                scores[1][1] * 0.35 +  # Byzantine behavior
-                scores[2][1] * 0.15 +  # Weight magnitudes
-                scores[3][1] * 0.30    # Data poisoning
+                scores[0][1] * 0.20  # Gradient norms
+                + scores[1][1] * 0.35  # Byzantine behavior
+                + scores[2][1] * 0.15  # Weight magnitudes
+                + scores[3][1] * 0.30  # Data poisoning
             )
         else:  # Only weight-based checks (fallback)
             final_score = (
-                scores[0][1] * 0.30 +  # Gradient norms
-                scores[1][1] * 0.50 +  # Byzantine behavior
-                scores[2][1] * 0.20    # Weight magnitudes
+                scores[0][1] * 0.30  # Gradient norms
+                + scores[1][1] * 0.50  # Byzantine behavior
+                + scores[2][1] * 0.20  # Weight magnitudes
             )
 
         if final_score < 70.0:
@@ -1158,7 +1196,9 @@ class GenomeTrainer:
                 if grad is None:
                     continue
 
-                per_sample_grad_norm = grad.flatten().norm(2).item() / (grad.numel() ** 0.5)
+                per_sample_grad_norm = grad.flatten().norm(2).item() / (
+                    grad.numel() ** 0.5
+                )
 
                 if per_sample_grad_norm > clip_norm * 1.1:  # 10% tolerance
                     logger.error(
@@ -1203,7 +1243,10 @@ class GenomeTrainer:
                     avg_recent_noise = sum(recent_noise) / len(recent_noise)
 
                     # Verify noise scale is consistent with DP config
-                    if abs(avg_recent_noise - expected_noise_scale) > expected_noise_scale * 0.2:
+                    if (
+                        abs(avg_recent_noise - expected_noise_scale)
+                        > expected_noise_scale * 0.2
+                    ):
                         logger.error(
                             f"DP violation: Noise scale mismatch! "
                             f"Expected: {expected_noise_scale:.4f}, "
@@ -1245,7 +1288,11 @@ class GenomeTrainer:
 
         # Check 2: Membership inference defense - gradients shouldn't be too specific
         # Large gradients on small models can leak training data presence
-        model_size_mb = self.current_model.get_memory_footprint() / 1024**2 if self.current_model is not None else None
+        model_size_mb = (
+            self.current_model.get_memory_footprint() / 1024**2
+            if self.current_model is not None
+            else None
+        )
         if model_size_mb is not None and model_size_mb < 10.0:  # Small models
             for name, grad in gradients.items():
                 if grad is None:
@@ -1272,7 +1319,9 @@ class GenomeTrainer:
                 mean = statistics.mean(recent_norms)
 
                 # High variance suggests overfitting to individual samples
-                if mean > 0 and variance / (mean ** 2) > 2.0:  # Coefficient of variation > sqrt(2)
+                if (
+                    mean > 0 and variance / (mean**2) > 2.0
+                ):  # Coefficient of variation > sqrt(2)
                     logger.warning(
                         f"Model inversion risk: High gradient norm variance "
                         f"(mean={mean:.4f}, var={variance:.4f}). "
@@ -1300,7 +1349,9 @@ class GenomeTrainer:
         """
         if not self.initial_weights:
             # First update, store as baseline (move to CPU for storage)
-            self.initial_weights = {k: v.clone().detach().cpu() for k, v in weights.items()}
+            self.initial_weights = {
+                k: v.clone().detach().cpu() for k, v in weights.items()
+            }
             return 100.0
 
         suspicious_count = 0
@@ -1354,7 +1405,11 @@ class GenomeTrainer:
 
         if "embed" in layer_lower or "embedding" in layer_lower:
             return 50.0  # Embeddings can have larger gradients
-        elif "output" in layer_lower or "classifier" in layer_lower or "head" in layer_lower:
+        elif (
+            "output" in layer_lower
+            or "classifier" in layer_lower
+            or "head" in layer_lower
+        ):
             return 100.0  # Output layers vary more
         elif "norm" in layer_lower or "layernorm" in layer_lower:
             return 10.0  # Normalization layers should be small
@@ -1502,12 +1557,13 @@ class GenomeTrainer:
         current_std = flat_weights.std().item()
 
         # Compare with historical distribution
-        historical_means = [stats['mean'] for stats in self.update_statistics]
-        historical_stds = [stats['std'] for stats in self.update_statistics]
+        historical_means = [stats["mean"] for stats in self.update_statistics]
+        historical_stds = [stats["std"] for stats in self.update_statistics]
 
         mean_of_means = sum(historical_means) / len(historical_means)
         std_of_means = (
-            sum((m - mean_of_means) ** 2 for m in historical_means) / len(historical_means)
+            sum((m - mean_of_means) ** 2 for m in historical_means)
+            / len(historical_means)
         ) ** 0.5
 
         mean_of_stds = sum(historical_stds) / len(historical_stds)
@@ -1645,11 +1701,13 @@ class GenomeTrainer:
 
         flat_weights = torch.cat(weight_values)
 
-        self.update_statistics.append({
-            'mean': flat_weights.mean().item(),
-            'std': flat_weights.std().item(),
-            'timestamp': time.time(),
-        })
+        self.update_statistics.append(
+            {
+                "mean": flat_weights.mean().item(),
+                "std": flat_weights.std().item(),
+                "timestamp": time.time(),
+            }
+        )
 
         # Keep only last 50 updates
         if len(self.update_statistics) > 50:
@@ -1863,7 +1921,11 @@ class GenomeTrainer:
         q75 = loss_tensor.quantile(0.75).item()
         q25 = loss_tensor.quantile(0.25).item()
         iqr = q75 - q25
-        outlier_count = ((loss_tensor > q75 + 1.5 * iqr) | (loss_tensor < q25 - 1.5 * iqr)).sum().item()
+        outlier_count = (
+            ((loss_tensor > q75 + 1.5 * iqr) | (loss_tensor < q25 - 1.5 * iqr))
+            .sum()
+            .item()
+        )
         outlier_ratio = outlier_count / len(losses)
 
         # Scoring logic
@@ -1948,7 +2010,9 @@ class GenomeTrainer:
             # High similarity (0.7-1.0) = 75-100 points
             return 75.0 + (avg_similarity - 0.7) * (25.0 / 0.3)
 
-    def _check_feature_distribution(self, activations: dict[str, torch.Tensor]) -> float:
+    def _check_feature_distribution(
+        self, activations: dict[str, torch.Tensor]
+    ) -> float:
         """
         Check if feature distributions match historical patterns.
 
@@ -1987,7 +2051,9 @@ class GenomeTrainer:
             # Calculate historical statistics
             hist_means = [act.flatten().mean().item() for act in hist_acts]
             hist_mean_avg = sum(hist_means) / len(hist_means)
-            hist_mean_std = (sum((m - hist_mean_avg) ** 2 for m in hist_means) / len(hist_means)) ** 0.5
+            hist_mean_std = (
+                sum((m - hist_mean_avg) ** 2 for m in hist_means) / len(hist_means)
+            ) ** 0.5
 
             # Guard against tiny variance to avoid over-triggering
             variance_floor = max(abs(hist_mean_avg) * 0.05, 1e-3)
@@ -2085,7 +2151,9 @@ class GenomeTrainer:
     def _store_activations(self, activations: dict[str, torch.Tensor]) -> None:
         """Store activation patterns for historical comparison."""
         # Store on CPU to avoid device issues
-        act_cpu = {name: act.detach().cpu().clone() for name, act in activations.items()}
+        act_cpu = {
+            name: act.detach().cpu().clone() for name, act in activations.items()
+        }
         self.activation_patterns.append(act_cpu)
 
         # Keep last 20 activation patterns
@@ -2235,7 +2303,11 @@ class GenomeTrainer:
             self.privacy_spent_history = self.privacy_spent_history[-50:]
 
         # Calculate remaining budget ratio
-        remaining_ratio = (target_epsilon - spent_epsilon) / target_epsilon if target_epsilon > 0 else 0.0
+        remaining_ratio = (
+            (target_epsilon - spent_epsilon) / target_epsilon
+            if target_epsilon > 0
+            else 0.0
+        )
 
         # Scoring based on remaining budget
         if spent_epsilon > target_epsilon:
@@ -2281,7 +2353,9 @@ class GenomeTrainer:
         # Calculate deviation from expected
         deviations = []
         for noise_scale in recent_noise:
-            relative_deviation = abs(noise_scale - expected_noise_scale) / (expected_noise_scale + 1e-6)
+            relative_deviation = abs(noise_scale - expected_noise_scale) / (
+                expected_noise_scale + 1e-6
+            )
             deviations.append(relative_deviation)
 
         avg_deviation = sum(deviations) / len(deviations)
@@ -2486,7 +2560,9 @@ class GenomeTrainer:
             return 100.0
 
         # Calculate average confidence
-        avg_confidence = sum(self.prediction_confidences) / len(self.prediction_confidences)
+        avg_confidence = sum(self.prediction_confidences) / len(
+            self.prediction_confidences
+        )
 
         # Scoring based on confidence (sweet spot: 0.6-0.9)
         if 0.6 <= avg_confidence <= 0.9:
@@ -2540,12 +2616,19 @@ class GenomeTrainer:
             "total_rounds": len(self.training_metrics),
             "total_samples": sum(m.samples_trained for m in self.training_metrics),
             "total_training_time": sum(m.training_time for m in self.training_metrics),
-            "avg_loss": sum(m.train_loss for m in self.training_metrics) / len(self.training_metrics),
-            "avg_quality": sum(m.quality_score for m in self.training_metrics) / len(self.training_metrics),
-            "avg_timeliness": sum(m.timeliness_score for m in self.training_metrics) / len(self.training_metrics),
-            "avg_honesty": sum(m.honesty_score for m in self.training_metrics) / len(self.training_metrics),
-            "avg_fitness": sum(m.fitness_score for m in self.training_metrics) / len(self.training_metrics),
-            "current_genome_id": self.current_genome.genome_id if self.current_genome else None,
+            "avg_loss": sum(m.train_loss for m in self.training_metrics)
+            / len(self.training_metrics),
+            "avg_quality": sum(m.quality_score for m in self.training_metrics)
+            / len(self.training_metrics),
+            "avg_timeliness": sum(m.timeliness_score for m in self.training_metrics)
+            / len(self.training_metrics),
+            "avg_honesty": sum(m.honesty_score for m in self.training_metrics)
+            / len(self.training_metrics),
+            "avg_fitness": sum(m.fitness_score for m in self.training_metrics)
+            / len(self.training_metrics),
+            "current_genome_id": (
+                self.current_genome.genome_id if self.current_genome else None
+            ),
         }
 
 

@@ -18,6 +18,7 @@ Phase 5a: train the cross-attention projection on Belize dataset.
 Replace ``_project_fuse()`` — the public ``fuse()`` / ``encode()`` API
 is unchanged.
 """
+
 from __future__ import annotations
 
 import math
@@ -30,10 +31,10 @@ from loguru import logger
 from perception.interfaces import AbstractCortex, WorldState
 from perception.text_cortex import _l2_normalize, _project
 
-
 # --------------------------------------------------------------------------- #
 # Learned projector (optional, used only if weights loaded)                   #
 # --------------------------------------------------------------------------- #
+
 
 class _ModalityProjector(nn.Module):
     """
@@ -59,6 +60,7 @@ class _ModalityProjector(nn.Module):
 # MultimodalCortex                                                             #
 # --------------------------------------------------------------------------- #
 
+
 class MultimodalCortex:
     """
     Fuse text, image, and audio embeddings into a single world-state vector.
@@ -78,7 +80,7 @@ class MultimodalCortex:
         self,
         hidden_dim: int = 256,
         fusion_strategy: str = "weighted",
-        text_weight: float  = 1.0,
+        text_weight: float = 1.0,
         image_weight: float = 0.8,
         audio_weight: float = 0.7,
         device: str = "auto",
@@ -88,24 +90,27 @@ class MultimodalCortex:
                 f"fusion_strategy must be one of {self.STRATEGIES}, "
                 f"got {fusion_strategy!r}"
             )
-        self.hidden_dim       = hidden_dim
-        self.fusion_strategy  = fusion_strategy
-        self.text_weight      = text_weight
-        self.image_weight     = image_weight
-        self.audio_weight     = audio_weight
+        self.hidden_dim = hidden_dim
+        self.fusion_strategy = fusion_strategy
+        self.text_weight = text_weight
+        self.image_weight = image_weight
+        self.audio_weight = audio_weight
         self.device = (
-            "cuda" if torch.cuda.is_available() else "cpu"
-        ) if device == "auto" else device
+            ("cuda" if torch.cuda.is_available() else "cpu")
+            if device == "auto"
+            else device
+        )
 
         # Lazy-initialised projectors (used only in "projection" mode)
         self._projectors: Dict[str, Optional[_ModalityProjector]] = {
-            "text": None, "image": None, "audio": None
+            "text": None,
+            "image": None,
+            "audio": None,
         }
         self._projectors_trained = False
 
         logger.debug(
-            f"MultimodalCortex init: dim={hidden_dim} "
-            f"strategy={fusion_strategy}"
+            f"MultimodalCortex init: dim={hidden_dim} " f"strategy={fusion_strategy}"
         )
 
     # ------------------------------------------------------------------ #
@@ -125,17 +130,17 @@ class MultimodalCortex:
             Returns zero vector if no embeddings are present.
         """
         embeddings: Dict[str, List[float]] = {}
-        weights:    Dict[str, float]       = {}
+        weights: Dict[str, float] = {}
 
         if world_state.text_embedding is not None:
-            embeddings["text"]  = world_state.text_embedding
-            weights["text"]     = self.text_weight
+            embeddings["text"] = world_state.text_embedding
+            weights["text"] = self.text_weight
         if world_state.image_embedding is not None:
             embeddings["image"] = world_state.image_embedding
-            weights["image"]    = self.image_weight
+            weights["image"] = self.image_weight
         if world_state.audio_embedding is not None:
             embeddings["audio"] = world_state.audio_embedding
-            weights["audio"]    = self.audio_weight
+            weights["audio"] = self.audio_weight
 
         if not embeddings:
             logger.warning("MultimodalCortex.fuse: no embeddings available")
@@ -210,9 +215,7 @@ class MultimodalCortex:
                         in_dim, self.hidden_dim
                     ).to(self.device)
                     proj = self._projectors[key]
-                t = proj(
-                    torch.tensor(vec, device=self.device).unsqueeze(0)
-                ).squeeze(0)
+                t = proj(torch.tensor(vec, device=self.device).unsqueeze(0)).squeeze(0)
             acc_tensor += t
         return acc_tensor.detach().cpu().tolist()
 
@@ -221,14 +224,15 @@ class MultimodalCortex:
         for key, vec in embeddings.items():
             if self._projectors[key] is None:
                 in_dim = len(vec)
-                self._projectors[key] = _ModalityProjector(
-                    in_dim, self.hidden_dim
-                ).to(self.device)
+                self._projectors[key] = _ModalityProjector(in_dim, self.hidden_dim).to(
+                    self.device
+                )
 
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
+
 
 def _maybe_project(vec: List[float], dim: int) -> List[float]:
     """Project or truncate *vec* to *dim* dimensions."""

@@ -55,23 +55,29 @@ from .population import (
 # Alias for backward compatibility
 Population = PopulationManager
 
+
 # Stub functions for backward compatibility with orchestrator
 def select_parents(population, count: int):
     """Select parents from population (stub - use PopulationManager.select_parents)."""
     return population.select_parents(count)
 
+
 def crossover(parent1, parent2, generation: int = 0):
     """Crossover two genomes (stub - use CrossoverOperator.crossover)."""
     from .operators import CrossoverOperator, CrossoverConfig
+
     op = CrossoverOperator(CrossoverConfig())
     return op.crossover(parent1, parent2, generation)
+
 
 def mutate(genome, generation: int | None = None):
     """Mutate a genome (stub - use MutationOperator.mutate)."""
     from .operators import MutationOperator, MutationConfig
+
     op = MutationOperator(MutationConfig())
     gen = generation if generation is not None else genome.generation + 1
     return op.mutate(genome, gen)
+
 
 # Evolution history
 from .history import (

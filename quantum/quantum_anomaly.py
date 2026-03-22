@@ -33,6 +33,7 @@ PhaseHook (Phase 5 Kinich live)
 Replace ``_quantum_kernel_score()`` body with a real Kinich HTTP call
 that returns per-sample kernel distances.
 """
+
 from __future__ import annotations
 
 import time
@@ -41,10 +42,10 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from loguru import logger
 
-
 # --------------------------------------------------------------------------- #
 # QuantumAnomalyDetector                                                       #
 # --------------------------------------------------------------------------- #
+
 
 class QuantumAnomalyDetector:
     """
@@ -74,30 +75,30 @@ class QuantumAnomalyDetector:
         rff_components: int = 256,
         random_state: int = 42,
     ) -> None:
-        self._connector           = connector
+        self._connector = connector
         self.fallback_to_classical = fallback_to_classical
-        self.simulation_mode      = simulation_mode
-        self.contamination        = contamination
-        self.n_qubits             = n_qubits
-        self.rff_components       = rff_components
+        self.simulation_mode = simulation_mode
+        self.contamination = contamination
+        self.n_qubits = n_qubits
+        self.rff_components = rff_components
 
         self._rng = np.random.default_rng(random_state)
-        self._fitted  = False
+        self._fitted = False
 
         # Fit artefacts (classical path)
         self._mean_vec: Optional[np.ndarray] = None
-        self._cov_inv:  Optional[np.ndarray] = None   # precision matrix
-        self._stds:     Optional[np.ndarray] = None   # per-feature stds (fallback)
+        self._cov_inv: Optional[np.ndarray] = None  # precision matrix
+        self._stds: Optional[np.ndarray] = None  # per-feature stds (fallback)
         self._threshold: float = 0.5
 
         # Fit artefacts (RFF path)
         self._rff_weights: Optional[np.ndarray] = None  # (D, rff_components)
-        self._rff_biases:  Optional[np.ndarray] = None  # (rff_components,)
-        self._rff_mean:    Optional[np.ndarray] = None  # mean RFF of normal data
-        self._rff_gamma:   float = 1.0
+        self._rff_biases: Optional[np.ndarray] = None  # (rff_components,)
+        self._rff_mean: Optional[np.ndarray] = None  # mean RFF of normal data
+        self._rff_gamma: float = 1.0
 
         self.stats: Dict[str, int] = {
-            "quantum_calls":   0,
+            "quantum_calls": 0,
             "simulated_calls": 0,
             "classical_calls": 0,
         }
@@ -131,7 +132,7 @@ class QuantumAnomalyDetector:
 
         # Classical statistics
         self._mean_vec = X.mean(axis=0)
-        self._stds     = X.std(axis=0) + 1e-9       # per-feature fallback
+        self._stds = X.std(axis=0) + 1e-9  # per-feature fallback
 
         if n > d:
             cov = np.cov(X, rowvar=False)
@@ -140,15 +141,17 @@ class QuantumAnomalyDetector:
             except np.linalg.LinAlgError:
                 self._cov_inv = None
         else:
-            self._cov_inv = None   # Not enough samples for full covariance
+            self._cov_inv = None  # Not enough samples for full covariance
 
         # RFF artefacts for simulated quantum kernel
         gamma = 1.0 / d
-        self._rff_gamma   = gamma
-        self._rff_weights = self._rng.normal(0, np.sqrt(2 * gamma), (d, self.rff_components))
-        self._rff_biases  = self._rng.uniform(0, 2 * np.pi, self.rff_components)
-        phi_X             = self._rff_transform(X)
-        self._rff_mean    = phi_X.mean(axis=0)
+        self._rff_gamma = gamma
+        self._rff_weights = self._rng.normal(
+            0, np.sqrt(2 * gamma), (d, self.rff_components)
+        )
+        self._rff_biases = self._rng.uniform(0, 2 * np.pi, self.rff_components)
+        phi_X = self._rff_transform(X)
+        self._rff_mean = phi_X.mean(axis=0)
 
         # Calibrate threshold so approximately contamination fraction are flagged
         raw_scores = self._compute_scores(X, mode="auto")
@@ -253,7 +256,7 @@ class QuantumAnomalyDetector:
         Score = distance in RFF space from the normal-data centroid.
         """
         phi_X = self._rff_transform(X)
-        diff  = phi_X - self._rff_mean
+        diff = phi_X - self._rff_mean
         return np.linalg.norm(diff, axis=1)
 
     def _quantum_score(self, X: np.ndarray) -> np.ndarray:
@@ -262,7 +265,9 @@ class QuantumAnomalyDetector:
 
         PhaseHook — Phase 5: replace with Kinich HTTP call.
         """
-        logger.debug("QuantumAnomalyDetector: Kinich live — using RFF proxy (Phase 5 TBD)")
+        logger.debug(
+            "QuantumAnomalyDetector: Kinich live — using RFF proxy (Phase 5 TBD)"
+        )
         return self._simulated_kernel_score(X)
 
     # ------------------------------------------------------------------ #
@@ -299,8 +304,8 @@ class QuantumAnomalyDetector:
         return {
             **self.stats,
             "total_calls": total,
-            "threshold":   self._threshold,
-            "fitted":      self._fitted,
+            "threshold": self._threshold,
+            "fitted": self._fitted,
             "quantum_ratio": (
                 self.stats["quantum_calls"] / total if total > 0 else 0.0
             ),

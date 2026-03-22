@@ -20,6 +20,7 @@ Usage::
     plans   = planner.generate_plans(goal, world_state, n_candidates=3)
     best    = planner.select_plan(plans)
 """
+
 from __future__ import annotations
 
 import uuid
@@ -28,7 +29,6 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from control.interfaces import AbstractPlanner, Goal, GoalStatus, Plan
-
 
 # --------------------------------------------------------------------------- #
 # Step templates                                                               #
@@ -39,56 +39,87 @@ from control.interfaces import AbstractPlanner, Goal, GoalStatus, Plan
 _TEMPLATES: Dict[str, List[List[Dict[str, Any]]]] = {
     "retrieve": [
         [
-            {"tool": "memory_read",  "args": {"query": "{goal}", "top_k": 5}},
-            {"tool": "respond",      "args": {"source": "memory"}},
+            {"tool": "memory_read", "args": {"query": "{goal}", "top_k": 5}},
+            {"tool": "respond", "args": {"source": "memory"}},
         ],
         [
-            {"tool": "search",       "args": {"query": "{goal}"}},
+            {"tool": "search", "args": {"query": "{goal}"}},
             {"tool": "memory_write", "args": {"content": "{goal}"}},
-            {"tool": "respond",      "args": {"source": "search"}},
+            {"tool": "respond", "args": {"source": "search"}},
         ],
     ],
     "analyse": [
         [
-            {"tool": "memory_read",  "args": {"query": "{goal}", "top_k": 8}},
-            {"tool": "reason",       "args": {"task": "{goal}", "mode": "chain_of_thought"}},
-            {"tool": "respond",      "args": {"source": "reasoning"}},
+            {"tool": "memory_read", "args": {"query": "{goal}", "top_k": 8}},
+            {"tool": "reason", "args": {"task": "{goal}", "mode": "chain_of_thought"}},
+            {"tool": "respond", "args": {"source": "reasoning"}},
         ],
     ],
     "generate": [
         [
-            {"tool": "reason",    "args": {"task": "{goal}", "mode": "generative"}},
-            {"tool": "validate",  "args": {"content": "{goal}"}},
-            {"tool": "respond",   "args": {"source": "generation"}},
+            {"tool": "reason", "args": {"task": "{goal}", "mode": "generative"}},
+            {"tool": "validate", "args": {"content": "{goal}"}},
+            {"tool": "respond", "args": {"source": "generation"}},
         ],
         [
             {"tool": "memory_read", "args": {"query": "{goal}", "top_k": 4}},
-            {"tool": "reason",      "args": {"task": "{goal}", "mode": "generative"}},
-            {"tool": "respond",     "args": {"source": "rag_generation"}},
+            {"tool": "reason", "args": {"task": "{goal}", "mode": "generative"}},
+            {"tool": "respond", "args": {"source": "rag_generation"}},
         ],
     ],
     "act": [
         [
-            {"tool": "validate",  "args": {"action": "{goal}"}},
-            {"tool": "execute",   "args": {"command": "{goal}"}},
+            {"tool": "validate", "args": {"action": "{goal}"}},
+            {"tool": "execute", "args": {"command": "{goal}"}},
             {"tool": "memory_write", "args": {"content": "executed: {goal}"}},
         ],
     ],
     "default": [
         [
             {"tool": "memory_read", "args": {"query": "{goal}", "top_k": 5}},
-            {"tool": "reason",      "args": {"task": "{goal}", "mode": "chain_of_thought"}},
-            {"tool": "respond",     "args": {"source": "default"}},
+            {"tool": "reason", "args": {"task": "{goal}", "mode": "chain_of_thought"}},
+            {"tool": "respond", "args": {"source": "default"}},
         ],
     ],
 }
 
 # Keywords that trigger each template type
 _INTENT_KEYWORDS: Dict[str, List[str]] = {
-    "retrieve": ["retrieve", "find", "get", "fetch", "look up", "search", "what is", "who is", "where is", "tell me", "recall", "remember"],
-    "analyse":  ["analyse", "analyze", "explain", "summarise", "summarize", "compare", "evaluate", "why"],
-    "generate": ["write", "create", "generate", "draft", "compose", "make", "build", "design"],
-    "act":      ["execute", "run", "call", "send", "post", "deploy", "update", "delete"],
+    "retrieve": [
+        "retrieve",
+        "find",
+        "get",
+        "fetch",
+        "look up",
+        "search",
+        "what is",
+        "who is",
+        "where is",
+        "tell me",
+        "recall",
+        "remember",
+    ],
+    "analyse": [
+        "analyse",
+        "analyze",
+        "explain",
+        "summarise",
+        "summarize",
+        "compare",
+        "evaluate",
+        "why",
+    ],
+    "generate": [
+        "write",
+        "create",
+        "generate",
+        "draft",
+        "compose",
+        "make",
+        "build",
+        "design",
+    ],
+    "act": ["execute", "run", "call", "send", "post", "deploy", "update", "delete"],
 }
 
 
@@ -101,13 +132,17 @@ def _detect_intent(description: str) -> str:
     return "default"
 
 
-def _fill_template(template: List[Dict[str, Any]], goal_desc: str) -> List[Dict[str, Any]]:
+def _fill_template(
+    template: List[Dict[str, Any]], goal_desc: str
+) -> List[Dict[str, Any]]:
     """Substitute {goal} placeholders in a template copy."""
     filled = []
     for raw_step in template:
         step = {"tool": raw_step["tool"], "args": {}}
         for k, v in raw_step.get("args", {}).items():
-            step["args"][k] = v.format_map({"goal": goal_desc}) if isinstance(v, str) else v
+            step["args"][k] = (
+                v.format_map({"goal": goal_desc}) if isinstance(v, str) else v
+            )
         filled.append(step)
     return filled
 
@@ -115,6 +150,7 @@ def _fill_template(template: List[Dict[str, Any]], goal_desc: str) -> List[Dict[
 # --------------------------------------------------------------------------- #
 # ClassicalPlanner                                                             #
 # --------------------------------------------------------------------------- #
+
 
 class ClassicalPlanner(AbstractPlanner):
     """
@@ -165,11 +201,9 @@ class ClassicalPlanner(AbstractPlanner):
             )
             return []
 
-        intent   = _detect_intent(goal.description)
+        intent = _detect_intent(goal.description)
         variants = _TEMPLATES.get(intent, _TEMPLATES["default"])
-        logger.debug(
-            f"Planner detected intent={intent!r} for goal={goal.goal_id!r}"
-        )
+        logger.debug(f"Planner detected intent={intent!r} for goal={goal.goal_id!r}")
 
         plans: List[Plan] = []
         for template in variants:
@@ -198,16 +232,16 @@ class ClassicalPlanner(AbstractPlanner):
 
         # Fall back: always provide at least one plan
         if not plans:
-            fallback_steps = _fill_template(
-                _TEMPLATES["default"][0], goal.description
+            fallback_steps = _fill_template(_TEMPLATES["default"][0], goal.description)
+            plans.append(
+                Plan(
+                    plan_id=str(uuid.uuid4()),
+                    goal_id=goal.goal_id,
+                    steps=fallback_steps,
+                    score=self.base_confidence * 0.5,
+                    metadata={"intent": "fallback"},
+                )
             )
-            plans.append(Plan(
-                plan_id=str(uuid.uuid4()),
-                goal_id=goal.goal_id,
-                steps=fallback_steps,
-                score=self.base_confidence * 0.5,
-                metadata={"intent": "fallback"},
-            ))
 
         logger.info(
             f"Planner generated {len(plans)} plan(s) "
@@ -236,10 +270,11 @@ class ClassicalPlanner(AbstractPlanner):
 
         if constraints:
             max_steps = constraints.get("max_steps")
-            required  = set(constraints.get("required_tools") or [])
+            required = set(constraints.get("required_tools") or [])
 
             candidates = [
-                p for p in candidates
+                p
+                for p in candidates
                 if (max_steps is None or len(p.steps) <= max_steps)
                 and (not required or required.issubset({s["tool"] for s in p.steps}))
             ]
@@ -249,6 +284,7 @@ class ClassicalPlanner(AbstractPlanner):
                 if max_steps is not None and max_steps > 0:
                     fallback = max(plans, key=lambda p: p.score)
                     import dataclasses
+
                     truncated = dataclasses.replace(
                         fallback,
                         plan_id=str(uuid.uuid4()),
@@ -292,8 +328,7 @@ class ClassicalPlanner(AbstractPlanner):
         unknown = 0
         if self.available_tools is not None:
             unknown = sum(
-                1 for s in plan.steps
-                if s["tool"] not in self.available_tools
+                1 for s in plan.steps if s["tool"] not in self.available_tools
             )
         feasibility = max(0.0, 1.0 - unknown * 0.1)
 

@@ -23,7 +23,6 @@ from enum import Enum, auto
 from typing import Any
 from loguru import logger
 
-
 # =============================================================================
 # Participant Status
 # =============================================================================
@@ -32,13 +31,13 @@ from loguru import logger
 class ParticipantStatus(Enum):
     """Status of a participant in federated learning."""
 
-    PENDING = auto()        # Waiting for enrollment approval
-    ACTIVE = auto()         # Actively participating
-    IDLE = auto()           # Enrolled but not submitting updates
-    OFFLINE = auto()        # Not responding
-    SUSPENDED = auto()      # Temporarily suspended
-    BYZANTINE = auto()      # Detected as malicious
-    SLASHED = auto()        # Slashed for poor performance
+    PENDING = auto()  # Waiting for enrollment approval
+    ACTIVE = auto()  # Actively participating
+    IDLE = auto()  # Enrolled but not submitting updates
+    OFFLINE = auto()  # Not responding
+    SUSPENDED = auto()  # Temporarily suspended
+    BYZANTINE = auto()  # Detected as malicious
+    SLASHED = auto()  # Slashed for poor performance
 
 
 # =============================================================================
@@ -61,12 +60,16 @@ class Participant:
     # Identity
     participant_id: str
     validator_address: str  # Blockchain address
-    staking_account: str    # Staking account ID
+    staking_account: str  # Staking account ID
 
     # Status
     status: ParticipantStatus = ParticipantStatus.PENDING
-    enrolled_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    last_seen: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    enrolled_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
+    last_seen: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
 
     # Contributions
     rounds_participated: int = 0
@@ -137,7 +140,9 @@ class Participant:
         self.avg_quality = ((n - 1) * self.avg_quality + quality) / n
         self.avg_timeliness = ((n - 1) * self.avg_timeliness + timeliness) / n
         self.avg_honesty = ((n - 1) * self.avg_honesty + honesty) / n
-        self.avg_fitness = 0.4 * self.avg_quality + 0.3 * self.avg_timeliness + 0.3 * self.avg_honesty
+        self.avg_fitness = (
+            0.4 * self.avg_quality + 0.3 * self.avg_timeliness + 0.3 * self.avg_honesty
+        )
 
         self.last_seen = datetime.now(timezone.utc).isoformat()
 
@@ -354,8 +359,7 @@ class ParticipantManager:
     def get_active_participants(self) -> list[Participant]:
         """Get all active participants."""
         return [
-            p for p in self.participants.values()
-            if p.is_active(self.activity_timeout)
+            p for p in self.participants.values() if p.is_active(self.activity_timeout)
         ]
 
     def update_participant_status(
@@ -442,7 +446,7 @@ class ParticipantManager:
         if participant.byzantine_detections >= self.byzantine_threshold:
             participant.update_status(
                 ParticipantStatus.BYZANTINE,
-                f"Exceeded Byzantine threshold ({self.byzantine_threshold})"
+                f"Exceeded Byzantine threshold ({self.byzantine_threshold})",
             )
 
             logger.warning(
@@ -476,7 +480,9 @@ class ParticipantManager:
                     f"Participant {participant.participant_id} below slashing threshold",
                     fitness=participant.avg_fitness,
                 )
-                participant.update_status(ParticipantStatus.SLASHED, "Fitness below 50%")
+                participant.update_status(
+                    ParticipantStatus.SLASHED, "Fitness below 50%"
+                )
                 continue
 
             # Calculate reward
@@ -513,17 +519,60 @@ class ParticipantManager:
         return {
             "total_participants": len(self.participants),
             "active_participants": len(active),
-            "pending": len([p for p in self.participants.values() if p.status == ParticipantStatus.PENDING]),
-            "idle": len([p for p in self.participants.values() if p.status == ParticipantStatus.IDLE]),
-            "offline": len([p for p in self.participants.values() if p.status == ParticipantStatus.OFFLINE]),
-            "byzantine": len([p for p in self.participants.values() if p.status == ParticipantStatus.BYZANTINE]),
-            "slashed": len([p for p in self.participants.values() if p.status == ParticipantStatus.SLASHED]),
-            "avg_fitness": sum(p.avg_fitness for p in active) / len(active) if active else 0.0,
-            "avg_reputation": sum(p.reputation_score for p in self.participants.values()) / len(self.participants),
-            "total_contributions": sum(p.rounds_participated for p in self.participants.values()),
-            "total_samples": sum(p.total_samples_trained for p in self.participants.values()),
-            "total_rewards_distributed": sum(p.total_rewards for p in self.participants.values()),
-            "pending_rewards": sum(p.pending_rewards for p in self.participants.values()),
+            "pending": len(
+                [
+                    p
+                    for p in self.participants.values()
+                    if p.status == ParticipantStatus.PENDING
+                ]
+            ),
+            "idle": len(
+                [
+                    p
+                    for p in self.participants.values()
+                    if p.status == ParticipantStatus.IDLE
+                ]
+            ),
+            "offline": len(
+                [
+                    p
+                    for p in self.participants.values()
+                    if p.status == ParticipantStatus.OFFLINE
+                ]
+            ),
+            "byzantine": len(
+                [
+                    p
+                    for p in self.participants.values()
+                    if p.status == ParticipantStatus.BYZANTINE
+                ]
+            ),
+            "slashed": len(
+                [
+                    p
+                    for p in self.participants.values()
+                    if p.status == ParticipantStatus.SLASHED
+                ]
+            ),
+            "avg_fitness": (
+                sum(p.avg_fitness for p in active) / len(active) if active else 0.0
+            ),
+            "avg_reputation": sum(
+                p.reputation_score for p in self.participants.values()
+            )
+            / len(self.participants),
+            "total_contributions": sum(
+                p.rounds_participated for p in self.participants.values()
+            ),
+            "total_samples": sum(
+                p.total_samples_trained for p in self.participants.values()
+            ),
+            "total_rewards_distributed": sum(
+                p.total_rewards for p in self.participants.values()
+            ),
+            "pending_rewards": sum(
+                p.pending_rewards for p in self.participants.values()
+            ),
         }
 
 

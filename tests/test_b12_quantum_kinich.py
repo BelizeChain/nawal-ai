@@ -5,6 +5,7 @@ C12.1  Feature extraction correctness (input validation, NaN/Inf guards, determi
 C12.2  Kinich response handling (missing key, shape mismatch, integration shim re-exports)
 C12.3  Timeout & circuit breaker (configurable timeout, breaker open/close/reset)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,8 +21,8 @@ from quantum.kinich_connector import (
     TORCH_AVAILABLE,
 )
 
-
 # ── Helper ────────────────────────────────────────────────────────────────────
+
 
 def _connector(**kwargs) -> KinichQuantumConnector:
     """Build a KinichQuantumConnector with the health-check mocked out."""
@@ -59,6 +60,7 @@ def _mock_kinich_session(response_json: dict, status: int = 200):
 # ══════════════════════════════════════════════════════════════════════════════
 # C12.1  Feature extraction correctness
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestC12_1_FeatureValidation:
     """Input validation, NaN/Inf guards, deterministic fallback."""
@@ -120,6 +122,7 @@ class TestC12_1_FeatureValidation:
 # C12.2  Kinich response handling
 # ══════════════════════════════════════════════════════════════════════════════
 
+
 class TestC12_2_ResponseHandling:
     """Missing key, shape mismatch, integration shim correctness."""
 
@@ -129,7 +132,9 @@ class TestC12_2_ResponseHandling:
         conn = _quantum_connector(classical_dim=8)
         features = np.ones((2, 8))
         resp_json = {"wrong_key": [[0.0] * 8, [0.0] * 8]}
-        with patch("aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)):
+        with patch(
+            "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
+        ):
             with pytest.raises(RuntimeError, match="quantum_enhanced_features"):
                 asyncio.run(conn._quantum_forward(features, "vqc"))
 
@@ -140,7 +145,9 @@ class TestC12_2_ResponseHandling:
         features = np.ones((2, 8))
         # Return 3 rows instead of 2
         resp_json = {"quantum_enhanced_features": [[0.0] * 8] * 3}
-        with patch("aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)):
+        with patch(
+            "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
+        ):
             with pytest.raises(RuntimeError, match="shape"):
                 asyncio.run(conn._quantum_forward(features, "vqc"))
 
@@ -148,7 +155,9 @@ class TestC12_2_ResponseHandling:
         conn = _quantum_connector(classical_dim=8)
         features = np.ones((2, 8))
         resp_json = {"quantum_enhanced_features": np.ones((2, 8)).tolist()}
-        with patch("aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)):
+        with patch(
+            "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
+        ):
             result = asyncio.run(conn._quantum_forward(features, "vqc"))
         assert isinstance(result, np.ndarray)
         assert result.shape == (2, 8)
@@ -159,7 +168,9 @@ class TestC12_2_ResponseHandling:
         conn = _quantum_connector(classical_dim=8)
         features = np.ones((2, 8))
         resp_json = {"quantum_enhanced_features": np.ones((2, 8)).tolist()}
-        with patch("aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)):
+        with patch(
+            "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
+        ):
             result = asyncio.run(conn.quantum_process(features))
         assert conn.stats["quantum_calls"] == 1
         assert conn.stats["fallback_calls"] == 0
@@ -174,6 +185,7 @@ class TestC12_2_ResponseHandling:
             QuantumEnhancedLayer as IntLayer,
             TORCH_AVAILABLE as IntTorch,
         )
+
         assert IntConn is KinichQuantumConnector
         assert IntLayer is QuantumEnhancedLayer
         assert IntTorch is TORCH_AVAILABLE
@@ -182,6 +194,7 @@ class TestC12_2_ResponseHandling:
 # ══════════════════════════════════════════════════════════════════════════════
 # C12.3  Timeout & circuit breaker
 # ══════════════════════════════════════════════════════════════════════════════
+
 
 class TestC12_3_TimeoutAndCircuitBreaker:
     """Configurable timeout, circuit breaker open / close / reset."""
@@ -212,7 +225,9 @@ class TestC12_3_TimeoutAndCircuitBreaker:
             captured_timeout = kwargs.get("total")
             return original_client_timeout(**kwargs)
 
-        with patch("aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)):
+        with patch(
+            "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
+        ):
             with patch("aiohttp.ClientTimeout", side_effect=capture_timeout):
                 asyncio.run(conn._quantum_forward(features, "vqc"))
 
@@ -233,7 +248,9 @@ class TestC12_3_TimeoutAndCircuitBreaker:
     # ── circuit breaker opens after N failures ────────────────────────────
 
     def test_circuit_breaker_opens_after_threshold_failures(self):
-        conn = _quantum_connector(classical_dim=8, circuit_breaker_threshold=3, enable_caching=False)
+        conn = _quantum_connector(
+            classical_dim=8, circuit_breaker_threshold=3, enable_caching=False
+        )
         rng = np.random.default_rng(0)
 
         # Mock aiohttp to always fail
@@ -270,14 +287,18 @@ class TestC12_3_TimeoutAndCircuitBreaker:
 
         features = np.ones((2, 8))
         resp_json = {"quantum_enhanced_features": np.ones((2, 8)).tolist()}
-        with patch("aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)):
+        with patch(
+            "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
+        ):
             asyncio.run(conn.quantum_process(features))
 
         assert conn._consecutive_failures == 0
 
     def test_circuit_breaker_reopens_correctly(self):
         """After recovery (close), breaker can re-open on new failure streak."""
-        conn = _quantum_connector(classical_dim=8, circuit_breaker_threshold=2, enable_caching=False)
+        conn = _quantum_connector(
+            classical_dim=8, circuit_breaker_threshold=2, enable_caching=False
+        )
         # Simulate a recovered state
         conn._consecutive_failures = 0
         conn._circuit_open = False

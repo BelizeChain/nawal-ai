@@ -20,10 +20,10 @@ from pathlib import Path
 from nawal.client.genome_trainer import GenomeTrainer
 from nawal.genome.dna import DNA
 
-
 # ============================================================================
 # GenomeTrainer Tests
 # ============================================================================
+
 
 class TestGenomeTrainer:
     """Test GenomeTrainer functionality."""
@@ -45,7 +45,9 @@ class TestGenomeTrainer:
         trainer = GenomeTrainer(config=training_config)
         trainer.set_model(sample_model)
 
-        initial_params = {name: param.clone() for name, param in sample_model.named_parameters()}
+        initial_params = {
+            name: param.clone() for name, param in sample_model.named_parameters()
+        }
 
         metrics = trainer.train_epoch(sample_dataloader)
 
@@ -67,7 +69,9 @@ class TestGenomeTrainer:
         assert "accuracy" in metrics
         assert 0 <= metrics["accuracy"] <= 1
 
-    def test_full_training_loop(self, sample_model, train_val_dataloaders, training_config):
+    def test_full_training_loop(
+        self, sample_model, train_val_dataloaders, training_config
+    ):
         """Test complete training loop."""
         trainer = GenomeTrainer(config=training_config)
         trainer.set_model(sample_model)
@@ -124,6 +128,7 @@ class TestGenomeTrainer:
 # Fitness Calculation Tests
 # ============================================================================
 
+
 class TestFitnessCalculation:
     """Test fitness score calculation for PoUW."""
 
@@ -140,7 +145,9 @@ class TestFitnessCalculation:
         assert 0 <= fitness <= 1
         assert abs(fitness - accuracy) < 0.5  # Fitness related to accuracy
 
-    def test_multi_metric_fitness(self, sample_model, sample_dataloader, training_config):
+    def test_multi_metric_fitness(
+        self, sample_model, sample_dataloader, training_config
+    ):
         """Test fitness considering multiple metrics."""
         trainer = GenomeTrainer(config=training_config)
         trainer.set_model(sample_model)
@@ -157,7 +164,9 @@ class TestFitnessCalculation:
 
         assert 0 <= fitness <= 1
 
-    def test_fitness_with_training_time(self, sample_model, sample_dataloader, training_config):
+    def test_fitness_with_training_time(
+        self, sample_model, sample_dataloader, training_config
+    ):
         """Test fitness penalizes slow training."""
         import time
 
@@ -201,6 +210,7 @@ class TestFitnessCalculation:
 # Checkpoint Management Tests
 # ============================================================================
 
+
 class TestCheckpointManagement:
     """Test checkpoint saving and loading."""
 
@@ -231,7 +241,9 @@ class TestCheckpointManagement:
         assert epoch == 5
         assert metrics["loss"] == 0.3
 
-    def test_resume_training(self, sample_model, train_val_dataloaders, checkpoint_dir, training_config):
+    def test_resume_training(
+        self, sample_model, train_val_dataloaders, checkpoint_dir, training_config
+    ):
         """Test resuming training from checkpoint."""
         trainer = GenomeTrainer(config=training_config)
         trainer.set_model(sample_model)
@@ -258,6 +270,7 @@ class TestCheckpointManagement:
 # ============================================================================
 # Loss Function Tests
 # ============================================================================
+
 
 class TestLossFunctions:
     """Test various loss functions."""
@@ -312,6 +325,7 @@ class TestLossFunctions:
 # Integration Tests
 # ============================================================================
 
+
 @pytest.mark.integration
 class TestTrainingIntegration:
     """Integration tests for training workflow."""
@@ -339,7 +353,9 @@ class TestTrainingIntegration:
         assert "accuracy" in eval_metrics
         assert 0 <= fitness <= 1
 
-    def test_multiple_genomes_training(self, sample_population, sample_dataloader, training_config):
+    def test_multiple_genomes_training(
+        self, sample_population, sample_dataloader, training_config
+    ):
         """Test training multiple genomes."""
         from nawal.model_builder import ModelBuilder
 
@@ -381,11 +397,14 @@ class TestTrainingIntegration:
 # Performance Tests
 # ============================================================================
 
+
 @pytest.mark.benchmark
 class TestTrainingPerformance:
     """Performance benchmarks for training."""
 
-    def test_training_throughput(self, sample_model, sample_dataloader, training_config):
+    def test_training_throughput(
+        self, sample_model, sample_dataloader, training_config
+    ):
         """Test training throughput (samples/sec)."""
         import time
 
@@ -412,7 +431,7 @@ class TestTrainingPerformance:
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats()
             trainer.train_epoch(sample_dataloader)
-            peak_memory = torch.cuda.max_memory_allocated() / (1024 ** 2)  # MB
+            peak_memory = torch.cuda.max_memory_allocated() / (1024**2)  # MB
 
             # Should use reasonable memory
             assert peak_memory < 1000  # Less than 1GB

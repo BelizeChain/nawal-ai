@@ -24,7 +24,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 from loguru import logger
 
-
 # =============================================================================
 # Evolution Configuration
 # =============================================================================
@@ -109,7 +108,9 @@ class EvolutionConfig(BaseModel):
     def validate_elitism(cls, v: int, info) -> int:
         """Ensure elitism_count is less than population_size."""
         if "population_size" in info.data and v >= info.data["population_size"]:
-            raise ValueError(f"elitism_count ({v}) must be < population_size ({info.data['population_size']})")
+            raise ValueError(
+                f"elitism_count ({v}) must be < population_size ({info.data['population_size']})"
+            )
         return v
 
 
@@ -122,7 +123,16 @@ class FederatedConfig(BaseModel):
     """Configuration for federated learning."""
 
     # Strategy
-    aggregation_strategy: Literal["fedavg", "fedprox", "fedadam", "krum", "multi_krum", "trimmed_mean", "median", "phocas"] = Field(
+    aggregation_strategy: Literal[
+        "fedavg",
+        "fedprox",
+        "fedadam",
+        "krum",
+        "multi_krum",
+        "trimmed_mean",
+        "median",
+        "phocas",
+    ] = Field(
         default="fedavg",
         description="Federated aggregation strategy",
     )
@@ -620,7 +630,7 @@ class NawalConfig(BaseModel):
                 continue
 
             # Remove prefix and convert to nested dict
-            key = key[len(prefix):].lower()
+            key = key[len(prefix) :].lower()
             parts = key.split("__")
 
             # Navigate/create nested structure
@@ -663,7 +673,9 @@ class NawalConfig(BaseModel):
             NawalConfig instance
         """
         config_dict = cls._env_to_dict(prefix)
-        logger.info(f"Loaded configuration from environment variables (prefix={prefix})")
+        logger.info(
+            f"Loaded configuration from environment variables (prefix={prefix})"
+        )
         return cls(**config_dict)
 
     def to_yaml(self, path: str | Path) -> None:
@@ -713,6 +725,7 @@ class NawalConfig(BaseModel):
     def create_directories(self) -> None:
         """Create all configured directories."""
         from pathlib import Path as _Path
+
         _Path(self.storage.checkpoint_dir).mkdir(parents=True, exist_ok=True)
         _Path(self.storage.log_dir).mkdir(parents=True, exist_ok=True)
         _Path(self.storage.data_dir).mkdir(parents=True, exist_ok=True)
@@ -769,6 +782,7 @@ def load_config(
             logger.info(f"Loaded base configuration from {path}")
         elif path.suffix == ".json":
             import json
+
             with open(path, "r") as f:
                 base_dict = json.load(f)
             logger.info(f"Loaded base configuration from {path}")

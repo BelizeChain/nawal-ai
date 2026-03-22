@@ -31,17 +31,19 @@ from .data_loader import BelizeDataLoader, ComplianceDataFilter
 # Configure logging for Belize compliance
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler('belizechain_federated_training.log'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler("belizechain_federated_training.log"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class BelizeTrainingConfig:
     """Configuration for BelizeChain federated training participant"""
+
     participant_id: str
     model_name: str = "belizechain-llm-base"
     learning_rate: float = 1e-4
@@ -52,6 +54,7 @@ class BelizeTrainingConfig:
     data_sovereignty_check: bool = True
     azure_endpoint: Optional[str] = None
     encryption_key_path: Optional[str] = None
+
 
 class BelizeChainFederatedClient(fl.client.NumPyClient):
     """
@@ -78,13 +81,15 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
             if self.config.quantization_bits < 16:
                 self.model = QuantizedBelizeModel(
                     model_name=self.config.model_name,
-                    bits=self.config.quantization_bits
+                    bits=self.config.quantization_bits,
                 ).to(self.device)
-                logger.info(f"Loaded quantized model ({self.config.quantization_bits}-bit)")
+                logger.info(
+                    f"Loaded quantized model ({self.config.quantization_bits}-bit)"
+                )
             else:
-                self.model = BelizeChainLLM(
-                    model_name=self.config.model_name
-                ).to(self.device)
+                self.model = BelizeChainLLM(model_name=self.config.model_name).to(
+                    self.device
+                )
                 logger.info("Loaded full-precision model")
 
         except Exception as e:
@@ -97,8 +102,10 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
             self.data_loader = BelizeDataLoader(
                 participant_id=self.config.participant_id,
                 batch_size=self.config.batch_size,
-                compliance_filter=self.compliance_filter if self.config.compliance_mode else None,
-                data_sovereignty_check=self.config.data_sovereignty_check
+                compliance_filter=(
+                    self.compliance_filter if self.config.compliance_mode else None
+                ),
+                data_sovereignty_check=self.config.data_sovereignty_check,
             )
             logger.info("Data loader initialized with compliance filtering")
 
@@ -133,7 +140,9 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
             state_dict[k] = t
         self.model.load_state_dict(state_dict, strict=True)
 
-    def fit(self, parameters: List[np.ndarray], config: Dict) -> Tuple[List[np.ndarray], int, Dict]:
+    def fit(
+        self, parameters: List[np.ndarray], config: Dict
+    ) -> Tuple[List[np.ndarray], int, Dict]:
         """
         Local training round with privacy preservation
 
@@ -144,7 +153,9 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
         Returns:
             Updated parameters, number of samples, training metrics
         """
-        logger.info(f"Starting local training round for participant {self.config.participant_id}")
+        logger.info(
+            f"Starting local training round for participant {self.config.participant_id}"
+        )
 
         # Set global parameters
         self.set_parameters(parameters)
@@ -152,8 +163,7 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
         # Prepare model for training
         self.model.train()
         optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            lr=self.config.learning_rate
+            self.model.parameters(), lr=self.config.learning_rate
         )
 
         total_loss = 0.0
@@ -175,9 +185,9 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
 
                 # Forward pass
                 outputs = self.model(
-                    input_ids=batch['input_ids'].to(self.device),
-                    attention_mask=batch['attention_mask'].to(self.device),
-                    labels=batch['labels'].to(self.device)
+                    input_ids=batch["input_ids"].to(self.device),
+                    attention_mask=batch["attention_mask"].to(self.device),
+                    labels=batch["labels"].to(self.device),
                 )
 
                 loss = outputs.loss
@@ -189,35 +199,38 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
                 optimizer.step()
 
                 epoch_loss += loss.item()
-                epoch_samples += batch['input_ids'].size(0)
+                epoch_samples += batch["input_ids"].size(0)
 
             total_loss += epoch_loss
             num_samples += epoch_samples
 
-            logger.info(f"Epoch {epoch + 1}/{self.config.local_epochs}: "
-                       f"Loss = {epoch_loss / max(epoch_samples, 1):.4f}")
+            logger.info(
+                f"Epoch {epoch + 1}/{self.config.local_epochs}: "
+                f"Loss = {epoch_loss / max(epoch_samples, 1):.4f}"
+            )
 
         # Privacy-preserving parameter extraction
         updated_parameters = self.get_parameters({})
 
         # Apply differential privacy if configured
-        if config.get('differential_privacy', False):
+        if config.get("differential_privacy", False):
             updated_parameters = self._apply_differential_privacy(
-                updated_parameters,
-                config.get('privacy_budget', 1.0)
+                updated_parameters, config.get("privacy_budget", 1.0)
             )
 
         metrics = {
-            'loss': total_loss / max(num_samples, 1),
-            'num_samples': num_samples,
-            'participant_id': self.config.participant_id,
-            'compliance_checks_passed': self.compliance_filter.get_stats()
+            "loss": total_loss / max(num_samples, 1),
+            "num_samples": num_samples,
+            "participant_id": self.config.participant_id,
+            "compliance_checks_passed": self.compliance_filter.get_stats(),
         }
 
         logger.info(f"Local training completed: {metrics}")
         return updated_parameters, num_samples, metrics
 
-    def evaluate(self, parameters: List[np.ndarray], config: Dict) -> Tuple[float, int, Dict]:
+    def evaluate(
+        self, parameters: List[np.ndarray], config: Dict
+    ) -> Tuple[float, int, Dict]:
         """
         Local evaluation with privacy preservation
 
@@ -246,34 +259,38 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
                         continue
 
                 outputs = self.model(
-                    input_ids=batch['input_ids'].to(self.device),
-                    attention_mask=batch['attention_mask'].to(self.device),
-                    labels=batch['labels'].to(self.device)
+                    input_ids=batch["input_ids"].to(self.device),
+                    attention_mask=batch["attention_mask"].to(self.device),
+                    labels=batch["labels"].to(self.device),
                 )
 
                 total_loss += outputs.loss.item()
 
                 # Calculate accuracy for classification tasks
-                if hasattr(outputs, 'logits'):
+                if hasattr(outputs, "logits"):
                     predictions = torch.argmax(outputs.logits, dim=-1)
-                    accuracy = (predictions == batch['labels']).float().mean()
+                    accuracy = (predictions == batch["labels"]).float().mean()
                     total_accuracy += accuracy.item()
 
-                num_samples += batch['input_ids'].size(0)
+                num_samples += batch["input_ids"].size(0)
 
         avg_loss = total_loss / max(len(self.data_loader.get_eval_loader()), 1)
         avg_accuracy = total_accuracy / max(len(self.data_loader.get_eval_loader()), 1)
 
         metrics = {
-            'accuracy': avg_accuracy,
-            'participant_id': self.config.participant_id,
-            'evaluation_samples': num_samples
+            "accuracy": avg_accuracy,
+            "participant_id": self.config.participant_id,
+            "evaluation_samples": num_samples,
         }
 
-        logger.info(f"Evaluation completed: Loss={avg_loss:.4f}, Accuracy={avg_accuracy:.4f}")
+        logger.info(
+            f"Evaluation completed: Loss={avg_loss:.4f}, Accuracy={avg_accuracy:.4f}"
+        )
         return avg_loss, num_samples, metrics
 
-    def _apply_differential_privacy(self, parameters: List[np.ndarray], epsilon: float) -> List[np.ndarray]:
+    def _apply_differential_privacy(
+        self, parameters: List[np.ndarray], epsilon: float
+    ) -> List[np.ndarray]:
         """Apply differential privacy to model parameters using Gaussian mechanism.
 
         Uses L2-sensitivity with Gaussian noise, aligned with the Gaussian mechanism
@@ -297,12 +314,13 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
 
         return private_parameters
 
+
 def main():
     """Main entry point for BelizeChain federated training client"""
     config = BelizeTrainingConfig(
-        participant_id=os.getenv('BELIZECHAIN_PARTICIPANT_ID', 'default_participant'),
-        azure_endpoint=os.getenv('AZURE_ML_ENDPOINT'),
-        compliance_mode=os.getenv('BELIZECHAIN_COMPLIANCE', 'true').lower() == 'true'
+        participant_id=os.getenv("BELIZECHAIN_PARTICIPANT_ID", "default_participant"),
+        azure_endpoint=os.getenv("AZURE_ML_ENDPOINT"),
+        compliance_mode=os.getenv("BELIZECHAIN_COMPLIANCE", "true").lower() == "true",
     )
 
     # Initialize federated learning client
@@ -310,18 +328,18 @@ def main():
 
     # Start federated learning
     fl.client.start_numpy_client(
-        server_address=os.getenv('FL_SERVER_ADDRESS', 'localhost:8080'),
-        client=client
+        server_address=os.getenv("FL_SERVER_ADDRESS", "localhost:8080"), client=client
     )
+
 
 # Re-export GenomeTrainer for backward compatibility
 # New code should import from nawal.client.genome_trainer
 from .genome_trainer import GenomeTrainer
 
 __all__ = [
-    'BelizeTrainingConfig',
-    'BelizeChainFederatedClient',
-    'GenomeTrainer',  # Exported for backward compatibility
+    "BelizeTrainingConfig",
+    "BelizeChainFederatedClient",
+    "GenomeTrainer",  # Exported for backward compatibility
 ]
 
 if __name__ == "__main__":

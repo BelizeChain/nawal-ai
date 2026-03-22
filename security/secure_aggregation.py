@@ -34,6 +34,7 @@ try:
     from Crypto.PublicKey import RSA
     from Crypto.Random import get_random_bytes
     from Crypto.Util import number
+
     CRYPTO_AVAILABLE = True
 except ImportError:
     logger.warning(
@@ -46,6 +47,7 @@ except ImportError:
 @dataclass
 class PaillierPublicKey:
     """Paillier public key for homomorphic encryption."""
+
     n: int  # Modulus (n = p * q)
     g: int  # Generator
     n_squared: int  # n^2 for efficiency
@@ -111,6 +113,7 @@ class PaillierPublicKey:
 @dataclass
 class PaillierPrivateKey:
     """Paillier private key for decryption."""
+
     lambda_: int  # λ = lcm(p-1, q-1)
     mu: int  # μ = (L(g^λ mod n^2))^-1 mod n
     public_key: PaillierPublicKey
@@ -181,9 +184,7 @@ class PaillierKeyPair:
         # Create key pair
         self.public_key = PaillierPublicKey(n=n, g=g, n_squared=n_squared)
         self.private_key = PaillierPrivateKey(
-            lambda_=lambda_,
-            mu=mu,
-            public_key=self.public_key
+            lambda_=lambda_, mu=mu, public_key=self.public_key
         )
 
         logger.info(f"Generated Paillier key pair (key_size={key_size} bits)")
@@ -192,6 +193,7 @@ class PaillierKeyPair:
     def _lcm(a: int, b: int) -> int:
         """Compute least common multiple."""
         from math import gcd
+
         return abs(a * b) // gcd(a, b)
 
     def encrypt_float(self, value: float, scale: int = 1_000_000) -> int:
@@ -210,7 +212,7 @@ class PaillierKeyPair:
         scaled = int(value * scale)
 
         # Handle negative values (add offset)
-        offset = 2**(self.public_key.n.bit_length() // 2 - 1)
+        offset = 2 ** (self.public_key.n.bit_length() // 2 - 1)
         adjusted = scaled + offset
 
         # Encrypt
@@ -231,7 +233,7 @@ class PaillierKeyPair:
         adjusted = self.private_key.decrypt(ciphertext)
 
         # Remove offset
-        offset = 2**(self.public_key.n.bit_length() // 2 - 1)
+        offset = 2 ** (self.public_key.n.bit_length() // 2 - 1)
         scaled = adjusted - offset
 
         # Convert back to float
@@ -248,6 +250,7 @@ class EncryptionKey:
     - Homomorphic addition (E(a) + E(b) = E(a+b))
     - Scalar multiplication (k * E(a) = E(k*a))
     """
+
     paillier_keypair: Optional[PaillierKeyPair] = None
     # Legacy fields for backwards compatibility (no longer used)
     public_key: int = 0
@@ -425,17 +428,13 @@ class SecureAggregator:
                 seed_i = self.client_secrets.get(pair[0])
                 seed_j = self.client_secrets.get(pair[1])
                 if seed_i is None or seed_j is None:
-                    raise ValueError(
-                        f"Missing secret for client in pair {pair}"
-                    )
+                    raise ValueError(f"Missing secret for client in pair {pair}")
 
                 pairwise_seed = self._derive_pairwise_seed(seed_i, seed_j, pair)
 
                 # Deterministic mask generation from shared seed
                 gen = torch.Generator()
-                gen.manual_seed(
-                    int.from_bytes(pairwise_seed[:8], byteorder="big")
-                )
+                gen.manual_seed(int.from_bytes(pairwise_seed[:8], byteorder="big"))
 
                 masks = {}
                 for param_name, shape in model_shape.items():
@@ -657,7 +656,10 @@ class SecureAggregator:
                 for dropped_id in dropped_ids:
                     for active_id in participating_client_ids:
                         pair = (min(dropped_id, active_id), max(dropped_id, active_id))
-                        if pair in self.pairwise_masks and param_name in self.pairwise_masks[pair]:
+                        if (
+                            pair in self.pairwise_masks
+                            and param_name in self.pairwise_masks[pair]
+                        ):
                             mask = self.pairwise_masks[pair][param_name]
                             # The active client added this mask but the dropped
                             # client never subtracted it, so subtract here

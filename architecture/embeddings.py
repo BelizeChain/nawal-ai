@@ -30,22 +30,16 @@ class NawalEmbeddings(nn.Module):
 
         # Token embeddings (vocab_size -> hidden_size)
         self.token_embeddings = nn.Embedding(
-            config.vocab_size,
-            config.hidden_size,
-            padding_idx=config.pad_token_id
+            config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id
         )
 
         # Position embeddings (max_positions -> hidden_size)
         self.position_embeddings = nn.Embedding(
-            config.max_position_embeddings,
-            config.hidden_size
+            config.max_position_embeddings, config.hidden_size
         )
 
         # Layer normalization
-        self.layer_norm = nn.LayerNorm(
-            config.hidden_size,
-            eps=config.layer_norm_eps
-        )
+        self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
         # Dropout
         self.dropout = nn.Dropout(config.dropout)
@@ -56,9 +50,7 @@ class NawalEmbeddings(nn.Module):
     def _init_weights(self):
         """Initialize embedding weights with Xavier uniform"""
         nn.init.normal_(
-            self.token_embeddings.weight,
-            mean=0.0,
-            std=self.config.initializer_range
+            self.token_embeddings.weight, mean=0.0, std=self.config.initializer_range
         )
         # Keep padding token embedding at zero
         if self.config.pad_token_id is not None:
@@ -66,9 +58,7 @@ class NawalEmbeddings(nn.Module):
                 self.token_embeddings.weight[self.config.pad_token_id].fill_(0)
 
         nn.init.normal_(
-            self.position_embeddings.weight,
-            mean=0.0,
-            std=self.config.initializer_range
+            self.position_embeddings.weight, mean=0.0, std=self.config.initializer_range
         )
 
     def forward(
@@ -91,9 +81,7 @@ class NawalEmbeddings(nn.Module):
         # Create position IDs if not provided
         if position_ids is None:
             position_ids = torch.arange(
-                seq_len,
-                dtype=torch.long,
-                device=input_ids.device
+                seq_len, dtype=torch.long, device=input_ids.device
             )
             position_ids = position_ids.unsqueeze(0).expand(batch_size, seq_len)
 
@@ -131,16 +119,11 @@ class SinusoidalPositionalEmbedding(nn.Module):
         self.register_buffer(
             "positional_encoding",
             self._create_sinusoidal_embeddings(
-                config.max_position_embeddings,
-                config.hidden_size
-            )
+                config.max_position_embeddings, config.hidden_size
+            ),
         )
 
-    def _create_sinusoidal_embeddings(
-        self,
-        max_len: int,
-        d_model: int
-    ) -> torch.Tensor:
+    def _create_sinusoidal_embeddings(self, max_len: int, d_model: int) -> torch.Tensor:
         """Create sinusoidal positional embeddings"""
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)

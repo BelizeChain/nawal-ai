@@ -5,6 +5,7 @@ Covers:
   - monitoring/metrics.py   → MetricType, Metric, MetricsCollector
   - monitoring/metrics_collector.py → InferenceMetricsCollector
 """
+
 from __future__ import annotations
 
 import csv
@@ -18,10 +19,10 @@ import pytest
 from monitoring.metrics import MetricType, Metric, MetricsCollector
 from monitoring.metrics_collector import InferenceMetricsCollector
 
-
 # ===========================================================================
 # MetricType enum
 # ===========================================================================
+
 
 class TestMetricTypeEnum:
 
@@ -35,8 +36,13 @@ class TestMetricTypeEnum:
         assert MetricType.CPU_USAGE.value == "cpu_usage"
 
     def test_all_system_metrics_present(self):
-        system = {MetricType.CPU_USAGE, MetricType.MEMORY_USAGE,
-                  MetricType.DISK_USAGE, MetricType.NETWORK_SENT, MetricType.NETWORK_RECV}
+        system = {
+            MetricType.CPU_USAGE,
+            MetricType.MEMORY_USAGE,
+            MetricType.DISK_USAGE,
+            MetricType.NETWORK_SENT,
+            MetricType.NETWORK_RECV,
+        }
         for mt in system:
             assert mt in MetricType
 
@@ -44,6 +50,7 @@ class TestMetricTypeEnum:
 # ===========================================================================
 # Metric dataclass
 # ===========================================================================
+
 
 class TestMetricDataclass:
 
@@ -55,19 +62,22 @@ class TestMetricDataclass:
         assert m.metadata == {}
 
     def test_create_with_labels(self):
-        m = Metric(name="loss", value=0.5, timestamp=datetime.now(),
-                   labels={"epoch": "3"})
+        m = Metric(
+            name="loss", value=0.5, timestamp=datetime.now(), labels={"epoch": "3"}
+        )
         assert m.labels == {"epoch": "3"}
 
     def test_create_with_metadata(self):
-        m = Metric(name="loss", value=0.5, timestamp=datetime.now(),
-                   metadata={"run_id": "abc"})
+        m = Metric(
+            name="loss", value=0.5, timestamp=datetime.now(), metadata={"run_id": "abc"}
+        )
         assert m.metadata["run_id"] == "abc"
 
 
 # ===========================================================================
 # MetricsCollector — init & basics
 # ===========================================================================
+
 
 @pytest.fixture
 def collector() -> MetricsCollector:
@@ -90,6 +100,7 @@ class TestMetricsCollectorInit:
 # ===========================================================================
 # MetricsCollector — recording
 # ===========================================================================
+
 
 class TestMetricsCollectorRecord:
 
@@ -146,13 +157,13 @@ class TestMetricsCollectorRecord:
 # MetricsCollector — domain-specific helpers
 # ===========================================================================
 
+
 class TestMetricsCollectorDomainHelpers:
 
     def test_record_training_epoch_stores_4_metric_types(self, collector):
         before = len(collector.metrics)
         collector.record_training_epoch(
-            epoch=1, train_loss=0.5, train_acc=0.8,
-            val_loss=0.55, val_acc=0.78
+            epoch=1, train_loss=0.5, train_acc=0.8, val_loss=0.55, val_acc=0.78
         )
         # Should add 4 metrics (no epoch timing since start_epoch was not called)
         assert len(collector.metrics) - before == 4
@@ -162,8 +173,7 @@ class TestMetricsCollectorDomainHelpers:
         time.sleep(0.01)
         before = len(collector.metrics)
         collector.record_training_epoch(
-            epoch=2, train_loss=0.4, train_acc=0.85,
-            val_loss=0.45, val_acc=0.83
+            epoch=2, train_loss=0.4, train_acc=0.85, val_loss=0.45, val_acc=0.83
         )
         assert len(collector.metrics) - before == 5  # 4 + epoch_time
         # _epoch_start should be cleared
@@ -192,8 +202,7 @@ class TestMetricsCollectorDomainHelpers:
         assert collector.history[MetricType.BEST_FITNESS.value] == [0.92]
 
     def test_record_fitness_with_individual(self, collector):
-        collector.record_fitness(generation=1, best=0.9, average=0.7,
-                                  individual=0.85)
+        collector.record_fitness(generation=1, best=0.9, average=0.7, individual=0.85)
         assert MetricType.FITNESS_SCORE.value in collector.history
 
     def test_record_federated_round_stores_3_metrics(self, collector):
@@ -201,8 +210,7 @@ class TestMetricsCollectorDomainHelpers:
         time.sleep(0.01)
         before = len(collector.metrics)
         collector.record_federated_round(
-            round_num=3, num_clients=10,
-            aggregation_time=0.5, communication_cost=1024.0
+            round_num=3, num_clients=10, aggregation_time=0.5, communication_cost=1024.0
         )
         # CLIENT_COUNT, AGGREGATION_TIME, COMMUNICATION_COST, + ROUND_TIME = 4
         assert len(collector.metrics) - before == 4
@@ -210,8 +218,7 @@ class TestMetricsCollectorDomainHelpers:
     def test_record_federated_round_clears_round_start(self, collector):
         collector.start_federated_round()
         collector.record_federated_round(
-            round_num=1, num_clients=5,
-            aggregation_time=0.1, communication_cost=512.0
+            round_num=1, num_clients=5, aggregation_time=0.1, communication_cost=512.0
         )
         assert collector._round_start is None
 
@@ -229,8 +236,7 @@ class TestMetricsCollectorDomainHelpers:
     def test_record_blockchain_with_block_and_finalization(self, collector):
         before = len(collector.metrics)
         collector.record_blockchain_transaction(
-            success=True, tx_time=0.3,
-            block_number=12345, finalization_time=2.5
+            success=True, tx_time=0.3, block_number=12345, finalization_time=2.5
         )
         # success + tx_time + block_number + finalization_time = 4
         assert len(collector.metrics) - before == 4
@@ -239,6 +245,7 @@ class TestMetricsCollectorDomainHelpers:
 # ===========================================================================
 # MetricsCollector — retrieval
 # ===========================================================================
+
 
 class TestMetricsCollectorRetrieval:
 
@@ -259,7 +266,7 @@ class TestMetricsCollectorRetrieval:
         old_metric = Metric(
             name=MetricType.TRAINING_LOSS.value,
             value=0.9,
-            timestamp=datetime.now() - timedelta(minutes=10)
+            timestamp=datetime.now() - timedelta(minutes=10),
         )
         collector.metrics.append(old_metric)
         # Record a recent metric now
@@ -303,6 +310,7 @@ class TestMetricsCollectorRetrieval:
 # MetricsCollector — clear & export
 # ===========================================================================
 
+
 class TestMetricsCollectorClearExport:
 
     def test_clear_empties_metrics_and_history(self, collector):
@@ -313,8 +321,12 @@ class TestMetricsCollectorClearExport:
         assert collector.history == {}
 
     def test_export_csv_creates_file(self, collector, tmp_path):
-        collector.record(MetricType.TRAINING_LOSS, 0.5,
-                         labels={"epoch": "1"}, metadata={"note": "test"})
+        collector.record(
+            MetricType.TRAINING_LOSS,
+            0.5,
+            labels={"epoch": "1"},
+            metadata={"note": "test"},
+        )
         csv_path = tmp_path / "metrics.csv"
         collector.export_csv(csv_path)
         assert csv_path.exists()
@@ -341,6 +353,7 @@ class TestMetricsCollectorClearExport:
 # ===========================================================================
 # MetricsCollector — system metrics (psutil integration)
 # ===========================================================================
+
 
 class TestMetricsCollectorSystemMetrics:
 
@@ -376,6 +389,7 @@ class TestMetricsCollectorSystemMetrics:
 # InferenceMetricsCollector
 # ===========================================================================
 
+
 class TestInferenceMetricsCollector:
 
     def test_init_creates_prometheus_registry(self):
@@ -394,20 +408,14 @@ class TestInferenceMetricsCollector:
         mc = InferenceMetricsCollector()
         # Should not raise
         await mc.log_inference(
-            user_id="user1",
-            prompt_length=50,
-            output_length=100,
-            inference_time=500.0
+            user_id="user1", prompt_length=50, output_length=100, inference_time=500.0
         )
 
     @pytest.mark.asyncio
     async def test_log_inference_increments_request_counter(self):
         mc = InferenceMetricsCollector()
         await mc.log_inference(
-            user_id="userA",
-            prompt_length=10,
-            output_length=20,
-            inference_time=100.0
+            user_id="userA", prompt_length=10, output_length=20, inference_time=100.0
         )
         # Verify Prometheus metrics exported contain counter data
         exported = await mc.export_prometheus()

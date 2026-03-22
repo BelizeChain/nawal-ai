@@ -28,6 +28,7 @@ Usage::
     print(result["status"])    # "success" | "partial" | "failed"
     print(result["outputs"])   # per-step output list
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,10 +41,10 @@ from loguru import logger
 
 from control.interfaces import AbstractExecutor, Plan
 
-
 # --------------------------------------------------------------------------- #
 # ToolExecutor                                                                 #
 # --------------------------------------------------------------------------- #
+
 
 class ToolExecutor(AbstractExecutor):
     """
@@ -56,7 +57,7 @@ class ToolExecutor(AbstractExecutor):
 
     def __init__(
         self,
-        memory: Optional[Any] = None,   # MemoryManager — avoid circular import
+        memory: Optional[Any] = None,  # MemoryManager — avoid circular import
         timeout: float = 30.0,
     ) -> None:
         self._memory = memory
@@ -131,21 +132,25 @@ class ToolExecutor(AbstractExecutor):
                 break
 
             tool_name = step.get("tool", "noop")
-            args      = step.get("args", {})
-            required  = step.get("required", False)
+            args = step.get("args", {})
+            required = step.get("required", False)
 
             if dry_run:
-                outputs.append({
-                    "step": idx,
-                    "tool": tool_name,
-                    "result": {"dry_run": True, "args": args},
-                })
+                outputs.append(
+                    {
+                        "step": idx,
+                        "tool": tool_name,
+                        "result": {"dry_run": True, "args": args},
+                    }
+                )
                 continue
 
             if tool_name not in self._tools:
                 msg = f"Unknown tool {tool_name!r} at step {idx}"
                 logger.warning(msg)
-                outputs.append({"step": idx, "tool": tool_name, "result": None, "error": msg})
+                outputs.append(
+                    {"step": idx, "tool": tool_name, "result": None, "error": msg}
+                )
                 if required:
                     status, error = "failed", msg
                     break
@@ -159,7 +164,9 @@ class ToolExecutor(AbstractExecutor):
             except Exception as exc:
                 msg = f"Step {idx} {tool_name!r} raised: {exc}"
                 logger.error(msg)
-                outputs.append({"step": idx, "tool": tool_name, "result": None, "error": str(exc)})
+                outputs.append(
+                    {"step": idx, "tool": tool_name, "result": None, "error": str(exc)}
+                )
                 if required:
                     status, error = "failed", msg
                     break
@@ -202,6 +209,7 @@ class ToolExecutor(AbstractExecutor):
 
             if loop is not None and loop.is_running():
                 import concurrent.futures
+
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
                     return pool.submit(asyncio.run, fn(**args)).result(
                         timeout=self.timeout if self.timeout > 0 else None
@@ -229,7 +237,9 @@ class ToolExecutor(AbstractExecutor):
             records = self._memory.retrieve(emb, top_k=top_k)
             return {"records": [{"key": r.key, "content": r.content} for r in records]}
 
-        def _memory_write(content: str = "", metadata: Optional[Dict] = None, **_) -> Dict:
+        def _memory_write(
+            content: str = "", metadata: Optional[Dict] = None, **_
+        ) -> Dict:
             if self._memory is None:
                 return {"stored": False}
             rec = self._memory.store_text(
@@ -239,7 +249,7 @@ class ToolExecutor(AbstractExecutor):
             )
             return {"stored": True, "key": rec.key}
 
-        self._tools["memory_read"]  = _memory_read
+        self._tools["memory_read"] = _memory_read
         self._tools["memory_write"] = _memory_write
 
         # Stub tools that Phase 3+ will replace with real implementations
@@ -258,6 +268,7 @@ class ToolExecutor(AbstractExecutor):
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
 
+
 def _text_to_mock_embedding(text: str, dim: int = 768) -> List[float]:
     """
     Deterministic mock embedding from text hash.
@@ -265,6 +276,7 @@ def _text_to_mock_embedding(text: str, dim: int = 768) -> List[float]:
     """
     import hashlib
     import struct
+
     h = hashlib.sha256(text.encode()).digest()
     # Repeat hash bytes to fill dim floats
     repeated = (h * ((dim * 4 // len(h)) + 1))[: dim * 4]

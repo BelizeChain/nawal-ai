@@ -14,6 +14,7 @@ try:
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -56,7 +57,7 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
         max_seq_length: int = 512,
         dropout: float = 0.1,
         enable_quantum: bool = True,
-        quantum_position: str = "middle"
+        quantum_position: str = "middle",
     ):
         """
         Initialize Hybrid Quantum-Classical LLM.
@@ -101,7 +102,7 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
                 hidden_dim=hidden_dim,
                 num_heads=num_heads,
                 ff_dim=ff_dim,
-                dropout=dropout
+                dropout=dropout,
             )
 
             if i < quantum_layer_idx:
@@ -112,10 +113,9 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
         # Quantum enhancement layer
         if enable_quantum:
             from nawal.quantum.kinich_connector import QuantumEnhancedLayer
+
             self.quantum_layer = QuantumEnhancedLayer(
-                classical_dim=hidden_dim,
-                quantum_dim=quantum_dim,
-                model_type="qnn"
+                classical_dim=hidden_dim, quantum_dim=quantum_dim, model_type="qnn"
             )
         else:
             self.quantum_layer = None
@@ -147,10 +147,10 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
 
     def forward(
         self,
-        input_ids: 'torch.Tensor',
-        attention_mask: Optional['torch.Tensor'] = None,
-        return_intermediate: bool = False
-    ) -> Dict[str, 'torch.Tensor']:
+        input_ids: "torch.Tensor",
+        attention_mask: Optional["torch.Tensor"] = None,
+        return_intermediate: bool = False,
+    ) -> Dict[str, "torch.Tensor"]:
         """
         Forward pass through hybrid model.
 
@@ -168,11 +168,11 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
         batch_size, seq_length = input_ids.shape
 
         # Create position IDs
-        position_ids = torch.arange(
-            seq_length,
-            dtype=torch.long,
-            device=input_ids.device
-        ).unsqueeze(0).expand(batch_size, -1)
+        position_ids = (
+            torch.arange(seq_length, dtype=torch.long, device=input_ids.device)
+            .unsqueeze(0)
+            .expand(batch_size, -1)
+        )
 
         # Embeddings
         token_embeds = self.token_embedding(input_ids)
@@ -209,23 +209,23 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
         logits = self.output_projection(hidden_states)
 
         # Prepare outputs
-        outputs = {'logits': logits}
+        outputs = {"logits": logits}
 
         if return_intermediate:
-            outputs['hidden_states'] = hidden_states
+            outputs["hidden_states"] = hidden_states
             if quantum_enhanced is not None:
-                outputs['quantum_enhanced'] = quantum_enhanced
+                outputs["quantum_enhanced"] = quantum_enhanced
 
         return outputs
 
     def generate(
         self,
-        input_ids: 'torch.Tensor',
+        input_ids: "torch.Tensor",
         max_length: int = 50,
         temperature: float = 1.0,
         top_k: int = 50,
-        top_p: float = 0.95
-    ) -> 'torch.Tensor':
+        top_p: float = 0.95,
+    ) -> "torch.Tensor":
         """
         Generate text autoregressively.
 
@@ -247,17 +247,18 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
             for _ in range(max_length):
                 # Forward pass
                 outputs = self.forward(generated)
-                logits = outputs['logits']
+                logits = outputs["logits"]
 
                 # Get next token logits
                 next_token_logits = logits[:, -1, :] / temperature
 
                 # Apply top-k filtering
                 if top_k > 0:
-                    indices_to_remove = next_token_logits < torch.topk(
-                        next_token_logits, top_k
-                    )[0][..., -1, None]
-                    next_token_logits[indices_to_remove] = float('-inf')
+                    indices_to_remove = (
+                        next_token_logits
+                        < torch.topk(next_token_logits, top_k)[0][..., -1, None]
+                    )
+                    next_token_logits[indices_to_remove] = float("-inf")
 
                 # Sample next token
                 probs = F.softmax(next_token_logits, dim=-1)
@@ -279,19 +280,12 @@ class TransformerLayer(nn.Module):
     """Standard transformer layer."""
 
     def __init__(
-        self,
-        hidden_dim: int,
-        num_heads: int,
-        ff_dim: int,
-        dropout: float = 0.1
+        self, hidden_dim: int, num_heads: int, ff_dim: int, dropout: float = 0.1
     ):
         super().__init__()
 
         self.attention = nn.MultiheadAttention(
-            embed_dim=hidden_dim,
-            num_heads=num_heads,
-            dropout=dropout,
-            batch_first=True
+            embed_dim=hidden_dim, num_heads=num_heads, dropout=dropout, batch_first=True
         )
 
         self.feed_forward = nn.Sequential(
@@ -299,7 +293,7 @@ class TransformerLayer(nn.Module):
             nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(ff_dim, hidden_dim),
-            nn.Dropout(dropout)
+            nn.Dropout(dropout),
         )
 
         self.norm1 = nn.LayerNorm(hidden_dim)
@@ -307,10 +301,8 @@ class TransformerLayer(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(
-        self,
-        x: 'torch.Tensor',
-        attention_mask: Optional['torch.Tensor'] = None
-    ) -> 'torch.Tensor':
+        self, x: "torch.Tensor", attention_mask: Optional["torch.Tensor"] = None
+    ) -> "torch.Tensor":
         # Self-attention with residual
         attn_output, _ = self.attention(x, x, x, key_padding_mask=attention_mask)
         x = self.norm1(x + self.dropout(attn_output))

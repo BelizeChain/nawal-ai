@@ -28,6 +28,7 @@ try:
         GPT2Tokenizer,
         BertTokenizer,
     )
+
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
     TRANSFORMERS_AVAILABLE = False
@@ -36,6 +37,7 @@ except ImportError:
 
 class TokenizerType(Enum):
     """Supported tokenizer types."""
+
     GPT2 = "gpt2"
     GPT2_MEDIUM = "gpt2-medium"
     GPT2_LARGE = "gpt2-large"
@@ -61,6 +63,7 @@ class TokenizerConfig:
         add_special_tokens: Add [CLS], [SEP], etc.
         cache_dir: Directory for caching tokenizers
     """
+
     tokenizer_type: TokenizerType
     vocab_size: Optional[int] = None
     max_length: int = 512
@@ -152,7 +155,7 @@ class TextTokenizer:
         Returns:
             Token IDs
         """
-        if hasattr(self.tokenizer, 'encode'):
+        if hasattr(self.tokenizer, "encode"):
             if isinstance(self.tokenizer, (CharacterTokenizer, WordTokenizer)):
                 # Custom tokenizer — simple encode
                 return self.tokenizer.encode(text)
@@ -185,7 +188,7 @@ class TextTokenizer:
         Returns:
             Dictionary with 'input_ids', 'attention_mask', etc.
         """
-        if hasattr(self.tokenizer, 'batch_encode_plus'):
+        if hasattr(self.tokenizer, "batch_encode_plus"):
             # HuggingFace tokenizer
             return self.tokenizer.batch_encode_plus(
                 texts,
@@ -199,7 +202,7 @@ class TextTokenizer:
             # Custom tokenizer
             encoded = [self.tokenizer.encode(text) for text in texts]
             return {
-                'input_ids': torch.tensor(encoded),
+                "input_ids": torch.tensor(encoded),
             }
 
     def decode(
@@ -220,7 +223,7 @@ class TextTokenizer:
         if isinstance(token_ids, torch.Tensor):
             token_ids = token_ids.tolist()
 
-        if hasattr(self.tokenizer, 'decode'):
+        if hasattr(self.tokenizer, "decode"):
             if isinstance(self.tokenizer, (CharacterTokenizer, WordTokenizer)):
                 return self.tokenizer.decode(token_ids)
             else:
@@ -249,7 +252,7 @@ class TextTokenizer:
         if isinstance(token_ids, torch.Tensor):
             token_ids = token_ids.tolist()
 
-        if hasattr(self.tokenizer, 'batch_decode'):
+        if hasattr(self.tokenizer, "batch_decode"):
             return self.tokenizer.batch_decode(
                 token_ids,
                 skip_special_tokens=skip_special_tokens,
@@ -260,7 +263,7 @@ class TextTokenizer:
     @property
     def vocab_size(self) -> int:
         """Get vocabulary size."""
-        if hasattr(self.tokenizer, 'vocab_size'):
+        if hasattr(self.tokenizer, "vocab_size"):
             return self.tokenizer.vocab_size
         else:
             return len(self.tokenizer.vocab)
@@ -268,7 +271,7 @@ class TextTokenizer:
     @property
     def pad_token_id(self) -> int:
         """Get padding token ID."""
-        if hasattr(self.tokenizer, 'pad_token_id'):
+        if hasattr(self.tokenizer, "pad_token_id"):
             return self.tokenizer.pad_token_id
         else:
             return 0
@@ -276,7 +279,7 @@ class TextTokenizer:
     @property
     def eos_token_id(self) -> int:
         """Get end-of-sequence token ID."""
-        if hasattr(self.tokenizer, 'eos_token_id'):
+        if hasattr(self.tokenizer, "eos_token_id"):
             return self.tokenizer.eos_token_id
         else:
             return self.vocab_size - 1
@@ -307,8 +310,8 @@ class CharacterTokenizer:
 
         # Build vocabulary (ASCII printable characters)
         self.vocab = {chr(i): i for i in range(32, 127)}
-        self.vocab['<PAD>'] = 0
-        self.vocab['<UNK>'] = 1
+        self.vocab["<PAD>"] = 0
+        self.vocab["<UNK>"] = 1
 
         self.id_to_char = {v: k for k, v in self.vocab.items()}
 
@@ -316,21 +319,21 @@ class CharacterTokenizer:
 
     def encode(self, text: str) -> List[int]:
         """Encode text to character IDs."""
-        ids = [self.vocab.get(c, self.vocab['<UNK>']) for c in text]
+        ids = [self.vocab.get(c, self.vocab["<UNK>"]) for c in text]
 
         # Pad or truncate
         if len(ids) < self.config.max_length:
-            ids += [self.vocab['<PAD>']] * (self.config.max_length - len(ids))
+            ids += [self.vocab["<PAD>"]] * (self.config.max_length - len(ids))
         else:
-            ids = ids[:self.config.max_length]
+            ids = ids[: self.config.max_length]
 
         return ids
 
     def decode(self, token_ids: List[int]) -> str:
         """Decode character IDs to text."""
-        chars = [self.id_to_char.get(i, '<UNK>') for i in token_ids]
-        text = ''.join(chars)
-        return text.replace('<PAD>', '').replace('<UNK>', '?')
+        chars = [self.id_to_char.get(i, "<UNK>") for i in token_ids]
+        text = "".join(chars)
+        return text.replace("<PAD>", "").replace("<UNK>", "?")
 
 
 class WordTokenizer:
@@ -345,10 +348,10 @@ class WordTokenizer:
 
         # Initialize with special tokens
         self.vocab = {
-            '<PAD>': 0,
-            '<UNK>': 1,
-            '<BOS>': 2,
-            '<EOS>': 3,
+            "<PAD>": 0,
+            "<UNK>": 1,
+            "<BOS>": 2,
+            "<EOS>": 3,
         }
         self.next_id = 4
 
@@ -383,9 +386,12 @@ class WordTokenizer:
         if self.config.vocab_size is not None:
             # Keep top-k most frequent words
             top_words = [
-                word for word, count in word_counts.most_common(self.config.vocab_size - 4)
+                word
+                for word, count in word_counts.most_common(self.config.vocab_size - 4)
             ]
-            self.vocab = {k: v for k, v in self.vocab.items() if k in top_words or v < 4}
+            self.vocab = {
+                k: v for k, v in self.vocab.items() if k in top_words or v < 4
+            }
             self.id_to_word = {v: k for k, v in self.vocab.items()}
 
         logger.success(f"Vocabulary built: {len(self.vocab)} words")
@@ -393,28 +399,28 @@ class WordTokenizer:
     def encode(self, text: str) -> List[int]:
         """Encode text to word IDs."""
         words = text.lower().split()
-        ids = [self.vocab.get(w, self.vocab['<UNK>']) for w in words]
+        ids = [self.vocab.get(w, self.vocab["<UNK>"]) for w in words]
 
         # Add BOS/EOS if configured
         if self.config.add_special_tokens:
-            ids = [self.vocab['<BOS>']] + ids + [self.vocab['<EOS>']]
+            ids = [self.vocab["<BOS>"]] + ids + [self.vocab["<EOS>"]]
 
         # Pad or truncate
         if len(ids) < self.config.max_length:
-            ids += [self.vocab['<PAD>']] * (self.config.max_length - len(ids))
+            ids += [self.vocab["<PAD>"]] * (self.config.max_length - len(ids))
         else:
-            ids = ids[:self.config.max_length]
+            ids = ids[: self.config.max_length]
 
         return ids
 
     def decode(self, token_ids: List[int]) -> str:
         """Decode word IDs to text."""
-        words = [self.id_to_word.get(i, '<UNK>') for i in token_ids]
-        text = ' '.join(words)
+        words = [self.id_to_word.get(i, "<UNK>") for i in token_ids]
+        text = " ".join(words)
 
         # Clean special tokens
-        for token in ['<PAD>', '<UNK>', '<BOS>', '<EOS>']:
-            text = text.replace(token, '')
+        for token in ["<PAD>", "<UNK>", "<BOS>", "<EOS>"]:
+            text = text.replace(token, "")
 
         return text.strip()
 
@@ -450,8 +456,8 @@ class NawalTokenizerWrapper:
             config = TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER)
         self._tokenizer = CharacterTokenizer(config)
         self._config = config
-        self.pad_token: str = '<PAD>'
-        self.eos_token: str = '<EOS>'
+        self.pad_token: str = "<PAD>"
+        self.eos_token: str = "<EOS>"
 
     # ------------------------------------------------------------------
     # Properties
@@ -497,7 +503,7 @@ class NawalTokenizerWrapper:
         self,
         text: str,
         truncation: bool = True,
-        padding: str = 'max_length',
+        padding: str = "max_length",
         max_length: Optional[int] = None,
         return_tensors: Optional[str] = None,
         **kwargs,
@@ -511,16 +517,17 @@ class NawalTokenizerWrapper:
         ids = self._tokenizer.encode(text)
         self._config.max_length = original_max
 
-        pad_id = self._tokenizer.vocab.get('<PAD>', 0)
+        pad_id = self._tokenizer.vocab.get("<PAD>", 0)
         attention_mask = [0 if tok == pad_id else 1 for tok in ids]
 
-        if return_tensors == 'pt':
+        if return_tensors == "pt":
             import torch
+
             return {
-                'input_ids': torch.tensor([ids]),
-                'attention_mask': torch.tensor([attention_mask]),
+                "input_ids": torch.tensor([ids]),
+                "attention_mask": torch.tensor([attention_mask]),
             }
-        return {'input_ids': ids, 'attention_mask': attention_mask}
+        return {"input_ids": ids, "attention_mask": attention_mask}
 
     def encode(self, text: str) -> List[int]:
         return self._tokenizer.encode(text)
@@ -530,6 +537,6 @@ class NawalTokenizerWrapper:
         token_ids,
         skip_special_tokens: bool = True,
     ) -> str:
-        if hasattr(token_ids, 'tolist'):
+        if hasattr(token_ids, "tolist"):
             token_ids = token_ids.tolist()
         return self._tokenizer.decode(token_ids)

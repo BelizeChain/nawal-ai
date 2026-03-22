@@ -26,6 +26,7 @@ Usage::
 Thread safety: tick() acquires the GoalStack's internal lock transitively;
   it is NOT re-entrant — do not call tick() concurrently on the same instance.
 """
+
 from __future__ import annotations
 
 import threading
@@ -39,7 +40,6 @@ from control.goal_stack import GoalStack
 from control.interfaces import Goal, GoalStatus, Plan
 from control.planner import ClassicalPlanner
 from control.executor import ToolExecutor
-
 
 # --------------------------------------------------------------------------- #
 # Default available tool set                                                   #
@@ -61,6 +61,7 @@ _DEFAULT_TOOLS = [
 # --------------------------------------------------------------------------- #
 # ExecutiveController                                                          #
 # --------------------------------------------------------------------------- #
+
 
 class ExecutiveController:
     """
@@ -90,7 +91,7 @@ class ExecutiveController:
         _tools = available_tools if available_tools is not None else _DEFAULT_TOOLS
 
         self._goal_stack = GoalStack()
-        self._planner    = ClassicalPlanner(
+        self._planner = ClassicalPlanner(
             available_tools=_tools,
             base_confidence=planner_confidence,
         )
@@ -179,7 +180,7 @@ class ExecutiveController:
         # ---- Select next goal ---------------------------------------- #
         goal = self._goal_stack.next_pending()
         if goal is None:
-            goal = self._goal_stack.peek()   # might be already-active
+            goal = self._goal_stack.peek()  # might be already-active
         if goal is None:
             logger.debug("ExecutiveController tick — no pending goals")
             return None
@@ -214,7 +215,9 @@ class ExecutiveController:
         if not plans:
             logger.warning("Planner returned no plans; failing goal.")
             self._goal_stack.fail(goal.goal_id)
-            return self._build_summary(goal, None, "failed", [], 0.0, "no plans generated")
+            return self._build_summary(
+                goal, None, "failed", [], 0.0, "no plans generated"
+            )
 
         # ---- Select best plan ---------------------------------------- #
         plan = self._planner.select_plan(plans, constraints=constraints)
@@ -261,12 +264,12 @@ class ExecutiveController:
         live = self._goal_stack.all_live()
         hist = self._goal_stack.history()
         return {
-            "pending_goals":   sum(1 for g in live if g.status == GoalStatus.PENDING),
-            "active_goals":    sum(1 for g in live if g.status == GoalStatus.ACTIVE),
-            "total_live":      len(live),
+            "pending_goals": sum(1 for g in live if g.status == GoalStatus.PENDING),
+            "active_goals": sum(1 for g in live if g.status == GoalStatus.ACTIVE),
+            "total_live": len(live),
             "completed_goals": sum(1 for g in hist if g.status == GoalStatus.COMPLETED),
-            "failed_goals":    sum(1 for g in hist if g.status == GoalStatus.FAILED),
-            "ticks_run":       len(self._history),
+            "failed_goals": sum(1 for g in hist if g.status == GoalStatus.FAILED),
+            "ticks_run": len(self._history),
             "registered_tools": self._executor.available_tools(),
         }
 
@@ -296,14 +299,14 @@ class ExecutiveController:
         error: Optional[str] = None,
     ) -> Dict[str, Any]:
         return {
-            "goal_id":     goal.goal_id,
+            "goal_id": goal.goal_id,
             "description": goal.description,
-            "plan_id":     plan.plan_id if plan else None,
-            "plan_score":  plan.score   if plan else 0.0,
-            "status":      status,
-            "outputs":     outputs,
-            "elapsed":     round(elapsed, 4),
-            "error":       error,
+            "plan_id": plan.plan_id if plan else None,
+            "plan_score": plan.score if plan else 0.0,
+            "status": status,
+            "outputs": outputs,
+            "elapsed": round(elapsed, 4),
+            "error": error,
         }
 
     def _store_result_in_memory(

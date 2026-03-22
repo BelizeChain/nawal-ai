@@ -12,6 +12,7 @@ Covers:
 
 NOTE: Paillier tests use 512-bit keys for speed. Production uses 2048-bit.
 """
+
 from __future__ import annotations
 
 from typing import Dict
@@ -29,10 +30,10 @@ from security.secure_aggregation import (
     recommend_production_libraries,
 )
 
-
 # ---------------------------------------------------------------------------
 # Session-scoped small Paillier keypair (512-bit, generated once)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session")
 def small_keypair():
@@ -52,6 +53,7 @@ def enc_key(small_keypair):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_update(seed: int = 0) -> Dict[str, torch.Tensor]:
     torch.manual_seed(seed)
     return {"w": torch.randn(3, 3), "b": torch.randn(3)}
@@ -65,6 +67,7 @@ def _make_aggregator(n: int = 3, encrypt: bool = False) -> SecureAggregator:
 # PaillierKeyPair
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="pycryptodome required")
 class TestPaillierKeyPair:
 
@@ -76,7 +79,7 @@ class TestPaillierKeyPair:
         pk = small_keypair.public_key
         assert pk.n > 0
         assert pk.g > 0
-        assert pk.n_squared == pk.n ** 2
+        assert pk.n_squared == pk.n**2
 
     def test_private_key_links_to_public(self, small_keypair):
         sk = small_keypair.private_key
@@ -116,6 +119,7 @@ class TestPaillierKeyPair:
 # PaillierPublicKey homomorphic operations
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="pycryptodome required")
 class TestPaillierHomomorphic:
 
@@ -143,12 +147,15 @@ class TestPaillierHomomorphic:
         sk = small_keypair.private_key
         a, b = 11, 13
         ea, eb = pk.encrypt(a), pk.encrypt(b)
-        assert sk.decrypt(pk.add_encrypted(ea, eb)) == sk.decrypt(pk.add_encrypted(eb, ea))
+        assert sk.decrypt(pk.add_encrypted(ea, eb)) == sk.decrypt(
+            pk.add_encrypted(eb, ea)
+        )
 
 
 # ---------------------------------------------------------------------------
 # EncryptionKey
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="pycryptodome required")
 class TestEncryptionKey:
@@ -174,6 +181,7 @@ class TestEncryptionKey:
 # SecureAggregator — init
 # ---------------------------------------------------------------------------
 
+
 class TestSecureAggregatorInit:
 
     def test_stores_num_clients(self):
@@ -198,6 +206,7 @@ class TestSecureAggregatorInit:
 # ---------------------------------------------------------------------------
 # SecureAggregator — generate_client_keys (mocked to avoid slow Paillier)
 # ---------------------------------------------------------------------------
+
 
 class TestGenerateClientKeys:
 
@@ -225,11 +234,13 @@ class TestGenerateClientKeys:
 # SecureAggregator — masking protocol (encryption_enabled=True)
 # ---------------------------------------------------------------------------
 
+
 class TestMaskingProtocol:
 
     def _aggregator_with_secrets(self, n: int = 2) -> SecureAggregator:
         """Return an aggregator with manually injected secrets (no slow key gen)."""
         import secrets as _secrets
+
         ag = SecureAggregator(num_clients=n, encryption_enabled=True)
         for i in range(n):
             ag.client_secrets[i] = _secrets.token_bytes(32)
@@ -261,8 +272,7 @@ class TestMaskingProtocol:
         # Aggregate masked → uniform weights sum = (m0+m1)/2
         agg_masked = ag.aggregate_masked_updates([m0, m1])
         # Expected: (u0+u1)/2
-        agg_plain = ag.aggregate_masked_updates([u0, u1],
-                                                 weights=[0.5, 0.5])
+        agg_plain = ag.aggregate_masked_updates([u0, u1], weights=[0.5, 0.5])
         # Numerically they should be equal because masks cancel
         assert torch.allclose(agg_masked["w"], agg_plain["w"], atol=1e-4)
 
@@ -282,6 +292,7 @@ class TestMaskingProtocol:
 # ---------------------------------------------------------------------------
 # SecureAggregator — aggregate_masked_updates
 # ---------------------------------------------------------------------------
+
 
 class TestAggregateUpdates:
 
@@ -319,6 +330,7 @@ class TestAggregateUpdates:
 # SecureAggregator — verify_client_participation
 # ---------------------------------------------------------------------------
 
+
 class TestVerifyParticipation:
 
     def test_enough_clients_returns_true(self):
@@ -343,6 +355,7 @@ class TestVerifyParticipation:
 # SecureAggregator — dropout_resilient_aggregation
 # ---------------------------------------------------------------------------
 
+
 class TestDropoutResilience:
 
     def test_no_dropout_same_as_regular(self):
@@ -363,12 +376,18 @@ class TestDropoutResilience:
     def test_to_dict_keys(self):
         ag = _make_aggregator(3)
         d = ag.to_dict()
-        assert set(d.keys()) == {"num_clients", "encryption_enabled", "mask_scale", "num_pairwise_masks"}
+        assert set(d.keys()) == {
+            "num_clients",
+            "encryption_enabled",
+            "mask_scale",
+            "num_pairwise_masks",
+        }
 
 
 # ---------------------------------------------------------------------------
 # SecureAggregator — encrypt/decrypt gradients
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not CRYPTO_AVAILABLE, reason="pycryptodome required")
 class TestEncryptDecryptGradients:
@@ -386,6 +405,7 @@ class TestEncryptDecryptGradients:
 # ---------------------------------------------------------------------------
 # SecureChannel (stub)
 # ---------------------------------------------------------------------------
+
 
 class TestSecureChannel:
 
@@ -411,6 +431,7 @@ class TestSecureChannel:
 # ---------------------------------------------------------------------------
 # recommend_production_libraries
 # ---------------------------------------------------------------------------
+
 
 class TestRecommendProductionLibraries:
 

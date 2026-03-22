@@ -31,6 +31,7 @@ Usage::
     sm.add_relation("dog", "cat", relation="related-to", weight=0.6)
     results = sm.retrieve(query_embedding=[0.1]*768, top_k=5)
 """
+
 from __future__ import annotations
 
 import json
@@ -45,6 +46,7 @@ from memory.interfaces import AbstractMemory, MemoryRecord
 
 try:
     import networkx as nx
+
     NX_AVAILABLE = True
 except ImportError:
     NX_AVAILABLE = False
@@ -57,6 +59,7 @@ except ImportError:
 # --------------------------------------------------------------------------- #
 # SemanticMemory                                                               #
 # --------------------------------------------------------------------------- #
+
 
 class SemanticMemory(AbstractMemory):
     """
@@ -131,7 +134,8 @@ class SemanticMemory(AbstractMemory):
 
         q = np.asarray(query_embedding, dtype=np.float32)
         candidates = {
-            k: rec for k, rec in self._records.items()
+            k: rec
+            for k, rec in self._records.items()
             if not rec.is_expired() and _meta_matches(rec, filters)
         }
 
@@ -142,7 +146,9 @@ class SemanticMemory(AbstractMemory):
         sim_scores: Dict[str, float] = {}
         for key, rec in candidates.items():
             if rec.embedding is not None:
-                sim_scores[key] = _cosine(q, np.asarray(rec.embedding, dtype=np.float32))
+                sim_scores[key] = _cosine(
+                    q, np.asarray(rec.embedding, dtype=np.float32)
+                )
             else:
                 sim_scores[key] = 0.0
 
@@ -334,8 +340,12 @@ class SemanticMemory(AbstractMemory):
             data = pickle.load(fh)  # nosec B301
         self._records = data.get("records", {})
         if NX_AVAILABLE and data.get("graph"):
-            self._graph = nx.node_link_graph(data["graph"], directed=True, multigraph=True)
-        logger.info(f"SemanticMemory loaded from {target!r} ({len(self._records)} nodes)")
+            self._graph = nx.node_link_graph(
+                data["graph"], directed=True, multigraph=True
+            )
+        logger.info(
+            f"SemanticMemory loaded from {target!r} ({len(self._records)} nodes)"
+        )
 
     # ------------------------------------------------------------------ #
     # BFS spreading-activation (internal)                                  #
@@ -376,6 +386,7 @@ class SemanticMemory(AbstractMemory):
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
 # --------------------------------------------------------------------------- #
+
 
 def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
     norm_a = float(np.linalg.norm(a))

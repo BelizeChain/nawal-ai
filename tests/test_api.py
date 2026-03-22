@@ -15,6 +15,7 @@ Covers:
 All external dependencies (model, metrics, belizeid) are mocked so
 the test suite runs without GPU, blockchain node, or checkpoint files.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,10 +38,10 @@ from api.inference_server import (
     app,
 )
 
-
 # ============================================================================
 # Helpers / fixtures
 # ============================================================================
+
 
 def _make_mock_model(text: str = "Belmopan is the capital of Belize.") -> MagicMock:
     """Minimal mock that satisfies every attribute accessed in the endpoints."""
@@ -75,8 +76,12 @@ def mock_services():
     mock_metrics = MagicMock()
     mock_metrics.log_inference = AsyncMock()
     mock_metrics.export_prometheus = AsyncMock(return_value=b"# Prometheus metrics\n")
-    with patch("api.inference_server.BelizeIDVerifier", return_value=mock_verifier), \
-         patch("api.inference_server.InferenceMetricsCollector", return_value=mock_metrics):
+    with (
+        patch("api.inference_server.BelizeIDVerifier", return_value=mock_verifier),
+        patch(
+            "api.inference_server.InferenceMetricsCollector", return_value=mock_metrics
+        ),
+    ):
         yield mock_verifier, mock_metrics
 
 
@@ -103,6 +108,7 @@ def client_with_model(fresh_rate_limiter, mock_services):
 # ============================================================================
 # _RateLimiter — pure unit tests
 # ============================================================================
+
 
 class TestRateLimiter:
 
@@ -133,7 +139,7 @@ class TestRateLimiter:
         """Hits older than window_seconds should be purged."""
         rl = _RateLimiter(max_requests=2, window_seconds=1)
         # Inject 2 hits with a timestamp older than the window
-        old_ts = time.monotonic() - 5.0   # 5 seconds ago → outside 1-second window
+        old_ts = time.monotonic() - 5.0  # 5 seconds ago → outside 1-second window
         rl._hits["10.0.0.1"] = [old_ts, old_ts]
         # After purge, 0 recent hits → new request allowed
         assert rl.is_allowed("10.0.0.1") is True
@@ -156,6 +162,7 @@ class TestRateLimiter:
 # ============================================================================
 # Pydantic model validation
 # ============================================================================
+
 
 class TestInferenceRequestValidation:
 
@@ -220,6 +227,7 @@ class TestInferenceRequestValidation:
 # GET /health
 # ============================================================================
 
+
 class TestHealthEndpoint:
 
     def test_health_no_model_returns_503(self, client_no_model):
@@ -260,6 +268,7 @@ class TestHealthEndpoint:
 # GET /model/info
 # ============================================================================
 
+
 class TestModelInfoEndpoint:
 
     def test_model_info_no_model_returns_503(self, client_no_model):
@@ -286,38 +295,56 @@ class TestModelInfoEndpoint:
 # POST /infer
 # ============================================================================
 
+
 class TestInferEndpoint:
 
     def test_infer_no_model_returns_503(self, client_no_model):
-        response = client_no_model.post("/infer", json={"prompt": "Hello"}, headers=_AUTH_HEADERS)
+        response = client_no_model.post(
+            "/infer", json={"prompt": "Hello"}, headers=_AUTH_HEADERS
+        )
         assert response.status_code == 503
 
     def test_infer_with_model_returns_200(self, client_with_model):
         client, mock_model = client_with_model
-        response = client.post("/infer", json={"prompt": "What is Belize?"}, headers=_AUTH_HEADERS)
+        response = client.post(
+            "/infer", json={"prompt": "What is Belize?"}, headers=_AUTH_HEADERS
+        )
         assert response.status_code == 200
 
     def test_infer_response_structure(self, client_with_model):
         client, _ = client_with_model
-        data = client.post("/infer", json={"prompt": "Hello there"}, headers=_AUTH_HEADERS).json()
-        for key in ("text", "tokens_generated", "inference_time_ms",
-                    "model_version", "timestamp"):
+        data = client.post(
+            "/infer", json={"prompt": "Hello there"}, headers=_AUTH_HEADERS
+        ).json()
+        for key in (
+            "text",
+            "tokens_generated",
+            "inference_time_ms",
+            "model_version",
+            "timestamp",
+        ):
             assert key in data, f"Missing key: {key}"
 
     def test_infer_text_from_model(self, client_with_model):
         client, mock_model = client_with_model
         mock_model.generate.return_value = "Belmopan"
-        data = client.post("/infer", json={"prompt": "Capital"}, headers=_AUTH_HEADERS).json()
+        data = client.post(
+            "/infer", json={"prompt": "Capital"}, headers=_AUTH_HEADERS
+        ).json()
         assert data["text"] == "Belmopan"
 
     def test_infer_model_version_in_response(self, client_with_model):
         client, _ = client_with_model
-        data = client.post("/infer", json={"prompt": "test"}, headers=_AUTH_HEADERS).json()
+        data = client.post(
+            "/infer", json={"prompt": "test"}, headers=_AUTH_HEADERS
+        ).json()
         assert data["model_version"] == "test-v1"
 
     def test_infer_inference_time_positive(self, client_with_model):
         client, _ = client_with_model
-        data = client.post("/infer", json={"prompt": "test"}, headers=_AUTH_HEADERS).json()
+        data = client.post(
+            "/infer", json={"prompt": "test"}, headers=_AUTH_HEADERS
+        ).json()
         assert data["inference_time_ms"] >= 0.0
 
     def test_infer_logs_metrics(self, client_with_model):
@@ -337,7 +364,9 @@ class TestInferEndpoint:
         )
 
     def test_infer_invalid_prompt_returns_422(self, client_no_model):
-        response = client_no_model.post("/infer", json={"prompt": ""}, headers=_AUTH_HEADERS)
+        response = client_no_model.post(
+            "/infer", json={"prompt": ""}, headers=_AUTH_HEADERS
+        )
         assert response.status_code == 422
 
     def test_infer_missing_prompt_returns_422(self, client_no_model):
@@ -348,6 +377,7 @@ class TestInferEndpoint:
 # ============================================================================
 # POST /batch/infer
 # ============================================================================
+
 
 class TestBatchInferEndpoint:
 
@@ -375,7 +405,8 @@ class TestBatchInferEndpoint:
     def test_batch_response_structure(self, client_with_model):
         client, _ = client_with_model
         response = client.post(
-            "/batch/infer", json=[{"prompt": "A"}, {"prompt": "B"}],
+            "/batch/infer",
+            json=[{"prompt": "A"}, {"prompt": "B"}],
             headers=_AUTH_HEADERS,
         )
         data = response.json()
@@ -386,7 +417,8 @@ class TestBatchInferEndpoint:
     def test_batch_each_result_has_status(self, client_with_model):
         client, _ = client_with_model
         data = client.post(
-            "/batch/infer", json=[{"prompt": "X"}],
+            "/batch/infer",
+            json=[{"prompt": "X"}],
             headers=_AUTH_HEADERS,
         ).json()
         result = data["results"][0]
@@ -403,11 +435,13 @@ class TestBatchInferEndpoint:
 # POST /infer/stream
 # ============================================================================
 
+
 class TestStreamEndpoint:
 
     def test_stream_no_model_returns_503(self, client_no_model):
         response = client_no_model.post(
-            "/infer/stream", json={"prompt": "Hello"},
+            "/infer/stream",
+            json={"prompt": "Hello"},
             headers=_AUTH_HEADERS,
         )
         assert response.status_code == 503
@@ -415,7 +449,8 @@ class TestStreamEndpoint:
     def test_stream_with_model_returns_200(self, client_with_model):
         client, _ = client_with_model
         response = client.post(
-            "/infer/stream", json={"prompt": "Tell me about Belize"},
+            "/infer/stream",
+            json={"prompt": "Tell me about Belize"},
             headers=_AUTH_HEADERS,
         )
         assert response.status_code == 200
@@ -423,17 +458,21 @@ class TestStreamEndpoint:
     def test_stream_content_type_ndjson(self, client_with_model):
         client, _ = client_with_model
         response = client.post(
-            "/infer/stream", json={"prompt": "Test"},
+            "/infer/stream",
+            json={"prompt": "Test"},
             headers=_AUTH_HEADERS,
         )
-        assert "ndjson" in response.headers.get("content-type", "").lower() or \
-               response.status_code == 200   # streaming; content-type may vary
+        assert (
+            "ndjson" in response.headers.get("content-type", "").lower()
+            or response.status_code == 200
+        )  # streaming; content-type may vary
 
     def test_stream_yields_json_lines(self, client_with_model):
         client, mock_model = client_with_model
         mock_model.generate_stream.return_value = iter(["Hello", " world"])
         response = client.post(
-            "/infer/stream", json={"prompt": "Hi"},
+            "/infer/stream",
+            json={"prompt": "Hi"},
             headers=_AUTH_HEADERS,
         )
         assert response.status_code == 200
@@ -448,6 +487,7 @@ class TestStreamEndpoint:
 # ============================================================================
 # GET /metrics
 # ============================================================================
+
 
 class TestMetricsEndpoint:
 
@@ -464,6 +504,7 @@ class TestMetricsEndpoint:
 # Rate-limit middleware
 # ============================================================================
 
+
 class TestRateLimitMiddleware:
 
     def test_rate_limit_429_after_exhaustion(self, fresh_rate_limiter):
@@ -475,8 +516,9 @@ class TestRateLimitMiddleware:
         with TestClient(app, raise_server_exceptions=False) as c:
             # First 3 health-exempt calls succeed
             for _ in range(3):
-                fresh_rate_limiter._hits["testclient"] = \
-                    fresh_rate_limiter._hits.get("testclient", [])
+                fresh_rate_limiter._hits["testclient"] = fresh_rate_limiter._hits.get(
+                    "testclient", []
+                )
 
             # Inject max_requests hits for the test-client IP
             now = time.monotonic()

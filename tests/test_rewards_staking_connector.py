@@ -142,11 +142,17 @@ class TestBlockchainRewards:
         from blockchain.rewards import RewardCalculator
 
         calc = RewardCalculator()
-        est = calc.estimate_monthly_rewards(rounds_per_day=10, avg_fitness=85.0, stake_amount_dalla=1000.0)
+        est = calc.estimate_monthly_rewards(
+            rounds_per_day=10, avg_fitness=85.0, stake_amount_dalla=1000.0
+        )
         assert est > 0.0
 
     def test_reward_distributor(self):
-        from blockchain.rewards import FitnessScores, RewardCalculator, RewardDistributor
+        from blockchain.rewards import (
+            FitnessScores,
+            RewardCalculator,
+            RewardDistributor,
+        )
 
         calc = RewardCalculator()
         dist = RewardDistributor(calculator=calc)
@@ -175,7 +181,11 @@ class TestGenomeDNA:
     def test_layer_gene_roundtrip(self):
         from genome.dna import LayerGene
 
-        lg = LayerGene(innovation_id=1, layer_type="linear", params={"hidden_size": 64, "input_size": 32})
+        lg = LayerGene(
+            innovation_id=1,
+            layer_type="linear",
+            params={"hidden_size": 64, "input_size": 32},
+        )
         d = lg.to_dict()
         lg2 = LayerGene.from_dict(d)
         assert lg2.innovation_id == 1
@@ -184,7 +194,11 @@ class TestGenomeDNA:
     def test_layer_gene_to_architecture_layer(self):
         from genome.dna import LayerGene
 
-        lg = LayerGene(innovation_id=1, layer_type="linear", params={"hidden_size": 64, "input_size": 32})
+        lg = LayerGene(
+            innovation_id=1,
+            layer_type="linear",
+            params={"hidden_size": 64, "input_size": 32},
+        )
         al = lg.to_architecture_layer()
         assert al.parameters.get("hidden_size") == 64 or al.hidden_size == 64
 
@@ -218,7 +232,9 @@ class TestGenomeDNA:
 
         with pytest.warns(DeprecationWarning):
             dna = DNA(input_size=32, output_size=10)
-        dna.add_layer_gene(LayerGene(1, "linear", {"hidden_size": 64, "input_size": 32}))
+        dna.add_layer_gene(
+            LayerGene(1, "linear", {"hidden_size": 64, "input_size": 32})
+        )
         c = dna.clone()
         assert c is not dna
         assert len(c.layer_genes) == len(dna.layer_genes)
@@ -228,7 +244,9 @@ class TestGenomeDNA:
 
         with pytest.warns(DeprecationWarning):
             dna = DNA(input_size=32, output_size=10)
-        dna.add_layer_gene(LayerGene(1, "linear", {"hidden_size": 64, "input_size": 32}))
+        dna.add_layer_gene(
+            LayerGene(1, "linear", {"hidden_size": 64, "input_size": 32})
+        )
         genome = dna.to_genome()
         assert genome is not None
 
@@ -245,7 +263,9 @@ class TestGenomeDNA:
 
         with pytest.warns(DeprecationWarning):
             dna = DNA(input_size=32, output_size=10)
-        dna.add_layer_gene(LayerGene(1, "linear", {"hidden_size": 64, "input_size": 32}))
+        dna.add_layer_gene(
+            LayerGene(1, "linear", {"hidden_size": 64, "input_size": 32})
+        )
         d = dna.to_dict()
         with pytest.warns(DeprecationWarning):
             dna2 = DNA.from_dict(d)
@@ -317,7 +337,9 @@ class TestGenomeFitness:
     def test_fitness_score_dataclass(self):
         from genome.fitness import FitnessScore
 
-        fs = FitnessScore(quality=0.9, timeliness=0.8, honesty=0.7, overall=0.8, genome_id="g1")
+        fs = FitnessScore(
+            quality=0.9, timeliness=0.8, honesty=0.7, overall=0.8, genome_id="g1"
+        )
         d = fs.to_dict()
         assert d["genome_id"] == "g1"
         fs2 = FitnessScore.from_dict(d)
@@ -333,10 +355,10 @@ class TestGenomeFitness:
         from genome.fitness import PoUWAlignment
 
         # Thresholds are on 0-100 scale: SLASHING=50, PASSING=70, EXCELLENT=90
-        assert PoUWAlignment.reward_multiplier(95.0) == 1.5   # excellent
-        assert PoUWAlignment.reward_multiplier(75.0) == 1.0   # standard
-        assert PoUWAlignment.reward_multiplier(55.0) == 0.5   # below passing
-        assert PoUWAlignment.reward_multiplier(10.0) == 0.0   # below slashing
+        assert PoUWAlignment.reward_multiplier(95.0) == 1.5  # excellent
+        assert PoUWAlignment.reward_multiplier(75.0) == 1.0  # standard
+        assert PoUWAlignment.reward_multiplier(55.0) == 0.5  # below passing
+        assert PoUWAlignment.reward_multiplier(10.0) == 0.0  # below slashing
 
     def test_pouw_should_slash(self):
         from genome.fitness import PoUWAlignment
@@ -474,11 +496,19 @@ class TestGenomeHistory:
         from genome.population import PopulationStatistics
 
         stats = PopulationStatistics(
-            generation=1, population_size=10,
-            avg_fitness=0.7, max_fitness=0.9, min_fitness=0.3, std_fitness=0.1,
-            avg_quality=0.7, avg_timeliness=0.7, avg_honesty=0.7,
-            unique_architectures=3, diversity_score=0.5,
-            elite_count=2, elite_avg_fitness=0.85,
+            generation=1,
+            population_size=10,
+            avg_fitness=0.7,
+            max_fitness=0.9,
+            min_fitness=0.3,
+            std_fitness=0.1,
+            avg_quality=0.7,
+            avg_timeliness=0.7,
+            avg_honesty=0.7,
+            unique_architectures=3,
+            diversity_score=0.5,
+            elite_count=2,
+            elite_avg_fitness=0.85,
         )
         gr = GenerationRecord(
             generation=1,
@@ -501,14 +531,24 @@ class TestGenomeHistory:
 
         hist = EvolutionHistory(experiment_name="test-hist")
         stats = PopulationStatistics(
-            generation=1, population_size=5,
-            avg_fitness=70.0, max_fitness=90.0, min_fitness=30.0, std_fitness=10.0,
-            avg_quality=70.0, avg_timeliness=70.0, avg_honesty=70.0,
-            unique_architectures=2, diversity_score=0.5,
-            elite_count=1, elite_avg_fitness=85.0,
+            generation=1,
+            population_size=5,
+            avg_fitness=70.0,
+            max_fitness=90.0,
+            min_fitness=30.0,
+            std_fitness=10.0,
+            avg_quality=70.0,
+            avg_timeliness=70.0,
+            avg_honesty=70.0,
+            unique_architectures=2,
+            diversity_score=0.5,
+            elite_count=1,
+            elite_avg_fitness=85.0,
         )
         genomes = [_make_genome()]
-        hist.record_generation(1, stats, genomes, mutations_applied=2, crossovers_applied=1)
+        hist.record_generation(
+            1, stats, genomes, mutations_applied=2, crossovers_applied=1
+        )
         rec = hist.get_generation_record(1)
         assert rec is not None
 
@@ -518,11 +558,19 @@ class TestGenomeHistory:
 
         hist = EvolutionHistory()
         stats = PopulationStatistics(
-            generation=0, population_size=3,
-            avg_fitness=40.0, max_fitness=50.0, min_fitness=20.0, std_fitness=5.0,
-            avg_quality=40.0, avg_timeliness=40.0, avg_honesty=40.0,
-            unique_architectures=1, diversity_score=0.3,
-            elite_count=1, elite_avg_fitness=50.0,
+            generation=0,
+            population_size=3,
+            avg_fitness=40.0,
+            max_fitness=50.0,
+            min_fitness=20.0,
+            std_fitness=5.0,
+            avg_quality=40.0,
+            avg_timeliness=40.0,
+            avg_honesty=40.0,
+            unique_architectures=1,
+            diversity_score=0.3,
+            elite_count=1,
+            elite_avg_fitness=50.0,
         )
         hist.record_generation(0, stats, [_make_genome()])
         prog = hist.get_fitness_progression()
@@ -550,11 +598,19 @@ class TestGenomeHistory:
 
         hist = EvolutionHistory()
         stats = PopulationStatistics(
-            generation=0, population_size=2,
-            avg_fitness=60.0, max_fitness=80.0, min_fitness=30.0, std_fitness=5.0,
-            avg_quality=70.0, avg_timeliness=60.0, avg_honesty=80.0,
-            unique_architectures=1, diversity_score=0.5,
-            elite_count=1, elite_avg_fitness=80.0,
+            generation=0,
+            population_size=2,
+            avg_fitness=60.0,
+            max_fitness=80.0,
+            min_fitness=30.0,
+            std_fitness=5.0,
+            avg_quality=70.0,
+            avg_timeliness=60.0,
+            avg_honesty=80.0,
+            unique_architectures=1,
+            diversity_score=0.5,
+            elite_count=1,
+            elite_avg_fitness=80.0,
         )
         hist.record_generation(0, stats, [_make_genome()])
         fp = tmp_path / "hist.json"
@@ -625,7 +681,9 @@ class TestGenomeEncodingGaps:
         assert not ok
         assert any("decoder" in e.lower() for e in errors)
         # Add a decoder layer and re-validate
-        g.decoder_layers = [ArchitectureLayer(layer_type=LayerType.LINEAR, hidden_size=64)]
+        g.decoder_layers = [
+            ArchitectureLayer(layer_type=LayerType.LINEAR, hidden_size=64)
+        ]
         ok2, errors2 = enc.validate_genome(g)
         assert ok2
         assert errors2 == []
@@ -663,7 +721,9 @@ class TestGenomeNawalAdapter:
         from genome.nawal_adapter import NawalGenomeBuilder
 
         builder = NawalGenomeBuilder()
-        score = builder.get_genome_fitness_score(_make_genome(), validation_loss=0.3, training_time=10.0, privacy_epsilon=1.0)
+        score = builder.get_genome_fitness_score(
+            _make_genome(), validation_loss=0.3, training_time=10.0, privacy_epsilon=1.0
+        )
         assert isinstance(score, float)
 
     def test_create_baseline_genome(self):
@@ -890,7 +950,14 @@ class TestMonitoringLogging:
         )
 
         log_training_start(epochs=10, batch_size=32, learning_rate=0.001)
-        log_training_epoch(epoch=1, train_loss=0.5, train_acc=0.8, val_loss=0.6, val_acc=0.75, epoch_time=1.5)
+        log_training_epoch(
+            epoch=1,
+            train_loss=0.5,
+            train_acc=0.8,
+            val_loss=0.6,
+            val_acc=0.75,
+            epoch_time=1.5,
+        )
         log_training_complete(best_loss=0.3, best_acc=0.9, total_time=15.0)
 
     def test_log_evolution_helpers(self):
@@ -901,8 +968,12 @@ class TestMonitoringLogging:
         )
 
         log_evolution_start(generations=50, population_size=20)
-        log_evolution_generation(generation=1, best_fitness=0.9, avg_fitness=0.7, generation_time=2.0)
-        log_evolution_complete(best_fitness=0.95, total_generations=50, total_time=100.0)
+        log_evolution_generation(
+            generation=1, best_fitness=0.9, avg_fitness=0.7, generation_time=2.0
+        )
+        log_evolution_complete(
+            best_fitness=0.95, total_generations=50, total_time=100.0
+        )
 
     def test_log_federated_helpers(self):
         from monitoring.logging_config import (
@@ -921,7 +992,9 @@ class TestMonitoringLogging:
             log_validator_registered,
         )
 
-        log_blockchain_transaction(tx_type="transfer", success=True, block_number=100, tx_time=0.5)
+        log_blockchain_transaction(
+            tx_type="transfer", success=True, block_number=100, tx_time=0.5
+        )
         log_genome_stored(genome_id="g1", fitness=0.9, generation=5)
         log_validator_registered(address="5GrwvaEF...", name="Alice")
         log_fitness_submitted(quality=0.9, timeliness=0.8, honesty=0.95, total=0.88)
@@ -948,8 +1021,11 @@ class TestStakingConnector:
         from blockchain.staking_connector import ParticipantInfo
 
         pi = ParticipantInfo(
-            account_id="acc1", stake_amount=1000, is_enrolled=True,
-            training_rounds_completed=5, total_samples_trained=1000,
+            account_id="acc1",
+            stake_amount=1000,
+            is_enrolled=True,
+            training_rounds_completed=5,
+            total_samples_trained=1000,
             avg_fitness_score=85.0,
         )
         assert pi.avg_fitness_score == 85.0
@@ -958,10 +1034,16 @@ class TestStakingConnector:
         from blockchain.staking_connector import TrainingSubmission
 
         ts = TrainingSubmission(
-            participant_id="p1", round_number=1, genome_id="g1",
-            samples_trained=100, training_time=10.0,
-            quality_score=0.9, timeliness_score=0.8, honesty_score=0.7,
-            fitness_score=0.8, model_hash="abc123",
+            participant_id="p1",
+            round_number=1,
+            genome_id="g1",
+            samples_trained=100,
+            training_time=10.0,
+            quality_score=0.9,
+            timeliness_score=0.8,
+            honesty_score=0.7,
+            fitness_score=0.8,
+            model_hash="abc123",
         )
         errs = ts.validate()
         assert len(errs) == 0
@@ -970,10 +1052,16 @@ class TestStakingConnector:
         from blockchain.staking_connector import TrainingSubmission
 
         ts = TrainingSubmission(
-            participant_id="", round_number=-1, genome_id="g1",
-            samples_trained=0, training_time=-1.0,
-            quality_score=1.5, timeliness_score=-0.1, honesty_score=0.7,
-            fitness_score=0.8, model_hash="",
+            participant_id="",
+            round_number=-1,
+            genome_id="g1",
+            samples_trained=0,
+            training_time=-1.0,
+            quality_score=1.5,
+            timeliness_score=-0.1,
+            honesty_score=0.7,
+            fitness_score=0.8,
+            model_hash="",
         )
         errs = ts.validate()
         assert len(errs) > 0
@@ -1008,10 +1096,16 @@ class TestStakingConnector:
         _run(sc.connect())
         _run(sc.enroll_participant("acc1", 5000))
         ts = TrainingSubmission(
-            participant_id="acc1", round_number=1, genome_id="g1",
-            samples_trained=100, training_time=10.0,
-            quality_score=0.9, timeliness_score=0.8, honesty_score=0.7,
-            fitness_score=0.8, model_hash="abc123",
+            participant_id="acc1",
+            round_number=1,
+            genome_id="g1",
+            samples_trained=100,
+            training_time=10.0,
+            quality_score=0.9,
+            timeliness_score=0.8,
+            honesty_score=0.7,
+            fitness_score=0.8,
+            model_hash="abc123",
         )
         result = _run(sc.submit_training_proof(ts))
         assert result
@@ -1088,7 +1182,9 @@ class TestCommunityConnector:
 
         cc = CommunityConnector(mock_mode=True)
         _run(cc.connect())
-        success, tx = _run(cc.record_participation("acc1", "training", quality_score=0.9))
+        success, tx = _run(
+            cc.record_participation("acc1", "training", quality_score=0.9)
+        )
         assert success
 
     def test_mock_record_fl_contribution(self):
@@ -1096,7 +1192,9 @@ class TestCommunityConnector:
 
         cc = CommunityConnector(mock_mode=True)
         _run(cc.connect())
-        success, tx = _run(cc.record_federated_learning_contribution("acc1", 1, 0.9, 500, 120))
+        success, tx = _run(
+            cc.record_federated_learning_contribution("acc1", 1, 0.9, 500, 120)
+        )
         assert success
 
     def test_mock_record_education(self):
@@ -1138,7 +1236,8 @@ class TestBlockchainEvents:
 
         ev = TrainingEvent(
             event_type=EventType.TRAINING_ROUND_STARTED,
-            block_number=100, block_hash="0xabc",
+            block_number=100,
+            block_hash="0xabc",
             timestamp=datetime.now().isoformat(),
             data={"round": 1},
         )
@@ -1190,9 +1289,11 @@ class TestBlockchainEvents:
     def test_create_training_round_handler(self):
         from blockchain.events import create_training_round_handler
 
-        handlers = _run(create_training_round_handler(
-            on_round_started=AsyncMock(), on_proof_submitted=AsyncMock()
-        ))
+        handlers = _run(
+            create_training_round_handler(
+                on_round_started=AsyncMock(), on_proof_submitted=AsyncMock()
+            )
+        )
         assert isinstance(handlers, dict)
 
     def test_stop_listening(self):
@@ -1210,10 +1311,14 @@ class TestPayrollConnector:
         from blockchain.payroll_connector import EmployeeType, PayrollEntry
 
         pe = PayrollEntry(
-            employee_id="emp1", employee_name_hash="abc",
-            gross_salary=50000, tax_withholding=10000,
-            social_security=3000, pension_contribution=2000,
-            net_salary=35000, payment_period="2024-01",
+            employee_id="emp1",
+            employee_name_hash="abc",
+            gross_salary=50000,
+            tax_withholding=10000,
+            social_security=3000,
+            pension_contribution=2000,
+            net_salary=35000,
+            payment_period="2024-01",
             employee_type=EmployeeType.PRIVATE,
         )
         assert pe.net_salary == 35000
@@ -1226,19 +1331,27 @@ class TestPayrollConnector:
         )
 
         pe = PayrollEntry(
-            employee_id="emp1", employee_name_hash="abc",
-            gross_salary=50000, tax_withholding=10000,
-            social_security=3000, pension_contribution=2000,
-            net_salary=35000, payment_period="2024-01",
+            employee_id="emp1",
+            employee_name_hash="abc",
+            gross_salary=50000,
+            tax_withholding=10000,
+            social_security=3000,
+            pension_contribution=2000,
+            net_salary=35000,
+            payment_period="2024-01",
             employee_type=EmployeeType.PRIVATE,
         )
         ps = PayrollSubmission(
-            submission_id="sub1", employer_id="corp1",
+            submission_id="sub1",
+            employer_id="corp1",
             employer_name="TestCorp",
-            payment_period="2024-01", entries=[pe],
+            payment_period="2024-01",
+            entries=[pe],
             employee_count=1,
-            merkle_root="0xabc", total_gross=50000,
-            total_net=35000, total_tax=10000,
+            merkle_root="0xabc",
+            total_gross=50000,
+            total_net=35000,
+            total_tax=10000,
             zk_proof="proof123",
         )
         errs = ps.validate()
@@ -1252,15 +1365,23 @@ class TestPayrollConnector:
         assert tax >= 0
 
     def test_compute_merkle_root(self):
-        from blockchain.payroll_connector import EmployeeType, PayrollConnector, PayrollEntry
+        from blockchain.payroll_connector import (
+            EmployeeType,
+            PayrollConnector,
+            PayrollEntry,
+        )
 
         pc = PayrollConnector(mock_mode=True)
         entries = [
             PayrollEntry(
-                employee_id="emp1", employee_name_hash="abc",
-                gross_salary=50000, tax_withholding=10000,
-                social_security=3000, pension_contribution=2000,
-                net_salary=35000, payment_period="2024-01",
+                employee_id="emp1",
+                employee_name_hash="abc",
+                gross_salary=50000,
+                tax_withholding=10000,
+                social_security=3000,
+                pension_contribution=2000,
+                net_salary=35000,
+                payment_period="2024-01",
                 employee_type=EmployeeType.PRIVATE,
             ),
         ]
@@ -1274,7 +1395,11 @@ class TestPayrollConnector:
         assert _run(pc.connect())
 
     def test_mock_submit_payroll(self):
-        from blockchain.payroll_connector import EmployeeType, PayrollConnector, PayrollEntry
+        from blockchain.payroll_connector import (
+            EmployeeType,
+            PayrollConnector,
+            PayrollEntry,
+        )
 
         mock_kp = MagicMock()
         mock_kp.ss58_address = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
@@ -1282,10 +1407,14 @@ class TestPayrollConnector:
         _run(pc.connect())
         entries = [
             PayrollEntry(
-                employee_id="emp1", employee_name_hash="abc",
-                gross_salary=50000, tax_withholding=10000,
-                social_security=3000, pension_contribution=2000,
-                net_salary=35000, payment_period="2024-01",
+                employee_id="emp1",
+                employee_name_hash="abc",
+                gross_salary=50000,
+                tax_withholding=10000,
+                social_security=3000,
+                pension_contribution=2000,
+                net_salary=35000,
+                payment_period="2024-01",
                 employee_type=EmployeeType.PRIVATE,
             ),
         ]
@@ -1334,7 +1463,8 @@ class TestStakingInterface:
         mock_client = MagicMock()
         si = StakingInterface(mock_client)
         fs = si.calculate_fitness_score(
-            initial_loss=1.0, final_loss=0.3,
+            initial_loss=1.0,
+            final_loss=0.3,
             submission_time=datetime.now(),
             deadline=datetime.now() + timedelta(hours=1),
             privacy_compliant=True,
@@ -1351,7 +1481,9 @@ class TestValidatorManager:
         from blockchain.validator_manager import ValidatorIdentity
 
         vi = ValidatorIdentity(
-            address="5GrwvaEF...", name="Alice", email="alice@example.com",
+            address="5GrwvaEF...",
+            name="Alice",
+            email="alice@example.com",
         )
         d = vi.to_dict()
         # PII should be hashed
@@ -1404,8 +1536,11 @@ class TestSubstrateClient:
         from blockchain.substrate_client import ExtrinsicReceipt
 
         er = ExtrinsicReceipt(
-            extrinsic_hash="0xabc", block_hash="0xdef",
-            block_number=100, success=True, events=[{"type": "submitted"}],
+            extrinsic_hash="0xabc",
+            block_hash="0xdef",
+            block_number=100,
+            success=True,
+            events=[{"type": "submitted"}],
         )
         assert er.is_success
         assert er.error_message is None
@@ -1416,7 +1551,9 @@ class TestSubstrateClient:
         from blockchain.substrate_client import ExtrinsicReceipt
 
         er = ExtrinsicReceipt(
-            extrinsic_hash="0xabc", success=False, error="something failed",
+            extrinsic_hash="0xabc",
+            success=False,
+            error="something failed",
         )
         assert not er.is_success
         assert er.error_message is not None
@@ -1452,8 +1589,11 @@ class TestGenomeRegistry:
         from blockchain.genome_registry import GenomeMetadata, StorageBackend
 
         gm = GenomeMetadata(
-            genome_id="g1", owner="alice", generation=1,
-            fitness=0.9, storage_backend=StorageBackend.LOCAL,
+            genome_id="g1",
+            owner="alice",
+            generation=1,
+            fitness=0.9,
+            storage_backend=StorageBackend.LOCAL,
             content_hash="abc123",
         )
         d = gm.to_dict()
@@ -1484,7 +1624,9 @@ class TestEpisodicMemory:
         from memory.episodic import _meta_matches
         from memory.interfaces import MemoryRecord
 
-        rec = MemoryRecord(key="k1", content="hello", embedding=[0.1, 0.2], metadata={"tag": "test"})
+        rec = MemoryRecord(
+            key="k1", content="hello", embedding=[0.1, 0.2], metadata={"tag": "test"}
+        )
         assert _meta_matches(rec, {"tag": "test"})
         assert not _meta_matches(rec, {"tag": "other"})
 
@@ -1510,7 +1652,11 @@ class TestEpisodicMemory:
 
         em = EpisodicMemory(persist_path=None)
         for i in range(3):
-            em.store(MemoryRecord(key=f"k{i}", content=f"content {i}", embedding=[float(i)] * 768))
+            em.store(
+                MemoryRecord(
+                    key=f"k{i}", content=f"content {i}", embedding=[float(i)] * 768
+                )
+            )
         assert len(em) == 3
         em.clear()
         assert len(em) == 0
@@ -1538,9 +1684,14 @@ class TestQuantumHybridLLM:
         from quantum.hybrid_llm import HybridQuantumClassicalLLM
 
         model = HybridQuantumClassicalLLM(
-            vocab_size=256, hidden_dim=64, quantum_dim=8,
-            num_layers=2, num_heads=4, ff_dim=128,
-            max_seq_length=32, enable_quantum=False,
+            vocab_size=256,
+            hidden_dim=64,
+            quantum_dim=8,
+            num_layers=2,
+            num_heads=4,
+            ff_dim=128,
+            max_seq_length=32,
+            enable_quantum=False,
         )
         ids = torch.randint(0, 256, (1, 8))
         out = model(ids)
@@ -1551,8 +1702,13 @@ class TestQuantumHybridLLM:
         from quantum.hybrid_llm import HybridQuantumClassicalLLM
 
         model = HybridQuantumClassicalLLM(
-            vocab_size=256, hidden_dim=64, num_layers=2, num_heads=4,
-            ff_dim=128, max_seq_length=32, enable_quantum=False,
+            vocab_size=256,
+            hidden_dim=64,
+            num_layers=2,
+            num_heads=4,
+            ff_dim=128,
+            max_seq_length=32,
+            enable_quantum=False,
         )
         ids = torch.randint(0, 256, (1, 4))
         out = model.generate(ids, max_length=6)
@@ -1563,8 +1719,13 @@ class TestQuantumHybridLLM:
 
         for pos in ("early", "middle", "late"):
             model = HybridQuantumClassicalLLM(
-                vocab_size=256, hidden_dim=64, num_layers=6, num_heads=4,
-                ff_dim=128, enable_quantum=False, quantum_position=pos,
+                vocab_size=256,
+                hidden_dim=64,
+                num_layers=6,
+                num_heads=4,
+                ff_dim=128,
+                enable_quantum=False,
+                quantum_position=pos,
             )
             idx = model._get_quantum_layer_idx()
             assert 0 <= idx < 6
@@ -1573,8 +1734,12 @@ class TestQuantumHybridLLM:
         from quantum.hybrid_llm import HybridQuantumClassicalLLM
 
         model = HybridQuantumClassicalLLM(
-            vocab_size=256, hidden_dim=64, num_layers=2, num_heads=4,
-            ff_dim=128, enable_quantum=False,
+            vocab_size=256,
+            hidden_dim=64,
+            num_layers=2,
+            num_heads=4,
+            ff_dim=128,
+            enable_quantum=False,
         )
         stats = model.get_quantum_statistics()
         assert isinstance(stats, dict)
@@ -1782,8 +1947,11 @@ class TestClientDomainModels:
         from client.domain_models import calculate_quality_score
 
         score = calculate_quality_score(
-            accuracy=90, timeliness=85, completeness=80,
-            consistency=75, provenance=95,
+            accuracy=90,
+            timeliness=85,
+            completeness=80,
+            consistency=75,
+            provenance=95,
         )
         assert isinstance(score, (int, float))
 
@@ -1791,7 +1959,8 @@ class TestClientDomainModels:
         from client.domain_models import ModelDomain, prepare_oracle_submission
 
         sub = prepare_oracle_submission(
-            domain=ModelDomain.MARINE, device_id=b"dev1",
+            domain=ModelDomain.MARINE,
+            device_id=b"dev1",
             data=b'{"readings": [1, 2, 3]}',
             predictions={"coral_health": torch.tensor(0.9)},
             quality_metrics={"accuracy": 90},
@@ -1888,7 +2057,9 @@ class TestClientModel:
         from client.model import BelizeChainLLM
 
         mock_auto_tokenizer.from_pretrained.return_value = MagicMock()
-        mock_auto_model.from_pretrained.return_value = MagicMock(config=MagicMock(hidden_size=768))
+        mock_auto_model.from_pretrained.return_value = MagicMock(
+            config=MagicMock(hidden_size=768)
+        )
         model = BelizeChainLLM(model_name="test", belizean_vocab_extension=False)
         assert model is not None
 
@@ -1898,8 +2069,12 @@ class TestClientModel:
         from client.model import create_belizechain_model
 
         mock_auto_tokenizer.from_pretrained.return_value = MagicMock()
-        mock_auto_model.from_pretrained.return_value = MagicMock(config=MagicMock(hidden_size=768))
-        model = create_belizechain_model(model_type="standard", belizean_vocab_extension=False)
+        mock_auto_model.from_pretrained.return_value = MagicMock(
+            config=MagicMock(hidden_size=768)
+        )
+        model = create_belizechain_model(
+            model_type="standard", belizean_vocab_extension=False
+        )
         assert model is not None
 
 
@@ -1924,7 +2099,10 @@ class TestClientDataLoader:
 
         cdf = ComplianceDataFilter()
         # Test filter_batch with a compliant batch (Dict[str, Tensor])
-        batch = {"input_ids": torch.tensor([[1, 2, 3]]), "attention_mask": torch.tensor([[1, 1, 1]])}
+        batch = {
+            "input_ids": torch.tensor([[1, 2, 3]]),
+            "attention_mask": torch.tensor([[1, 1, 1]]),
+        }
         result = cdf.filter_batch(batch)
         # Should pass compliance
         assert result is not None or result is None  # depends on filter logic
@@ -1958,8 +2136,10 @@ class TestClientTrain:
         from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         cfg = BelizeTrainingConfig(participant_id="test")
-        with patch.object(BelizeChainFederatedClient, "_setup_model"), \
-             patch.object(BelizeChainFederatedClient, "_setup_data"):
+        with (
+            patch.object(BelizeChainFederatedClient, "_setup_model"),
+            patch.object(BelizeChainFederatedClient, "_setup_data"),
+        ):
             client = BelizeChainFederatedClient(cfg)
         params = [np.random.randn(10, 5).astype(np.float32) for _ in range(3)]
         dp_params = client._apply_differential_privacy(params, epsilon=1.0)
@@ -2036,7 +2216,9 @@ class TestKinichConnector:
 
         # Create with mocked init
         with patch.object(KinichQuantumConnector, "_init_kinich_connection"):
-            kc = KinichQuantumConnector(fallback_to_classical=True, classical_dim=8, quantum_dim=4)
+            kc = KinichQuantumConnector(
+                fallback_to_classical=True, classical_dim=8, quantum_dim=4
+            )
         features = np.random.randn(8).astype(np.float32)
         result = kc._classical_fallback(features)
         assert isinstance(result, np.ndarray)
@@ -2094,9 +2276,14 @@ class TestOraclePipeline:
         from client.domain_models import ModelDomain
 
         info = IoTDeviceInfo(
-            device_id=b"dev1", device_type=DeviceType.SENSOR,
-            domain=ModelDomain.MARINE, operator="op1", location=(17.25, -88.77),
-            reputation_score=90, total_submissions=100, is_verified=True,
+            device_id=b"dev1",
+            device_type=DeviceType.SENSOR,
+            domain=ModelDomain.MARINE,
+            operator="op1",
+            location=(17.25, -88.77),
+            reputation_score=90,
+            total_submissions=100,
+            is_verified=True,
             registration_block=1000,
         )
         assert info.device_id == b"dev1"
@@ -2130,7 +2317,8 @@ class TestMeshNetwork:
         from blockchain.mesh_network import PeerInfo
 
         pi = PeerInfo(
-            peer_id="p1", account_id="acc1",
+            peer_id="p1",
+            account_id="acc1",
             multiaddr="/ip4/127.0.0.1/tcp/9090",
             public_key="pubkey123",
         )
@@ -2140,9 +2328,11 @@ class TestMeshNetwork:
         from blockchain.mesh_network import PeerInfo
 
         pi = PeerInfo(
-            peer_id="p1", account_id="acc1",
+            peer_id="p1",
+            account_id="acc1",
             multiaddr="/ip4/127.0.0.1/tcp/9090",
-            public_key="pubkey123", last_seen=time.time(),
+            public_key="pubkey123",
+            last_seen=time.time(),
         )
         assert pi.is_alive(timeout=300.0)
 
@@ -2150,9 +2340,11 @@ class TestMeshNetwork:
         from blockchain.mesh_network import PeerInfo
 
         pi = PeerInfo(
-            peer_id="p1", account_id="acc1",
+            peer_id="p1",
+            account_id="acc1",
             multiaddr="/ip4/127.0.0.1/tcp/9090",
-            public_key="pubkey123", last_seen=time.time() - 600,
+            public_key="pubkey123",
+            last_seen=time.time() - 600,
         )
         assert not pi.is_alive(timeout=300.0)
 
@@ -2181,8 +2373,10 @@ class TestGenomeTrainer:
         from client.genome_trainer import GenomeTrainer, TrainingConfig
 
         cfg = TrainingConfig(
-            participant_id="test", validator_address="val1",
-            staking_account="stake1", device="cpu",
+            participant_id="test",
+            validator_address="val1",
+            staking_account="stake1",
+            device="cpu",
         )
         with patch.object(GenomeTrainer, "__init__", lambda self, *a, **kw: None):
             trainer = GenomeTrainer.__new__(GenomeTrainer)
@@ -2211,7 +2405,9 @@ class TestGenomeTrainer:
         from client.genome_trainer import TrainingConfig
 
         cfg = TrainingConfig(
-            participant_id="p1", validator_address="v1", staking_account="s1",
+            participant_id="p1",
+            validator_address="v1",
+            staking_account="s1",
         )
         assert cfg.learning_rate == 1e-4
 
@@ -2387,7 +2583,12 @@ class TestGenomeModelBuilder:
     def test_moe_layer(self):
         from genome.model_builder import MoELayer
 
-        moe = MoELayer(hidden_size=64, intermediate_size=128, num_experts=4, num_experts_per_token=2)
+        moe = MoELayer(
+            hidden_size=64,
+            intermediate_size=128,
+            num_experts=4,
+            num_experts_per_token=2,
+        )
         x = torch.randn(2, 16, 64)
         out = moe(x)
         assert out.shape == x.shape

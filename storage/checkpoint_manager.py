@@ -32,7 +32,7 @@ class CheckpointManager:
         self,
         checkpoint_dir: str = "./checkpoints",
         pakit_client: Optional[PakitClient] = None,
-        auto_upload: bool = False
+        auto_upload: bool = False,
     ):
         """
         Initialize checkpoint manager.
@@ -56,7 +56,7 @@ class CheckpointManager:
         self,
         model_state: Dict[str, Any],
         checkpoint_name: str,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Save checkpoint locally and optionally to Pakit.
@@ -73,6 +73,7 @@ class CheckpointManager:
         checkpoint_path = self.checkpoint_dir / checkpoint_name
 
         import torch
+
         torch.save(model_state, checkpoint_path)
 
         # Compute content hash for integrity verification
@@ -82,22 +83,21 @@ class CheckpointManager:
 
         # Record in registry
         checkpoint_info = {
-            'name': checkpoint_name,
-            'path': str(checkpoint_path),
-            'timestamp': datetime.now().isoformat(),
-            'metadata': metadata or {},
-            'pakit_cid': None,
-            'content_hash': content_hash,
+            "name": checkpoint_name,
+            "path": str(checkpoint_path),
+            "timestamp": datetime.now().isoformat(),
+            "metadata": metadata or {},
+            "pakit_cid": None,
+            "content_hash": content_hash,
         }
 
         # Upload to Pakit if enabled
         if self.auto_upload and self.pakit_client:
             try:
                 cid = self.pakit_client.upload_file(
-                    str(checkpoint_path),
-                    metadata=metadata
+                    str(checkpoint_path), metadata=metadata
                 )
-                checkpoint_info['pakit_cid'] = cid
+                checkpoint_info["pakit_cid"] = cid
                 logger.info(f"☁️  Uploaded to Pakit: {cid}")
             except Exception as e:
                 logger.warning(f"Pakit upload failed: {e}")
@@ -106,12 +106,10 @@ class CheckpointManager:
         self.registry[checkpoint_name] = checkpoint_info
         self._save_registry()
 
-        return checkpoint_info.get('pakit_cid') or str(checkpoint_path)
+        return checkpoint_info.get("pakit_cid") or str(checkpoint_path)
 
     def load_checkpoint(
-        self,
-        checkpoint_name: str,
-        from_pakit: bool = False
+        self, checkpoint_name: str, from_pakit: bool = False
     ) -> Optional[Dict[str, Any]]:
         """
         Load checkpoint from local or Pakit.
@@ -129,13 +127,13 @@ class CheckpointManager:
 
         checkpoint_info = self.registry[checkpoint_name]
 
-        if from_pakit and checkpoint_info.get('pakit_cid'):
+        if from_pakit and checkpoint_info.get("pakit_cid"):
             # Download from Pakit
             if not self.pakit_client:
                 logger.error("Pakit client not configured")
                 return None
 
-            cid = checkpoint_info['pakit_cid']
+            cid = checkpoint_info["pakit_cid"]
             temp_path = self.checkpoint_dir / f"temp_{checkpoint_name}"
 
             if self.pakit_client.download_file(cid, str(temp_path)):
@@ -145,6 +143,7 @@ class CheckpointManager:
                     return None
 
                 import torch
+
                 state = torch.load(temp_path, weights_only=True)
                 os.unlink(temp_path)
                 return state
@@ -154,7 +153,7 @@ class CheckpointManager:
 
         else:
             # Load from local
-            checkpoint_path = Path(checkpoint_info['path'])
+            checkpoint_path = Path(checkpoint_info["path"])
 
             if not checkpoint_path.exists():
                 logger.error(f"Local checkpoint missing: {checkpoint_path}")
@@ -165,6 +164,7 @@ class CheckpointManager:
                 return None
 
             import torch
+
             return torch.load(checkpoint_path, weights_only=True)
 
     def list_checkpoints(self) -> List[Dict[str, Any]]:
@@ -185,7 +185,7 @@ class CheckpointManager:
             return False
 
         checkpoint_info = self.registry[checkpoint_name]
-        checkpoint_path = Path(checkpoint_info['path'])
+        checkpoint_path = Path(checkpoint_info["path"])
 
         if checkpoint_path.exists():
             os.unlink(checkpoint_path)
@@ -253,7 +253,7 @@ class CheckpointManager:
     def _save_registry(self):
         """Save checkpoint registry."""
         try:
-            with open(self.registry_path, 'w') as f:
+            with open(self.registry_path, "w") as f:
                 json.dump(self.registry, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save registry: {e}")

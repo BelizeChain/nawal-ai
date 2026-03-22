@@ -5,6 +5,7 @@ Tests for the Phase 2 control subsystem:
   - ToolExecutor
   - ExecutiveController
 """
+
 from __future__ import annotations
 
 import time
@@ -18,10 +19,10 @@ from control.planner import ClassicalPlanner
 from control.executor import ToolExecutor
 from control.controller import ExecutiveController
 
-
 # ============================================================================
 # Helpers
 # ============================================================================
+
 
 def _goal(description: str = "test goal", priority: float = 1.0) -> Goal:
     return Goal(
@@ -48,6 +49,7 @@ def _plan(goal_id: str = "g1", steps: int = 2, score: float = 0.8) -> Plan:
 # GoalStack
 # ============================================================================
 
+
 class TestGoalStack:
     def test_push_and_peek(self):
         gs = GoalStack()
@@ -57,9 +59,9 @@ class TestGoalStack:
 
     def test_priority_order(self):
         gs = GoalStack()
-        low  = _goal("low",  priority=0.5)
+        low = _goal("low", priority=0.5)
         high = _goal("high", priority=5.0)
-        mid  = _goal("mid",  priority=2.0)
+        mid = _goal("mid", priority=2.0)
         for g in (low, high, mid):
             gs.push(g)
         pending = gs.next_pending()
@@ -75,7 +77,7 @@ class TestGoalStack:
 
     def test_activate_demotes_current(self):
         gs = GoalStack()
-        g1 = _goal("first",  priority=1.0)
+        g1 = _goal("first", priority=1.0)
         g2 = _goal("second", priority=2.0)
         gs.push(g1)
         gs.push(g2)
@@ -102,7 +104,9 @@ class TestGoalStack:
         gs.push(g)
         gs.fail(g.goal_id)
         hist = gs.history()
-        assert any(x.goal_id == g.goal_id and x.status == GoalStatus.FAILED for x in hist)
+        assert any(
+            x.goal_id == g.goal_id and x.status == GoalStatus.FAILED for x in hist
+        )
 
     def test_block(self):
         gs = GoalStack()
@@ -147,16 +151,21 @@ class TestGoalStack:
 # ClassicalPlanner
 # ============================================================================
 
+
 class TestClassicalPlanner:
     def test_generate_plans_returns_list(self):
-        p = ClassicalPlanner(available_tools=["noop", "memory_read", "reason", "respond"])
+        p = ClassicalPlanner(
+            available_tools=["noop", "memory_read", "reason", "respond"]
+        )
         g = _goal("Retrieve recent news about AI")
         plans = p.generate_plans(g, {}, n_candidates=3)
         assert isinstance(plans, list)
         assert len(plans) >= 1
 
     def test_all_plans_have_steps(self):
-        p = ClassicalPlanner(available_tools=["noop", "memory_read", "reason", "respond"])
+        p = ClassicalPlanner(
+            available_tools=["noop", "memory_read", "reason", "respond"]
+        )
         g = _goal("Analyse sentiment of this text")
         plans = p.generate_plans(g, {})
         for plan in plans:
@@ -178,7 +187,9 @@ class TestClassicalPlanner:
         assert selected.score == max(pl.score for pl in plans)
 
     def test_select_plan_respects_max_steps(self):
-        p = ClassicalPlanner(available_tools=["noop", "memory_read", "reason", "respond"])
+        p = ClassicalPlanner(
+            available_tools=["noop", "memory_read", "reason", "respond"]
+        )
         g = _goal("generate a detailed report on climate change")
         plans = p.generate_plans(g, {}, n_candidates=3)
         selected = p.select_plan(plans, constraints={"max_steps": 2})
@@ -186,22 +197,27 @@ class TestClassicalPlanner:
 
     def test_intent_detection_retrieve(self):
         from control.planner import _detect_intent
+
         assert _detect_intent("retrieve recent memories") == "retrieve"
 
     def test_intent_detection_generate(self):
         from control.planner import _detect_intent
+
         assert _detect_intent("generate a creative story") == "generate"
 
     def test_intent_detection_analyse(self):
         from control.planner import _detect_intent
+
         assert _detect_intent("analyse the log file") == "analyse"
 
     def test_intent_detection_act(self):
         from control.planner import _detect_intent
+
         assert _detect_intent("execute the command") == "act"
 
     def test_intent_detection_default(self):
         from control.planner import _detect_intent
+
         intent = _detect_intent("unknowable cryptic phrase xyz")
         assert intent == "default"
 
@@ -216,6 +232,7 @@ class TestClassicalPlanner:
 # ============================================================================
 # ToolExecutor
 # ============================================================================
+
 
 class TestToolExecutor:
     def test_execute_noop_plan_succeeds(self):
@@ -320,6 +337,7 @@ class TestToolExecutor:
 # ExecutiveController
 # ============================================================================
 
+
 class TestExecutiveController:
     def test_add_goal_returns_goal(self):
         ctrl = ExecutiveController()
@@ -376,7 +394,9 @@ class TestExecutiveController:
     def test_goal_with_custom_tool(self):
         ctrl = ExecutiveController()
         outputs = []
-        ctrl.register_tool("respond", lambda message="", **_: outputs.append(message) or {})
+        ctrl.register_tool(
+            "respond", lambda message="", **_: outputs.append(message) or {}
+        )
         ctrl.add_goal("Generate a greeting", priority=1.0)
         ctrl.tick()
         # The test just verifies no exceptions and a result was produced

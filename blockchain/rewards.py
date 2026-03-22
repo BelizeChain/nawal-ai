@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 from loguru import logger
 
-
 # =============================================================================
 # Constants
 # =============================================================================
@@ -23,7 +22,7 @@ from loguru import logger
 # Reward calculation constants (aligned with Staking pallet)
 BASE_REWARD_DALLA = 10.0  # Base reward per training round
 DALLA_DECIMALS = 12  # DALLA has 12 decimals
-PLANCK_PER_DALLA = 10 ** DALLA_DECIMALS
+PLANCK_PER_DALLA = 10**DALLA_DECIMALS
 
 # Fitness weight components (PoUW)
 QUALITY_WEIGHT = 0.40  # 40% - Model accuracy
@@ -55,11 +54,7 @@ class FitnessScores:
         q = min(100.0, max(0.0, self.quality))
         t = min(100.0, max(0.0, self.timeliness))
         h = min(100.0, max(0.0, self.honesty))
-        return (
-            QUALITY_WEIGHT * q +
-            TIMELINESS_WEIGHT * t +
-            HONESTY_WEIGHT * h
-        )
+        return QUALITY_WEIGHT * q + TIMELINESS_WEIGHT * t + HONESTY_WEIGHT * h
 
     def validate(self) -> list[str]:
         """Validate fitness scores."""
@@ -172,9 +167,8 @@ class RewardCalculator:
             return MAX_STAKE_MULTIPLIER  # Maximum bonus
 
         # Linear interpolation between min and max
-        stake_ratio = (
-            (stake_amount_dalla - self.min_stake_dalla) /
-            (self.max_bonus_stake_dalla - self.min_stake_dalla)
+        stake_ratio = (stake_amount_dalla - self.min_stake_dalla) / (
+            self.max_bonus_stake_dalla - self.min_stake_dalla
         )
 
         return MIN_STAKE_MULTIPLIER + stake_ratio * (
@@ -396,8 +390,7 @@ class RewardDistributor:
             Statistics dictionary
         """
         total_pending = sum(
-            self.get_total_pending(pid)
-            for pid in self.pending_rewards.keys()
+            self.get_total_pending(pid) for pid in self.pending_rewards.keys()
         )
 
         total_distributed = sum(self.distributed_rewards.values())

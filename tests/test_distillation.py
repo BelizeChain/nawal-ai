@@ -7,6 +7,7 @@ Covers:
 
 Teacher model is always mocked so no GPU or vLLM is required.
 """
+
 from __future__ import annotations
 
 import math
@@ -18,8 +19,10 @@ import pytest
 import torch
 import torch.nn as nn
 
-from training.distillation import KnowledgeDistillationLoss, KnowledgeDistillationTrainer
-
+from training.distillation import (
+    KnowledgeDistillationLoss,
+    KnowledgeDistillationTrainer,
+)
 
 # ============================================================================
 # Helpers / Fixtures
@@ -30,11 +33,15 @@ BATCH = 2
 SEQ = 8
 
 
-def _make_logits(batch: int = BATCH, seq: int = SEQ, vocab: int = VOCAB) -> torch.Tensor:
+def _make_logits(
+    batch: int = BATCH, seq: int = SEQ, vocab: int = VOCAB
+) -> torch.Tensor:
     return torch.randn(batch, seq, vocab)
 
 
-def _make_labels(batch: int = BATCH, seq: int = SEQ, vocab: int = VOCAB) -> torch.Tensor:
+def _make_labels(
+    batch: int = BATCH, seq: int = SEQ, vocab: int = VOCAB
+) -> torch.Tensor:
     return torch.randint(0, vocab, (batch, seq))
 
 
@@ -69,6 +76,7 @@ def _make_student_model() -> nn.Module:
 
     class _FakeConfig:
         """Minimal config shim accepted by KnowledgeDistillationTrainer."""
+
         def num_parameters(self) -> int:
             return 16 * VOCAB + VOCAB  # embed + proj rough count
 
@@ -87,7 +95,9 @@ def _make_student_model() -> nn.Module:
             self.proj = nn.Linear(16, VOCAB)
             self.config = _FakeConfig()
 
-        def forward(self, input_ids, labels=None, attention_mask=None, return_dict=False):
+        def forward(
+            self, input_ids, labels=None, attention_mask=None, return_dict=False
+        ):
             x = self.embed(input_ids)
             logits = self.proj(x)
             return {"logits": logits}
@@ -106,6 +116,7 @@ def _make_batch() -> Dict[str, torch.Tensor]:
 # ============================================================================
 # KnowledgeDistillationLoss — parameter validation
 # ============================================================================
+
 
 class TestKnowledgeDistillationLossInit:
     """Test constructor validation."""
@@ -148,6 +159,7 @@ class TestKnowledgeDistillationLossInit:
 # ============================================================================
 # KnowledgeDistillationLoss — forward pass
 # ============================================================================
+
 
 class TestKnowledgeDistillationLossForward:
     """Test the forward pass."""
@@ -197,7 +209,7 @@ class TestKnowledgeDistillationLossForward:
         torch.manual_seed(1)
         s = _make_logits()
         labels = _make_labels()
-        teacher_a = torch.zeros(BATCH, SEQ, VOCAB)    # all zeros
+        teacher_a = torch.zeros(BATCH, SEQ, VOCAB)  # all zeros
         teacher_b = torch.ones(BATCH, SEQ, VOCAB) * 100  # extreme values
         loss_a = loss_fn_hard(s, teacher_a, labels)
         loss_b = loss_fn_hard(s, teacher_b, labels)
@@ -211,7 +223,9 @@ class TestKnowledgeDistillationLossForward:
         labels = _make_labels()
 
         loss_low_T = KnowledgeDistillationLoss(temperature=1.0, alpha=1.0)(s, t, labels)
-        loss_high_T = KnowledgeDistillationLoss(temperature=100.0, alpha=1.0)(s, t, labels)
+        loss_high_T = KnowledgeDistillationLoss(temperature=100.0, alpha=1.0)(
+            s, t, labels
+        )
         # Very high temperature flattens distributions: KL → 0
         # Scale factor is T^2, but KL → 0 faster, so loss should be smaller at high T
         # (This tests the behavior, not absolute values)
@@ -241,6 +255,7 @@ class TestKnowledgeDistillationLossForward:
 # ============================================================================
 # KnowledgeDistillationTrainer — initialisation
 # ============================================================================
+
 
 class TestKnowledgeDistillationTrainerInit:
     """Test trainer initialisation."""
@@ -328,6 +343,7 @@ class TestKnowledgeDistillationTrainerInit:
 # KnowledgeDistillationTrainer — train_step
 # ============================================================================
 
+
 class TestKnowledgeDistillationTrainerStep:
     """Test train_step metrics."""
 
@@ -395,6 +411,7 @@ class TestKnowledgeDistillationTrainerStep:
 # KnowledgeDistillationTrainer — checkpoint save / load
 # ============================================================================
 
+
 class TestKnowledgeDistillationTrainerCheckpoint:
     """Test checkpoint persistence."""
 
@@ -423,8 +440,16 @@ class TestKnowledgeDistillationTrainerCheckpoint:
         path = str(tmp_path / "ckpt.pt")
         trainer.save_checkpoint(path)
         ckpt = torch.load(path, weights_only=True)
-        expected = {"model_state_dict", "optimizer_state_dict", "global_step",
-                    "config", "current_epoch", "best_val_loss", "temperature", "alpha"}
+        expected = {
+            "model_state_dict",
+            "optimizer_state_dict",
+            "global_step",
+            "config",
+            "current_epoch",
+            "best_val_loss",
+            "temperature",
+            "alpha",
+        }
         for k in expected:
             assert k in ckpt, f"Missing checkpoint key: {k}"
 

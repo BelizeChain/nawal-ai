@@ -20,22 +20,27 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+
 class DataSovereigntyLevel(Enum):
     """Data sovereignty classification levels"""
+
     PUBLIC = "public"
     RESTRICTED = "restricted"
     CONFIDENTIAL = "confidential"
     SECRET = "secret"
 
+
 @dataclass
 class ComplianceMetadata:
     """Metadata for compliance and data sovereignty"""
+
     data_classification: DataSovereigntyLevel
     contains_pii: bool = False
     requires_kyc: bool = False
     geographic_restriction: str = "BZ"  # Belize by default
     retention_period_days: int = 2555  # 7 years default
     encryption_required: bool = True
+
 
 class ComplianceDataFilter:
     """
@@ -59,21 +64,21 @@ class ComplianceDataFilter:
         """Load patterns that require special handling under Belize law"""
         return [
             # Financial sensitive information
-            r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b',  # Credit card numbers
-            r'\b\d{3}-\d{2}-\d{4}\b',  # SSN-like patterns
-            r'\b[A-Z]{2}\d{6}[A-Z]\b',  # Belize ID pattern
-
+            r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b",  # Credit card numbers
+            r"\b\d{3}-\d{2}-\d{4}\b",  # SSN-like patterns
+            r"\b[A-Z]{2}\d{6}[A-Z]\b",  # Belize ID pattern
             # Regulatory terms that require special handling
-            r'\bmoney[\s-]?laundering\b',
-            r'\bterrorist[\s-]?financing\b',
-            r'\btax[\s-]?evasion\b',
-
+            r"\bmoney[\s-]?laundering\b",
+            r"\bterrorist[\s-]?financing\b",
+            r"\btax[\s-]?evasion\b",
             # Personal identifiers
-            r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',  # Email
-            r'\b\+?501[-.\s]?\d{3}[-.\s]?\d{4}\b',  # Belize phone numbers
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",  # Email
+            r"\b\+?501[-.\s]?\d{3}[-.\s]?\d{4}\b",  # Belize phone numbers
         ]
 
-    def filter_batch(self, batch: Dict[str, torch.Tensor]) -> Optional[Dict[str, torch.Tensor]]:
+    def filter_batch(
+        self, batch: Dict[str, torch.Tensor]
+    ) -> Optional[Dict[str, torch.Tensor]]:
         """
         Filter a batch for compliance violations
 
@@ -86,14 +91,13 @@ class ComplianceDataFilter:
         self.total_processed += 1
 
         # Convert tokens back to text for analysis
-        if 'text' not in batch and hasattr(self, 'tokenizer'):
+        if "text" not in batch and hasattr(self, "tokenizer"):
             # Reconstruct text from token IDs for analysis
             texts = self.tokenizer.batch_decode(
-                batch['input_ids'],
-                skip_special_tokens=True
+                batch["input_ids"], skip_special_tokens=True
             )
         else:
-            texts = batch.get('text', [])
+            texts = batch.get("text", [])
 
         # Check each text in batch — collect compliant indices
         compliant_indices = []
@@ -111,7 +115,7 @@ class ComplianceDataFilter:
                     batch[key] = batch[key][compliant_indices]
 
         # Return batch if it has remaining items
-        if len(batch.get('input_ids', [])) > 0:
+        if len(batch.get("input_ids", [])) > 0:
             return batch
         else:
             return None
@@ -123,10 +127,12 @@ class ComplianceDataFilter:
         # Check for sensitive patterns
         for pattern in self.sensitive_patterns:
             if re.search(pattern, text, re.IGNORECASE):
-                self.compliance_violations.append({
-                    'pattern': pattern,
-                    'text_hash': hashlib.sha256(text.encode()).hexdigest()[:16]
-                })
+                self.compliance_violations.append(
+                    {
+                        "pattern": pattern,
+                        "text_hash": hashlib.sha256(text.encode()).hexdigest()[:16],
+                    }
+                )
                 return False
 
         # Additional Belizean-specific compliance checks
@@ -140,8 +146,11 @@ class ComplianceDataFilter:
         # Add specific Belizean legal restrictions
         restricted_terms = [
             # Content that might violate Belize regulations
-            'illegal gambling', 'unlicensed forex', 'ponzi scheme',
-            'tax haven abuse', 'sanctions violation'
+            "illegal gambling",
+            "unlicensed forex",
+            "ponzi scheme",
+            "tax haven abuse",
+            "sanctions violation",
         ]
 
         text_lower = text.lower()
@@ -154,10 +163,12 @@ class ComplianceDataFilter:
     def get_stats(self) -> Dict[str, int]:
         """Get filtering statistics"""
         return {
-            'total_processed': self.total_processed,
-            'filtered_count': self.filtered_count,
-            'compliance_rate': 1.0 - (self.filtered_count / max(self.total_processed, 1))
+            "total_processed": self.total_processed,
+            "filtered_count": self.filtered_count,
+            "compliance_rate": 1.0
+            - (self.filtered_count / max(self.total_processed, 1)),
         }
+
 
 class BelizeDataset(Dataset):
     """
@@ -171,7 +182,7 @@ class BelizeDataset(Dataset):
         data_path: str,
         tokenizer,  # NawalTokenizerWrapper or HuggingFace-compatible tokenizer
         max_length: int = 512,
-        compliance_metadata: Optional[ComplianceMetadata] = None
+        compliance_metadata: Optional[ComplianceMetadata] = None,
     ):
         self.data_path = Path(data_path)
         self.tokenizer = tokenizer
@@ -187,18 +198,20 @@ class BelizeDataset(Dataset):
 
     def _load_data(self) -> List[Dict[str, Any]]:
         """Load data from various formats"""
-        if self.data_path.suffix == '.json':
-            with open(self.data_path, 'r', encoding='utf-8') as f:
+        if self.data_path.suffix == ".json":
+            with open(self.data_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        elif self.data_path.suffix == '.csv':
+        elif self.data_path.suffix == ".csv":
             df = pd.read_csv(self.data_path)
-            return df.to_dict('records')
+            return df.to_dict("records")
         else:
             # Load text files
-            with open(self.data_path, 'r', encoding='utf-8') as f:
+            with open(self.data_path, "r", encoding="utf-8") as f:
                 lines = f.readlines()
 
-            return [{'text': line.strip(), 'label': 0} for line in lines if line.strip()]
+            return [
+                {"text": line.strip(), "label": 0} for line in lines if line.strip()
+            ]
 
     def __len__(self) -> int:
         return len(self.data)
@@ -208,24 +221,25 @@ class BelizeDataset(Dataset):
         item = self.data[idx]
 
         # Extract text and label
-        text = item.get('text', item.get('input', ''))
-        label = item.get('label', 0)
+        text = item.get("text", item.get("input", ""))
+        label = item.get("label", 0)
 
         # Tokenize text
         encoding = self.tokenizer(
             text,
             truncation=True,
-            padding='max_length',
+            padding="max_length",
             max_length=self.max_length,
-            return_tensors='pt'
+            return_tensors="pt",
         )
 
         return {
-            'input_ids': encoding['input_ids'].squeeze(),
-            'attention_mask': encoding['attention_mask'].squeeze(),
-            'labels': torch.tensor(label, dtype=torch.long),
-            'text': text  # Keep original text for compliance filtering
+            "input_ids": encoding["input_ids"].squeeze(),
+            "attention_mask": encoding["attention_mask"].squeeze(),
+            "labels": torch.tensor(label, dtype=torch.long),
+            "text": text,  # Keep original text for compliance filtering
         }
+
 
 class BelizeDataLoader:
     """
@@ -242,7 +256,7 @@ class BelizeDataLoader:
         max_length: int = 512,
         train_split: float = 0.8,
         compliance_filter: Optional[ComplianceDataFilter] = None,
-        data_sovereignty_check: bool = True
+        data_sovereignty_check: bool = True,
     ):
         self.participant_id = participant_id
         self.batch_size = batch_size
@@ -252,9 +266,16 @@ class BelizeDataLoader:
         self.data_sovereignty_check = data_sovereignty_check
 
         # Initialize tokenizer — use Nawal's built-in character tokenizer
-        from data.tokenizers import NawalTokenizerWrapper, TokenizerConfig, TokenizerType
+        from data.tokenizers import (
+            NawalTokenizerWrapper,
+            TokenizerConfig,
+            TokenizerType,
+        )
+
         self.tokenizer = NawalTokenizerWrapper(
-            TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER, max_length=max_length)
+            TokenizerConfig(
+                tokenizer_type=TokenizerType.CHARACTER, max_length=max_length
+            )
         )
 
         # Set reference to tokenizer in compliance filter
@@ -289,9 +310,7 @@ class BelizeDataLoader:
         train_file = data_dir / "train.json"
         if train_file.exists():
             self.dataset = BelizeDataset(
-                str(train_file),
-                self.tokenizer,
-                self.max_length
+                str(train_file), self.tokenizer, self.max_length
             )
         else:
             # Create minimal dataset
@@ -302,8 +321,7 @@ class BelizeDataLoader:
         val_size = len(self.dataset) - train_size
 
         self.train_dataset, self.val_dataset = random_split(
-            self.dataset,
-            [train_size, val_size]
+            self.dataset, [train_size, val_size]
         )
 
     def _create_synthetic_data(self, data_dir: Path):
@@ -312,20 +330,47 @@ class BelizeDataLoader:
 
         # Sample Belizean-context synthetic data
         synthetic_samples = [
-            {"text": "The Financial Services Commission of Belize regulates digital assets.", "label": 0},
-            {"text": "BelizeChain provides sovereign blockchain infrastructure for Belize.", "label": 1},
-            {"text": "Federated learning preserves data privacy across participants.", "label": 1},
-            {"text": "KYC compliance is mandatory for financial services in Belize.", "label": 0},
-            {"text": "Quantum computing enhances blockchain security capabilities.", "label": 1},
-            {"text": "IPFS provides decentralized storage for blockchain applications.", "label": 1},
-            {"text": "The Belize Dollar (BZD) is the official currency of Belize.", "label": 0},
-            {"text": "Digital identity systems enhance security and privacy.", "label": 1},
-            {"text": "Cross-chain bridges enable blockchain interoperability.", "label": 1},
-            {"text": "Compliance frameworks ensure regulatory adherence.", "label": 0}
+            {
+                "text": "The Financial Services Commission of Belize regulates digital assets.",
+                "label": 0,
+            },
+            {
+                "text": "BelizeChain provides sovereign blockchain infrastructure for Belize.",
+                "label": 1,
+            },
+            {
+                "text": "Federated learning preserves data privacy across participants.",
+                "label": 1,
+            },
+            {
+                "text": "KYC compliance is mandatory for financial services in Belize.",
+                "label": 0,
+            },
+            {
+                "text": "Quantum computing enhances blockchain security capabilities.",
+                "label": 1,
+            },
+            {
+                "text": "IPFS provides decentralized storage for blockchain applications.",
+                "label": 1,
+            },
+            {
+                "text": "The Belize Dollar (BZD) is the official currency of Belize.",
+                "label": 0,
+            },
+            {
+                "text": "Digital identity systems enhance security and privacy.",
+                "label": 1,
+            },
+            {
+                "text": "Cross-chain bridges enable blockchain interoperability.",
+                "label": 1,
+            },
+            {"text": "Compliance frameworks ensure regulatory adherence.", "label": 0},
         ]
 
         # Save synthetic data
-        with open(data_dir / "train.json", 'w') as f:
+        with open(data_dir / "train.json", "w") as f:
             json.dump(synthetic_samples, f, indent=2)
 
         logger.info(f"Created synthetic data at {data_dir}")
@@ -334,12 +379,12 @@ class BelizeDataLoader:
         """Create minimal dataset for testing"""
         minimal_data = [
             {"text": "BelizeChain federated learning test", "label": 1},
-            {"text": "Synthetic training sample", "label": 0}
+            {"text": "Synthetic training sample", "label": 0},
         ]
 
         # Create temporary file
         temp_file = Path("/tmp/minimal_belizechain_data.json")
-        with open(temp_file, 'w') as f:
+        with open(temp_file, "w") as f:
             json.dump(minimal_data, f)
 
         return BelizeDataset(str(temp_file), self.tokenizer, self.max_length)
@@ -350,7 +395,7 @@ class BelizeDataLoader:
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            collate_fn=self._collate_fn
+            collate_fn=self._collate_fn,
         )
 
     def get_eval_loader(self) -> DataLoader:
@@ -359,15 +404,17 @@ class BelizeDataLoader:
             self.val_dataset,
             batch_size=self.batch_size,
             shuffle=False,
-            collate_fn=self._collate_fn
+            collate_fn=self._collate_fn,
         )
 
-    def _collate_fn(self, batch: List[Dict[str, torch.Tensor]]) -> Dict[str, torch.Tensor]:
+    def _collate_fn(
+        self, batch: List[Dict[str, torch.Tensor]]
+    ) -> Dict[str, torch.Tensor]:
         """Custom collate function with compliance filtering"""
         # Standard collation
         collated = {}
         for key in batch[0].keys():
-            if key == 'text':
+            if key == "text":
                 collated[key] = [item[key] for item in batch]
             else:
                 collated[key] = torch.stack([item[key] for item in batch])
@@ -378,10 +425,9 @@ class BelizeDataLoader:
 
         return collated if collated else None
 
+
 def create_belizean_data_splits(
-    data_path: str,
-    num_participants: int = 3,
-    output_dir: str = "data/federated"
+    data_path: str, num_participants: int = 3, output_dir: str = "data/federated"
 ) -> List[str]:
     """
     Create federated data splits for multiple BelizeChain participants
@@ -398,11 +444,11 @@ def create_belizean_data_splits(
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Load original data
-    with open(data_path, 'r') as f:
-        if data_path.endswith('.json'):
+    with open(data_path, "r") as f:
+        if data_path.endswith(".json"):
             data = json.load(f)
         else:
-            data = [{'text': line.strip(), 'label': 0} for line in f.readlines()]
+            data = [{"text": line.strip(), "label": 0} for line in f.readlines()]
 
     # Split data among participants
     participant_dirs = []
@@ -415,17 +461,24 @@ def create_belizean_data_splits(
 
         # Get participant's data slice
         start_idx = i * samples_per_participant
-        end_idx = start_idx + samples_per_participant if i < num_participants - 1 else len(data)
+        end_idx = (
+            start_idx + samples_per_participant
+            if i < num_participants - 1
+            else len(data)
+        )
         participant_data = data[start_idx:end_idx]
 
         # Save participant data
-        with open(participant_dir / "train.json", 'w') as f:
+        with open(participant_dir / "train.json", "w") as f:
             json.dump(participant_data, f, indent=2)
 
         participant_dirs.append(str(participant_dir))
-        logger.info(f"Created data for {participant_id}: {len(participant_data)} samples")
+        logger.info(
+            f"Created data for {participant_id}: {len(participant_data)} samples"
+        )
 
     return participant_dirs
+
 
 if __name__ == "__main__":
     # Test data loader
@@ -435,7 +488,7 @@ if __name__ == "__main__":
     data_loader = BelizeDataLoader(
         participant_id="test_participant",
         batch_size=2,
-        compliance_filter=ComplianceDataFilter()
+        compliance_filter=ComplianceDataFilter(),
     )
 
     # Test training loader

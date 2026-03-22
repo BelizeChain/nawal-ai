@@ -33,10 +33,10 @@ from nawal.config import (
     NawalConfig,
 )
 
-
 # ============================================================================
 # Directory Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def temp_dir():
@@ -64,6 +64,7 @@ def data_dir(temp_dir):
 # ============================================================================
 # Configuration Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def genome_config():
@@ -137,6 +138,7 @@ def nawal_config(genome_config, evolution_config, training_config, federated_con
 # ============================================================================
 # Genome Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def sample_layer_genes():
@@ -213,8 +215,8 @@ def sample_population(genome_config, evolution_config, innovation_history):
     population = PopulationManager(config=pop_config)
 
     # Get hidden size from genome config or use default
-    hidden_size = getattr(genome_config, 'hidden_size', 64)
-    if hasattr(genome_config, 'hidden_layers') and genome_config.hidden_layers:
+    hidden_size = getattr(genome_config, "hidden_size", 64)
+    if hasattr(genome_config, "hidden_layers") and genome_config.hidden_layers:
         hidden_size = genome_config.hidden_layers[0]
 
     # Initialize with some genomes that have encoder layers
@@ -248,6 +250,7 @@ def sample_population(genome_config, evolution_config, innovation_history):
         if len(population.genomes) == 0:
             return None
         import random
+
         return random.choice(population.genomes)
 
     def evolve():
@@ -271,6 +274,7 @@ def sample_population(genome_config, evolution_config, innovation_history):
 # ============================================================================
 # PyTorch Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def sample_model():
@@ -315,12 +319,12 @@ def train_val_dataloaders(sample_dataset):
 # Federated Learning Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def client_models():
     """Create multiple client models for federated learning."""
     return [
-        nn.Sequential(nn.Linear(10, 16), nn.ReLU(), nn.Linear(16, 2))
-        for _ in range(3)
+        nn.Sequential(nn.Linear(10, 16), nn.ReLU(), nn.Linear(16, 2)) for _ in range(3)
     ]
 
 
@@ -347,6 +351,7 @@ def model_state_dicts(client_models):
 # Utility Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_fitness_scores():
     """Generate mock fitness scores for testing."""
@@ -365,6 +370,7 @@ def seed():
     torch.manual_seed(42)
     import random
     import numpy as np
+
     random.seed(42)
     np.random.seed(42)
     return 42
@@ -373,6 +379,7 @@ def seed():
 # ============================================================================
 # Mock Response Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def mock_blockchain_response():
@@ -399,6 +406,7 @@ def mock_ipfs_response():
 # Performance Testing Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def benchmark_params():
     """Parameters for benchmark testing."""
@@ -413,6 +421,7 @@ def benchmark_params():
 # ============================================================================
 # Error Injection Fixtures
 # ============================================================================
+
 
 @pytest.fixture
 def byzantine_client_indices():
@@ -442,23 +451,18 @@ def poisoned_gradients():
 # Pytest Configuration
 # ============================================================================
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests"
-    )
-    config.addinivalue_line(
-        "markers", "security: marks tests as security tests"
-    )
+    config.addinivalue_line("markers", "integration: marks tests as integration tests")
+    config.addinivalue_line("markers", "security: marks tests as security tests")
     config.addinivalue_line(
         "markers", "benchmark: marks tests as performance benchmarks"
     )
-    config.addinivalue_line(
-        "markers", "gpu: marks tests requiring GPU"
-    )
+    config.addinivalue_line("markers", "gpu: marks tests requiring GPU")
 
 
 def pytest_collection_modifyitems(config, items):

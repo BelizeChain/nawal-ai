@@ -7,13 +7,13 @@ Covers:
   C15.3 - Timeliness score computation
   C15.4 - Token denomination & overflow
 """
+
 from __future__ import annotations
 
 import inspect
 import re
 
 import pytest
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # C15.1 — Weight Consistency
@@ -40,11 +40,12 @@ class TestC151WeightConsistency:
         # Strip the docstring to avoid false positives
         src_lines = src.split("\n")
         body = "\n".join(
-            l for l in src_lines
-            if not l.strip().startswith(('"""', "'''", "#"))
+            l for l in src_lines if not l.strip().startswith(('"""', "'''", "#"))
         )
         assert "0.4" not in body, "Hardcoded 0.4 found — should use QUALITY_WEIGHT"
-        assert "0.3" not in body, "Hardcoded 0.3 found — should use TIMELINESS/HONESTY_WEIGHT"
+        assert (
+            "0.3" not in body
+        ), "Hardcoded 0.3 found — should use TIMELINESS/HONESTY_WEIGHT"
 
     def test_valuation_module_has_no_tokenomics_weights(self):
         """valuation/ must NOT define its own 40/30/30 weights — those belong in blockchain/rewards."""

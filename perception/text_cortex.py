@@ -19,6 +19,7 @@ PhaseHook
 Phase 5a fine-tunes a sentence-transformer on Belize domain data.
 Replace ``_bert_embed()`` internals — the public API is unchanged.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -30,7 +31,6 @@ import torch
 from loguru import logger
 
 from perception.interfaces import AbstractCortex, WorldState
-
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
@@ -70,6 +70,7 @@ def _l2_normalize(vec: List[float]) -> List[float]:
 # TextCortex                                                                   #
 # --------------------------------------------------------------------------- #
 
+
 class TextCortex(AbstractCortex):
     """
     Text-modality sensory cortex.
@@ -103,8 +104,10 @@ class TextCortex(AbstractCortex):
         self.ngram_range = ngram_range
         self.max_length = max_length
         self.device = (
-            "cuda" if torch.cuda.is_available() else "cpu"
-        ) if device == "auto" else device
+            ("cuda" if torch.cuda.is_available() else "cpu")
+            if device == "auto"
+            else device
+        )
 
         # Lazy-loaded BERT assets
         self._tokenizer: Any = None
@@ -125,12 +128,12 @@ class TextCortex(AbstractCortex):
         if not isinstance(raw_input, str):
             raw_input = str(raw_input)
         # Strip null bytes and control characters (keep newlines/tabs)
-        raw_input = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw_input)
+        raw_input = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw_input)
         # Collapse whitespace
         text = " ".join(raw_input.split())
         # Enforce length limit for hash-ngram mode (BERT has its own max_length)
         if not self.model_name and len(text) > self.MAX_TEXT_LENGTH:
-            text = text[:self.MAX_TEXT_LENGTH]
+            text = text[: self.MAX_TEXT_LENGTH]
         return text
 
     def encode(self, raw_input: Any) -> List[float]:
@@ -155,7 +158,10 @@ class TextCortex(AbstractCortex):
         return WorldState(
             text_embedding=embedding,
             raw_text=raw_input if isinstance(raw_input, str) else str(raw_input),
-            metadata={"cortex": "TextCortex", "mode": "bert" if self.model_name else "hash"},
+            metadata={
+                "cortex": "TextCortex",
+                "mode": "bert" if self.model_name else "hash",
+            },
         )
 
     # ------------------------------------------------------------------ #
@@ -203,6 +209,7 @@ class TextCortex(AbstractCortex):
             return
         try:
             from transformers import AutoModel, AutoTokenizer  # type: ignore
+
             logger.info(f"TextCortex: loading model '{self.model_name}'")
             self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
             self._model = AutoModel.from_pretrained(self.model_name).to(self.device)
@@ -234,9 +241,9 @@ class TextCortex(AbstractCortex):
             out = self._model(**enc)
 
         # Mean-pool over sequence length (mask out padding)
-        hidden = out.last_hidden_state          # [1, seq, hidden]
-        mask   = enc["attention_mask"].unsqueeze(-1).float()  # [1, seq, 1]
-        pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1) # [1, hidden]
+        hidden = out.last_hidden_state  # [1, seq, hidden]
+        mask = enc["attention_mask"].unsqueeze(-1).float()  # [1, seq, 1]
+        pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1)  # [1, hidden]
         vec = pooled[0].cpu().tolist()
 
         # Project to embed_dim if mismatch
@@ -249,6 +256,7 @@ class TextCortex(AbstractCortex):
 # --------------------------------------------------------------------------- #
 # Utility: linear projection (dimension mismatch)                             #
 # --------------------------------------------------------------------------- #
+
 
 def _project(vec: List[float], out_dim: int) -> List[float]:
     """Truncate or repeat-tile a vector to *out_dim*."""

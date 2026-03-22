@@ -38,6 +38,7 @@ class DeviceType(Enum):
     Device types matching Oracle pallet Rust enum.
     Must stay in sync with pallets/oracle/src/types.rs
     """
+
     DRONE = 0
     PHONE = 1
     SENSOR = 2
@@ -49,6 +50,7 @@ class DeviceType(Enum):
 @dataclass
 class IoTDeviceInfo:
     """Information about registered IoT device"""
+
     device_id: bytes
     device_type: DeviceType
     domain: ModelDomain
@@ -63,6 +65,7 @@ class IoTDeviceInfo:
 @dataclass
 class IoTDataSubmission:
     """Raw data submission from IoT device"""
+
     device_id: bytes
     data: bytes
     feed_type: str
@@ -92,7 +95,7 @@ class OracleDataFetcher:
         self.substrate = SubstrateInterface(
             url=substrate_url,
             ss58_format=42,  # BelizeChain SS58 format
-            type_registry_preset='substrate-node-template',
+            type_registry_preset="substrate-node-template",
         )
 
     def get_device_info(self, device_id: bytes) -> Optional[IoTDeviceInfo]:
@@ -108,8 +111,8 @@ class OracleDataFetcher:
         try:
             # Query Oracle::IoTDevices(device_id)
             result = self.substrate.query(
-                module='Oracle',
-                storage_function='IoTDevices',
+                module="Oracle",
+                storage_function="IoTDevices",
                 params=[device_id.hex()],
             )
 
@@ -120,15 +123,18 @@ class OracleDataFetcher:
             device_data = result.value
             return IoTDeviceInfo(
                 device_id=device_id,
-                device_type=DeviceType(device_data['device_type']),
-                domain=ModelDomain(device_data['domain_index']),
-                operator=device_data['operator'],
-                location=(device_data['location']['lat'], device_data['location']['lon'])
-                    if device_data.get('location') else None,
-                reputation_score=device_data['reputation_score'],
-                total_submissions=device_data['total_submissions'],
-                is_verified=device_data['is_verified'],
-                registration_block=device_data['registration_block'],
+                device_type=DeviceType(device_data["device_type"]),
+                domain=ModelDomain(device_data["domain_index"]),
+                operator=device_data["operator"],
+                location=(
+                    (device_data["location"]["lat"], device_data["location"]["lon"])
+                    if device_data.get("location")
+                    else None
+                ),
+                reputation_score=device_data["reputation_score"],
+                total_submissions=device_data["total_submissions"],
+                is_verified=device_data["is_verified"],
+                registration_block=device_data["registration_block"],
             )
 
         except Exception as e:
@@ -155,8 +161,8 @@ class OracleDataFetcher:
         try:
             # Query Oracle::PendingSubmissions() - returns Vec<(DeviceId, SubmissionData)>
             result = self.substrate.query(
-                module='Oracle',
-                storage_function='PendingSubmissions',
+                module="Oracle",
+                storage_function="PendingSubmissions",
             )
 
             if result.value is None:
@@ -177,16 +183,24 @@ class OracleDataFetcher:
                     continue
 
                 # Parse submission data
-                submissions.append(IoTDataSubmission(
-                    device_id=device_id,
-                    data=bytes(submission_data['data']),
-                    feed_type=submission_data['feed_type'],
-                    location=(submission_data['location']['lat'], submission_data['location']['lon'])
-                        if submission_data.get('location') else None,
-                    timestamp=submission_data['timestamp'],
-                    quality_metrics=submission_data.get('quality_metrics', {}),
-                    metadata=submission_data.get('metadata'),
-                ))
+                submissions.append(
+                    IoTDataSubmission(
+                        device_id=device_id,
+                        data=bytes(submission_data["data"]),
+                        feed_type=submission_data["feed_type"],
+                        location=(
+                            (
+                                submission_data["location"]["lat"],
+                                submission_data["location"]["lon"],
+                            )
+                            if submission_data.get("location")
+                            else None
+                        ),
+                        timestamp=submission_data["timestamp"],
+                        quality_metrics=submission_data.get("quality_metrics", {}),
+                        metadata=submission_data.get("metadata"),
+                    )
+                )
 
         except Exception as e:
             logger.error(f"Error fetching pending submissions: {e}")
@@ -205,18 +219,18 @@ class OracleDataFetcher:
         """
         try:
             result = self.substrate.query(
-                module='Oracle',
-                storage_function='OperatorStats',
+                module="Oracle",
+                storage_function="OperatorStats",
                 params=[operator],
             )
 
             if result.value is None:
                 return {
-                    'total_devices': 0,
-                    'active_devices': 0,
-                    'total_submissions': 0,
-                    'average_quality': 0,
-                    'domain_breakdown': {},
+                    "total_devices": 0,
+                    "active_devices": 0,
+                    "total_submissions": 0,
+                    "average_quality": 0,
+                    "domain_breakdown": {},
                 }
 
             return result.value
@@ -237,7 +251,7 @@ class DataPreprocessor:
     - Tech: Infrastructure metrics → time series → normalized tensors
     """
 
-    def __init__(self, device: str = 'cpu'):
+    def __init__(self, device: str = "cpu"):
         """
         Initialize preprocessor.
 
@@ -276,11 +290,11 @@ class DataPreprocessor:
 
         # Build raw_data dict for model preprocessing
         raw_data = {
-            'data': submission.data,
-            'feed_type': submission.feed_type,
-            'location': submission.location,
-            'timestamp': submission.timestamp,
-            'metadata': submission.metadata or {},
+            "data": submission.data,
+            "feed_type": submission.feed_type,
+            "location": submission.location,
+            "timestamp": submission.timestamp,
+            "metadata": submission.metadata or {},
         }
 
         # Domain-specific preprocessing
@@ -302,9 +316,9 @@ class ModelInferenceRunner:
 
     def __init__(self):
         self.inference_stats = {
-            'total_inferences': 0,
-            'total_time_ms': 0,
-            'domain_breakdown': {},
+            "total_inferences": 0,
+            "total_time_ms": 0,
+            "domain_breakdown": {},
         }
 
     def run_inference(
@@ -333,17 +347,19 @@ class ModelInferenceRunner:
 
             # Track stats
             inference_time_ms = (time.time() - start_time) * 1000
-            self.inference_stats['total_inferences'] += 1
-            self.inference_stats['total_time_ms'] += inference_time_ms
+            self.inference_stats["total_inferences"] += 1
+            self.inference_stats["total_time_ms"] += inference_time_ms
 
-            if domain.name not in self.inference_stats['domain_breakdown']:
-                self.inference_stats['domain_breakdown'][domain.name] = {
-                    'count': 0,
-                    'total_time_ms': 0,
+            if domain.name not in self.inference_stats["domain_breakdown"]:
+                self.inference_stats["domain_breakdown"][domain.name] = {
+                    "count": 0,
+                    "total_time_ms": 0,
                 }
 
-            self.inference_stats['domain_breakdown'][domain.name]['count'] += 1
-            self.inference_stats['domain_breakdown'][domain.name]['total_time_ms'] += inference_time_ms
+            self.inference_stats["domain_breakdown"][domain.name]["count"] += 1
+            self.inference_stats["domain_breakdown"][domain.name][
+                "total_time_ms"
+            ] += inference_time_ms
 
             return predictions
 
@@ -351,18 +367,20 @@ class ModelInferenceRunner:
             logger.error(f"Inference error for {domain.name}: {e}")
             # Return dummy predictions on error
             return {
-                'predictions': torch.zeros(1),
-                'confidence': torch.zeros(1),
-                'features': torch.zeros(1, 128),
-                'error': str(e),
+                "predictions": torch.zeros(1),
+                "confidence": torch.zeros(1),
+                "features": torch.zeros(1, 128),
+                "error": str(e),
             }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get inference statistics."""
         stats = self.inference_stats.copy()
 
-        if stats['total_inferences'] > 0:
-            stats['average_time_ms'] = stats['total_time_ms'] / stats['total_inferences']
+        if stats["total_inferences"] > 0:
+            stats["average_time_ms"] = (
+                stats["total_time_ms"] / stats["total_inferences"]
+            )
 
         return stats
 
@@ -395,7 +413,7 @@ class ResultSubmitter:
         self.substrate = SubstrateInterface(
             url=substrate_url,
             ss58_format=42,
-            type_registry_preset='substrate-node-template',
+            type_registry_preset="substrate-node-template",
         )
         if keypair is None:
             raise ValueError(
@@ -433,14 +451,14 @@ class ResultSubmitter:
 
             # Build extrinsic call
             call = self.substrate.compose_call(
-                call_module='Oracle',
-                call_function='submit_iot_data',
+                call_module="Oracle",
+                call_function="submit_iot_data",
                 call_params={
-                    'device_id': oracle_data['device_id'],
-                    'data': oracle_data['data'],
-                    'feed_type': oracle_data['feed_type'],
-                    'quality_score': oracle_data['quality_score'],
-                    'location': oracle_data.get('location'),
+                    "device_id": oracle_data["device_id"],
+                    "data": oracle_data["data"],
+                    "feed_type": oracle_data["feed_type"],
+                    "quality_score": oracle_data["quality_score"],
+                    "location": oracle_data.get("location"),
                 },
             )
 
@@ -458,7 +476,9 @@ class ResultSubmitter:
 
             if receipt.is_success:
                 tx_hash = receipt.extrinsic_hash
-                logger.info(f"Submitted prediction for device {submission.device_id.hex()[:16]}... (tx: {tx_hash})")
+                logger.info(
+                    f"Submitted prediction for device {submission.device_id.hex()[:16]}... (tx: {tx_hash})"
+                )
                 return tx_hash
             else:
                 logger.error(f"Submission failed: {receipt.error_message}")
@@ -482,8 +502,8 @@ class ResultSubmitter:
             operator_account = operator or self.keypair.ss58_address
 
             call = self.substrate.compose_call(
-                call_module='Oracle',
-                call_function='claim_oracle_rewards',
+                call_module="Oracle",
+                call_function="claim_oracle_rewards",
                 call_params={},
             )
 
@@ -521,7 +541,7 @@ class OraclePipeline:
     def __init__(
         self,
         substrate_url: str = "ws://127.0.0.1:9944",
-        device: str = 'cpu',
+        device: str = "cpu",
         keypair: Optional[Keypair] = None,
     ):
         """
@@ -553,7 +573,9 @@ class OraclePipeline:
         # 1. Get device info
         device_info = self.fetcher.get_device_info(submission.device_id)
         if device_info is None:
-            logger.warning(f"Device {submission.device_id.hex()[:16]}... not registered")
+            logger.warning(
+                f"Device {submission.device_id.hex()[:16]}... not registered"
+            )
             return False
 
         # 2. Preprocess data
@@ -586,7 +608,9 @@ class OraclePipeline:
         Returns:
             Processing statistics
         """
-        logger.info(f"Fetching pending submissions (domain={domain.name if domain else 'ALL'})...")
+        logger.info(
+            f"Fetching pending submissions (domain={domain.name if domain else 'ALL'})..."
+        )
 
         # Fetch pending submissions
         submissions = self.fetcher.get_pending_submissions(domain, limit)
@@ -594,24 +618,26 @@ class OraclePipeline:
 
         # Process each submission
         results = {
-            'total': len(submissions),
-            'success': 0,
-            'failed': 0,
-            'by_domain': {},
+            "total": len(submissions),
+            "success": 0,
+            "failed": 0,
+            "by_domain": {},
         }
 
         for submission in submissions:
             success = await self.process_submission(submission)
 
             if success:
-                results['success'] += 1
+                results["success"] += 1
             else:
-                results['failed'] += 1
+                results["failed"] += 1
 
         # Add inference stats
-        results['inference_stats'] = self.runner.get_stats()
+        results["inference_stats"] = self.runner.get_stats()
 
-        logger.info(f"Processing complete: {results['success']}/{results['total']} successful")
+        logger.info(
+            f"Processing complete: {results['success']}/{results['total']} successful"
+        )
 
         return results
 
@@ -642,26 +668,37 @@ class OraclePipeline:
 
 
 # Example usage
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='BelizeChain Oracle Pipeline')
-    parser.add_argument('--url', default='ws://127.0.0.1:9944', help='Substrate node URL')
-    parser.add_argument('--domain', choices=['agritech', 'marine', 'education', 'tech', 'general'],
-                       help='Filter by domain')
-    parser.add_argument('--device', default='cpu', choices=['cpu', 'cuda'], help='PyTorch device')
-    parser.add_argument('--loop', action='store_true', help='Run continuous processing loop')
-    parser.add_argument('--interval', type=int, default=10, help='Loop interval (seconds)')
+    parser = argparse.ArgumentParser(description="BelizeChain Oracle Pipeline")
+    parser.add_argument(
+        "--url", default="ws://127.0.0.1:9944", help="Substrate node URL"
+    )
+    parser.add_argument(
+        "--domain",
+        choices=["agritech", "marine", "education", "tech", "general"],
+        help="Filter by domain",
+    )
+    parser.add_argument(
+        "--device", default="cpu", choices=["cpu", "cuda"], help="PyTorch device"
+    )
+    parser.add_argument(
+        "--loop", action="store_true", help="Run continuous processing loop"
+    )
+    parser.add_argument(
+        "--interval", type=int, default=10, help="Loop interval (seconds)"
+    )
 
     args = parser.parse_args()
 
     # Parse domain
     domain_map = {
-        'agritech': ModelDomain.AGRITECH,
-        'marine': ModelDomain.MARINE,
-        'education': ModelDomain.EDUCATION,
-        'tech': ModelDomain.TECH,
-        'general': ModelDomain.GENERAL,
+        "agritech": ModelDomain.AGRITECH,
+        "marine": ModelDomain.MARINE,
+        "education": ModelDomain.EDUCATION,
+        "tech": ModelDomain.TECH,
+        "general": ModelDomain.GENERAL,
     }
     domain = domain_map.get(args.domain) if args.domain else None
 

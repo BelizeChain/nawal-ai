@@ -32,6 +32,7 @@ from loguru import logger
 
 class AggregationMethod(Enum):
     """Byzantine-robust aggregation methods."""
+
     FEDAVG = "fedavg"  # Standard (not Byzantine-robust)
     KRUM = "krum"  # Select single closest update
     MULTI_KRUM = "multi_krum"  # Average k closest updates
@@ -52,6 +53,7 @@ class ClientReputation:
         anomalies: Number of detected anomalies
         history: Recent behavior history
     """
+
     client_id: int
     score: float = 1.0
     contributions: int = 0
@@ -70,7 +72,9 @@ class ClientReputation:
             self.anomalies += 1
             self.score *= decay  # Decay reputation
         else:
-            self.score = min(1.0, self.score + 0.02)  # Gradual recovery (closer to decay rate)
+            self.score = min(
+                1.0, self.score + 0.02
+            )  # Gradual recovery (closer to decay rate)
 
         self.history.append(self.score)
 
@@ -412,7 +416,9 @@ class ByzantineDetector:
                 weighted_sum += update[param_name] * weight
             aggregated[param_name] = weighted_sum
 
-        logger.debug(f"PHOCAS aggregation with weights: {[f'{w:.3f}' for w in weights]}")
+        logger.debug(
+            f"PHOCAS aggregation with weights: {[f'{w:.3f}' for w in weights]}"
+        )
         return aggregated
 
     def _compute_pairwise_distances(
@@ -554,7 +560,8 @@ class ByzantineDetector:
     def get_trustworthy_clients(self, threshold: float = 0.5) -> List[int]:
         """Get list of trustworthy client IDs."""
         return [
-            cid for cid, rep in self.reputations.items()
+            cid
+            for cid, rep in self.reputations.items()
             if rep.is_trustworthy(threshold)
         ]
 
@@ -577,6 +584,7 @@ class ByzantineDetector:
 
 
 # Utility functions
+
 
 def recommend_aggregation_method(
     num_clients: int,

@@ -24,9 +24,7 @@ import time
 import random
 import copy
 from pathlib import Path
-from unittest.mock import (
-    AsyncMock, MagicMock, patch, PropertyMock, mock_open, call
-)
+from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock, mock_open, call
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from collections import OrderedDict
@@ -123,10 +121,12 @@ class TestMeshNetworkStart:
         mock_runner = AsyncMock()
         mock_site = AsyncMock()
 
-        with patch("blockchain.mesh_network.web.AppRunner", return_value=mock_runner), \
-             patch("blockchain.mesh_network.web.TCPSite", return_value=mock_site), \
-             patch("blockchain.mesh_network.SUBSTRATE_AVAILABLE", False), \
-             patch("asyncio.create_task"):
+        with (
+            patch("blockchain.mesh_network.web.AppRunner", return_value=mock_runner),
+            patch("blockchain.mesh_network.web.TCPSite", return_value=mock_site),
+            patch("blockchain.mesh_network.SUBSTRATE_AVAILABLE", False),
+            patch("asyncio.create_task"),
+        ):
             await mesh_client.start()
             assert mesh_client._running is True
 
@@ -144,11 +144,16 @@ class TestMeshNetworkStart:
         mock_runner = AsyncMock()
         mock_site = AsyncMock()
 
-        with patch("blockchain.mesh_network.web.AppRunner", return_value=mock_runner), \
-             patch("blockchain.mesh_network.web.TCPSite", return_value=mock_site), \
-             patch("blockchain.mesh_network.SUBSTRATE_AVAILABLE", True), \
-             patch("blockchain.mesh_network.SubstrateInterface", side_effect=Exception("conn fail")), \
-             patch("asyncio.create_task"):
+        with (
+            patch("blockchain.mesh_network.web.AppRunner", return_value=mock_runner),
+            patch("blockchain.mesh_network.web.TCPSite", return_value=mock_site),
+            patch("blockchain.mesh_network.SUBSTRATE_AVAILABLE", True),
+            patch(
+                "blockchain.mesh_network.SubstrateInterface",
+                side_effect=Exception("conn fail"),
+            ),
+            patch("asyncio.create_task"),
+        ):
             await mesh_client.start()
             assert mesh_client._running is True
 
@@ -185,7 +190,9 @@ class TestMeshNetworkBroadcast:
     @pytest.mark.asyncio
     async def test_announce_fl_round(self, mesh_client):
         mesh_client._running = True
-        with patch.object(mesh_client, "_broadcast_message", new_callable=AsyncMock) as mock_bc:
+        with patch.object(
+            mesh_client, "_broadcast_message", new_callable=AsyncMock
+        ) as mock_bc:
             await mesh_client.announce_fl_round(
                 round_id="r1",
                 dataset_name="ds",
@@ -206,8 +213,12 @@ class TestMeshNetworkSendModelDelta:
     @pytest.mark.asyncio
     async def test_send_model_delta_known_peer(self, mesh_client, peer_info):
         mesh_client.peers[peer_info.peer_id] = peer_info
-        with patch.object(mesh_client, "_send_to_peer", new_callable=AsyncMock, return_value=True):
-            result = await mesh_client.send_model_delta(peer_info.peer_id, "r1", "cid", 0.9)
+        with patch.object(
+            mesh_client, "_send_to_peer", new_callable=AsyncMock, return_value=True
+        ):
+            result = await mesh_client.send_model_delta(
+                peer_info.peer_id, "r1", "cid", 0.9
+            )
             assert result is True
 
 
@@ -223,7 +234,11 @@ class TestMeshNetworkDiscoverPeers:
         mock_sub = MagicMock()
         mock_sub.query.side_effect = [
             ["validator1"],  # Validators list
-            {"network_address": "/ip4/10.0.0.1/tcp/9090", "public_key": "bb" * 32, "stake": 500},
+            {
+                "network_address": "/ip4/10.0.0.1/tcp/9090",
+                "public_key": "bb" * 32,
+                "stake": 500,
+            },
         ]
         mesh_client.substrate = mock_sub
         result = await mesh_client.discover_peers()
@@ -243,7 +258,9 @@ class TestMeshNetworkInternalMethods:
     @pytest.mark.asyncio
     async def test_broadcast_message(self, mesh_client, peer_info):
         mesh_client.peers[peer_info.peer_id] = peer_info
-        with patch.object(mesh_client, "_send_to_peer_raw", new_callable=AsyncMock, return_value=True):
+        with patch.object(
+            mesh_client, "_send_to_peer_raw", new_callable=AsyncMock, return_value=True
+        ):
             await mesh_client._broadcast_message(
                 message_type=MessageType.HEARTBEAT,
                 payload={"ts": 1.0},
@@ -267,14 +284,20 @@ class TestMeshNetworkInternalMethods:
 
     @pytest.mark.asyncio
     async def test_send_to_peer_unknown(self, mesh_client):
-        result = await mesh_client._send_to_peer("no_such_peer", MessageType.HEARTBEAT, {})
+        result = await mesh_client._send_to_peer(
+            "no_such_peer", MessageType.HEARTBEAT, {}
+        )
         assert result is False
 
     @pytest.mark.asyncio
     async def test_send_to_peer_known(self, mesh_client, peer_info):
         mesh_client.peers[peer_info.peer_id] = peer_info
-        with patch.object(mesh_client, "_send_to_peer_raw", new_callable=AsyncMock, return_value=True):
-            result = await mesh_client._send_to_peer(peer_info.peer_id, MessageType.HEARTBEAT, {})
+        with patch.object(
+            mesh_client, "_send_to_peer_raw", new_callable=AsyncMock, return_value=True
+        ):
+            result = await mesh_client._send_to_peer(
+                peer_info.peer_id, MessageType.HEARTBEAT, {}
+            )
             assert result is True
 
     @pytest.mark.asyncio
@@ -315,7 +338,10 @@ class TestMeshNetworkInternalMethods:
     @pytest.mark.asyncio
     async def test_send_to_peer_raw_exception(self, mesh_client):
         msg = mesh_client._create_message(MessageType.HEARTBEAT, {"ts": 1.0})
-        with patch("blockchain.mesh_network.aiohttp.ClientSession", side_effect=Exception("err")):
+        with patch(
+            "blockchain.mesh_network.aiohttp.ClientSession",
+            side_effect=Exception("err"),
+        ):
             result = await mesh_client._send_to_peer_raw("/ip4/127.0.0.1/tcp/9091", msg)
             assert result is False
 
@@ -326,7 +352,9 @@ class TestMeshNetworkVerifySignature:
         assert mesh_client._verify_message_signature(msg) is False
 
     def test_verify_unknown_sender(self, mesh_client):
-        msg = MeshMessage("id", MessageType.HEARTBEAT, "unknown", 1.0, {}, signature="aa")
+        msg = MeshMessage(
+            "id", MessageType.HEARTBEAT, "unknown", 1.0, {}, signature="aa"
+        )
         assert mesh_client._verify_message_signature(msg) is False
 
     def test_verify_valid_signature(self, mesh_client):
@@ -352,7 +380,9 @@ class TestMeshNetworkVerifySignature:
             public_key=mesh_client.public_key_hex,
         )
         mesh_client.peers["sender1"] = peer
-        msg = MeshMessage("id", MessageType.HEARTBEAT, "sender1", 1.0, {}, signature="deadbeef" * 8)
+        msg = MeshMessage(
+            "id", MessageType.HEARTBEAT, "sender1", 1.0, {}, signature="deadbeef" * 8
+        )
         assert mesh_client._verify_message_signature(msg) is False
 
 
@@ -477,8 +507,10 @@ class TestMeshNetworkBackgroundLoops:
                 mesh_client._running = False
 
         mesh_client._running = True
-        with patch("asyncio.sleep", side_effect=fake_sleep), \
-             patch.object(mesh_client, "_broadcast_message", new_callable=AsyncMock):
+        with (
+            patch("asyncio.sleep", side_effect=fake_sleep),
+            patch.object(mesh_client, "_broadcast_message", new_callable=AsyncMock),
+        ):
             await mesh_client._heartbeat_loop()
 
     @pytest.mark.asyncio
@@ -492,8 +524,12 @@ class TestMeshNetworkBackgroundLoops:
                 mesh_client._running = False
 
         mesh_client._running = True
-        with patch("asyncio.sleep", side_effect=fake_sleep), \
-             patch.object(mesh_client, "discover_peers", new_callable=AsyncMock, return_value=[]):
+        with (
+            patch("asyncio.sleep", side_effect=fake_sleep),
+            patch.object(
+                mesh_client, "discover_peers", new_callable=AsyncMock, return_value=[]
+            ),
+        ):
             await mesh_client._peer_discovery_loop()
 
     @pytest.mark.asyncio
@@ -704,7 +740,9 @@ class TestDataManagerSplit:
             dataset_type=DatasetType.CUSTOM_JSON,
             custom_path=json_file,
             cache_dir=tmp_path / "cache",
-            split_config=SplitConfig(train_ratio=0.8, val_ratio=0.1, test_ratio=0.1, shuffle=False),
+            split_config=SplitConfig(
+                train_ratio=0.8, val_ratio=0.1, test_ratio=0.1, shuffle=False
+            ),
         )
         dm = DataManager(config)
         train, val, test = dm.split_dataset()
@@ -799,6 +837,7 @@ class TestDeepSeekTeacher:
 
     def test_load_model_vllm(self):
         import sys
+
         teacher = DeepSeekTeacher()
         mock_llm = MagicMock()
         mock_tokenizer = MagicMock()
@@ -807,7 +846,10 @@ class TestDeepSeekTeacher:
         mock_vllm.SamplingParams = MagicMock()
         sys.modules["vllm"] = mock_vllm
         try:
-            with patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer):
+            with patch(
+                "transformers.AutoTokenizer.from_pretrained",
+                return_value=mock_tokenizer,
+            ):
                 teacher.load_model()
                 assert teacher.model is mock_llm
                 assert teacher.tokenizer is mock_tokenizer
@@ -816,9 +858,16 @@ class TestDeepSeekTeacher:
 
     def test_load_model_fallback_to_transformers(self):
         teacher = DeepSeekTeacher()
-        with patch("hybrid.teacher.DeepSeekTeacher._load_with_transformers") as mock_load:
+        with patch(
+            "hybrid.teacher.DeepSeekTeacher._load_with_transformers"
+        ) as mock_load:
             # Simulate vLLM import failure
-            original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+            original_import = (
+                __builtins__.__import__
+                if hasattr(__builtins__, "__import__")
+                else __import__
+            )
+
             def mock_import(name, *args, **kwargs):
                 if name == "vllm":
                     raise ImportError("no vllm")
@@ -833,9 +882,17 @@ class TestDeepSeekTeacher:
         mock_tokenizer = MagicMock()
         mock_model = MagicMock()
 
-        with patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer), \
-             patch("transformers.AutoModelForCausalLM.from_pretrained", return_value=mock_model), \
-             patch("transformers.BitsAndBytesConfig", return_value=MagicMock()):
+        with (
+            patch(
+                "transformers.AutoTokenizer.from_pretrained",
+                return_value=mock_tokenizer,
+            ),
+            patch(
+                "transformers.AutoModelForCausalLM.from_pretrained",
+                return_value=mock_model,
+            ),
+            patch("transformers.BitsAndBytesConfig", return_value=MagicMock()),
+        ):
             teacher._load_with_transformers()
             assert teacher.tokenizer is mock_tokenizer
             assert teacher.model is mock_model
@@ -845,8 +902,16 @@ class TestDeepSeekTeacher:
         mock_tokenizer = MagicMock()
         mock_model = MagicMock()
 
-        with patch("transformers.AutoTokenizer.from_pretrained", return_value=mock_tokenizer), \
-             patch("transformers.AutoModelForCausalLM.from_pretrained", return_value=mock_model):
+        with (
+            patch(
+                "transformers.AutoTokenizer.from_pretrained",
+                return_value=mock_tokenizer,
+            ),
+            patch(
+                "transformers.AutoModelForCausalLM.from_pretrained",
+                return_value=mock_model,
+            ),
+        ):
             teacher._load_with_transformers()
             assert teacher.model is mock_model
 
@@ -859,11 +924,14 @@ class TestDeepSeekTeacher:
 
     def test_generate_vllm_path(self):
         import sys
+
         teacher = DeepSeekTeacher()
         mock_model = MagicMock()
         mock_model.__module__ = "vllm.engine"
         mock_output = MagicMock()
-        mock_output.outputs = [MagicMock(text="generated", logprobs=None, token_ids=[1, 2])]
+        mock_output.outputs = [
+            MagicMock(text="generated", logprobs=None, token_ids=[1, 2])
+        ]
         mock_model.generate.return_value = [mock_output]
         teacher.model = mock_model
         teacher.tokenizer = MagicMock()
@@ -1018,7 +1086,9 @@ class TestMutationOperator:
     def test_mutate_add_layer(self):
         op = MutationOperator()
         genome = _make_test_genome(num_encoder=2)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.ADD_LAYER):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.ADD_LAYER
+        ):
             child = op.mutate(genome, generation=1)
             total = len(child.encoder_layers) + len(child.decoder_layers)
             assert total >= 2  # May or may not have added
@@ -1026,7 +1096,9 @@ class TestMutationOperator:
     def test_mutate_remove_layer(self):
         op = MutationOperator()
         genome = _make_test_genome(num_encoder=5)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.REMOVE_LAYER):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.REMOVE_LAYER
+        ):
             child = op.mutate(genome, generation=1)
             total = len(child.encoder_layers) + len(child.decoder_layers)
             assert total <= 5
@@ -1034,21 +1106,27 @@ class TestMutationOperator:
     def test_mutate_replace_layer(self):
         op = MutationOperator()
         genome = _make_test_genome(num_encoder=3)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.REPLACE_LAYER):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.REPLACE_LAYER
+        ):
             child = op.mutate(genome, generation=1)
             assert len(child.encoder_layers) + len(child.decoder_layers) >= 1
 
     def test_mutate_modify_layer(self):
         op = MutationOperator()
         genome = _make_test_genome(num_encoder=3)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.MODIFY_LAYER):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.MODIFY_LAYER
+        ):
             child = op.mutate(genome, generation=1)
             assert child is not None
 
     def test_mutate_learning_rate(self):
         op = MutationOperator()
         genome = _make_test_genome()
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.LEARNING_RATE):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.LEARNING_RATE
+        ):
             child = op.mutate(genome, generation=1)
             # LR should have changed
             assert child is not None
@@ -1056,49 +1134,63 @@ class TestMutationOperator:
     def test_mutate_batch_size(self):
         op = MutationOperator()
         genome = _make_test_genome()
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.BATCH_SIZE):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.BATCH_SIZE
+        ):
             child = op.mutate(genome, generation=1)
             assert child is not None
 
     def test_mutate_optimizer(self):
         op = MutationOperator()
         genome = _make_test_genome()
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.OPTIMIZER):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.OPTIMIZER
+        ):
             child = op.mutate(genome, generation=1)
             assert child is not None
 
     def test_mutate_precision(self):
         op = MutationOperator()
         genome = _make_test_genome()
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.PRECISION):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.PRECISION
+        ):
             child = op.mutate(genome, generation=1)
             assert child is not None
 
     def test_mutate_add_attention(self):
         op = MutationOperator()
         genome = _make_test_genome(num_encoder=2)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.ADD_ATTENTION):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.ADD_ATTENTION
+        ):
             child = op.mutate(genome, generation=1)
             assert len(child.encoder_layers) >= 2
 
     def test_mutate_add_moe(self):
         op = MutationOperator()
         genome = _make_test_genome(num_encoder=2)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.ADD_MOE):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.ADD_MOE
+        ):
             child = op.mutate(genome, generation=1)
             assert len(child.encoder_layers) >= 2
 
     def test_mutate_add_ssm(self):
         op = MutationOperator()
         genome = _make_test_genome(num_encoder=2)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.ADD_SSM):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.ADD_SSM
+        ):
             child = op.mutate(genome, generation=1)
             assert len(child.encoder_layers) >= 2
 
     def test_mutate_add_layer_max_reached(self):
         op = MutationOperator(MutationConfig(max_layers=3))
         genome = _make_test_genome(num_encoder=3)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.ADD_LAYER):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.ADD_LAYER
+        ):
             child = op.mutate(genome, generation=1)
             # Should not exceed max
             assert len(child.encoder_layers) + len(child.decoder_layers) <= 4
@@ -1106,7 +1198,9 @@ class TestMutationOperator:
     def test_mutate_remove_layer_min_reached(self):
         op = MutationOperator(MutationConfig(min_layers=2))
         genome = _make_test_genome(num_encoder=2)
-        with patch.object(op, "_select_mutation_type", return_value=MutationType.REMOVE_LAYER):
+        with patch.object(
+            op, "_select_mutation_type", return_value=MutationType.REMOVE_LAYER
+        ):
             child = op.mutate(genome, generation=1)
             total = len(child.encoder_layers) + len(child.decoder_layers)
             assert total >= 1  # min is enforced
@@ -1129,7 +1223,9 @@ class TestCrossoverOperator:
         op = CrossoverOperator()
         p1 = _make_test_genome(num_encoder=3)
         p2 = _make_test_genome(num_encoder=3)
-        with patch.object(op, "_select_crossover_type", return_value=CrossoverType.UNIFORM):
+        with patch.object(
+            op, "_select_crossover_type", return_value=CrossoverType.UNIFORM
+        ):
             child = op.crossover(p1, p2, generation=1)
             assert child is not None
 
@@ -1137,7 +1233,9 @@ class TestCrossoverOperator:
         op = CrossoverOperator()
         p1 = _make_test_genome(num_encoder=3)
         p2 = _make_test_genome(num_encoder=4)
-        with patch.object(op, "_select_crossover_type", return_value=CrossoverType.SINGLE_POINT):
+        with patch.object(
+            op, "_select_crossover_type", return_value=CrossoverType.SINGLE_POINT
+        ):
             child = op.crossover(p1, p2, generation=1)
             assert len(child.encoder_layers) >= 1
 
@@ -1145,7 +1243,9 @@ class TestCrossoverOperator:
         op = CrossoverOperator()
         p1 = _make_test_genome(num_encoder=4)
         p2 = _make_test_genome(num_encoder=4)
-        with patch.object(op, "_select_crossover_type", return_value=CrossoverType.TWO_POINT):
+        with patch.object(
+            op, "_select_crossover_type", return_value=CrossoverType.TWO_POINT
+        ):
             child = op.crossover(p1, p2, generation=1)
             assert child is not None
 
@@ -1153,7 +1253,9 @@ class TestCrossoverOperator:
         op = CrossoverOperator()
         p1 = _make_test_genome(num_encoder=3)
         p2 = _make_test_genome(num_encoder=3)
-        with patch.object(op, "_select_crossover_type", return_value=CrossoverType.LAYER_WISE):
+        with patch.object(
+            op, "_select_crossover_type", return_value=CrossoverType.LAYER_WISE
+        ):
             child = op.crossover(p1, p2, generation=1)
             assert child is not None
 
@@ -1161,15 +1263,23 @@ class TestCrossoverOperator:
         op = CrossoverOperator()
         p1 = _make_test_genome()
         p2 = _make_test_genome()
-        with patch.object(op, "_select_crossover_type", return_value=CrossoverType.HYPERPARAMETER):
+        with patch.object(
+            op, "_select_crossover_type", return_value=CrossoverType.HYPERPARAMETER
+        ):
             child = op.crossover(p1, p2, generation=1)
             assert child is not None
 
     def test_invalid_config_raises(self):
         with pytest.raises(ValueError, match="Invalid crossover config"):
-            CrossoverOperator(CrossoverConfig(uniform_rate=0.0, single_point_rate=0.0,
-                                               two_point_rate=0.0, layer_wise_rate=0.0,
-                                               hyperparameter_rate=0.0))
+            CrossoverOperator(
+                CrossoverConfig(
+                    uniform_rate=0.0,
+                    single_point_rate=0.0,
+                    two_point_rate=0.0,
+                    layer_wise_rate=0.0,
+                    hyperparameter_rate=0.0,
+                )
+            )
 
 
 class TestEvolutionStrategy:
@@ -1178,7 +1288,19 @@ class TestEvolutionStrategy:
         p1 = _make_test_genome()
         p2 = _make_test_genome()
         with patch("genome.operators.random") as mock_random:
-            mock_random.random.side_effect = [0.1, 0.1, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.1, 0.5]
+            mock_random.random.side_effect = [
+                0.1,
+                0.1,
+                0.5,
+                0.5,
+                0.5,
+                0.5,
+                0.5,
+                0.5,
+                0.5,
+                0.1,
+                0.5,
+            ]
             mock_random.choice = random.choice
             mock_random.randint = random.randint
             mock_random.uniform = random.uniform
@@ -1194,9 +1316,9 @@ class TestEvolutionStrategy:
 
     def test_invalid_config_raises(self):
         with pytest.raises(ValueError, match="Invalid evolution config"):
-            EvolutionStrategy(EvolutionConfig(
-                mutation_config=MutationConfig(min_layers=0)
-            ))
+            EvolutionStrategy(
+                EvolutionConfig(mutation_config=MutationConfig(min_layers=0))
+            )
 
 
 # ============================================================================
@@ -1258,7 +1380,13 @@ class TestPopulationSelection:
 
 class TestPopulationUpdateElite:
     def test_update_elite(self):
-        config = PopulationConfig(min_size=5, target_size=10, max_size=20, elitism_count=2, elitism_threshold=0.0)
+        config = PopulationConfig(
+            min_size=5,
+            target_size=10,
+            max_size=20,
+            elitism_count=2,
+            elitism_threshold=0.0,
+        )
         pop = Population(config)
         for i in range(5):
             g = _make_test_genome()
@@ -1390,9 +1518,11 @@ class TestOrchestratorMethods:
         mock_config.training.epochs_per_generation = 1
         mock_config.training.batch_size = 4
 
-        with patch("orchestrator.PopulationManager") as MockPop, \
-             patch("orchestrator.GenomeEncoder") as MockEnc, \
-             patch("orchestrator.MemoryManager", MagicMock()):
+        with (
+            patch("orchestrator.PopulationManager") as MockPop,
+            patch("orchestrator.GenomeEncoder") as MockEnc,
+            patch("orchestrator.MemoryManager", MagicMock()),
+        ):
             MockPop.return_value = MagicMock()
             MockPop.return_value.genomes = {}
             MockEnc.return_value = MagicMock()
@@ -1476,9 +1606,11 @@ class TestOrchestratorMethods:
         mock_pop = MagicMock()
         mock_pop.genomes = {}
         mock_pop.remove_genome = MagicMock()
+
         # When add_genome is called, add to genomes dict
         def side_effect_add(g):
             mock_pop.genomes[g.genome_id] = g
+
         mock_pop.add_genome = MagicMock(side_effect=side_effect_add)
         orch.population = mock_pop
 

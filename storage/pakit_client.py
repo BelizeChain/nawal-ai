@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import requests
+
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
@@ -35,7 +36,7 @@ class PakitClient:
     """
 
     # Regex: 1-128 lowercase hex characters
-    _CID_PATTERN = re.compile(r'^[0-9a-f]{1,128}$')
+    _CID_PATTERN = re.compile(r"^[0-9a-f]{1,128}$")
 
     def __init__(
         self,
@@ -87,7 +88,8 @@ class PakitClient:
             pakit_api_url=os.getenv("PAKIT_API_URL", "http://localhost:8080"),
             dag_gateway_url=os.getenv("PAKIT_DAG_GATEWAY_URL", "http://localhost:8081"),
             compression=os.getenv("PAKIT_COMPRESSION", "zstd"),
-            pakit_enabled=os.getenv("PAKIT_ENABLED", "true").lower() in ("true", "1", "yes"),
+            pakit_enabled=os.getenv("PAKIT_ENABLED", "true").lower()
+            in ("true", "1", "yes"),
             fallback_dir=os.getenv("PAKIT_FALLBACK_DIR"),
             azure_blob_connection_string=os.getenv("AZURE_BLOB_CONNECTION_STRING"),
             azure_blob_container=os.getenv("AZURE_BLOB_CONTAINER"),
@@ -99,9 +101,7 @@ class PakitClient:
         return bool(content_hash and PakitClient._CID_PATTERN.match(content_hash))
 
     def upload_file(
-        self,
-        file_path: str,
-        metadata: Optional[Dict[str, Any]] = None
+        self, file_path: str, metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Upload single file to Pakit DAG storage.
@@ -123,7 +123,7 @@ class PakitClient:
 
         try:
             # Read file
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 content = f.read()
 
             # Apply pre-compression hook if configured
@@ -131,26 +131,30 @@ class PakitClient:
                 try:
                     content = self.pre_compress_fn(content)
                 except Exception as e:
-                    logger.warning(f"Pre-compression hook failed, using raw content: {e}")
+                    logger.warning(
+                        f"Pre-compression hook failed, using raw content: {e}"
+                    )
 
             # Upload via Pakit DAG gateway
             # Note: cannot mix files= and json= in requests; send metadata as form data
-            upload_metadata = json.dumps({
-                'metadata': metadata or {},
-                'compression': self.compression,
-                'deduplicate': True
-            })
+            upload_metadata = json.dumps(
+                {
+                    "metadata": metadata or {},
+                    "compression": self.compression,
+                    "deduplicate": True,
+                }
+            )
             response = requests.post(
                 f"{self.dag_gateway_url}/api/v1/upload",
                 files={
-                    'file': (os.path.basename(file_path), content),
-                    'options': (None, upload_metadata, 'application/json'),
+                    "file": (os.path.basename(file_path), content),
+                    "options": (None, upload_metadata, "application/json"),
                 },
             )
 
             if response.status_code == 200:
                 result = response.json()
-                content_hash = result.get('hash') or result.get('content_hash')
+                content_hash = result.get("hash") or result.get("content_hash")
                 logger.info(f"✅ Uploaded {file_path} to Pakit DAG: {content_hash}")
                 return content_hash
             else:
@@ -164,9 +168,7 @@ class PakitClient:
             raise RuntimeError(f"Pakit upload failed: {e}") from e
 
     def upload_directory(
-        self,
-        dir_path: str,
-        metadata: Optional[Dict[str, Any]] = None
+        self, dir_path: str, metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Upload entire directory to Pakit.
@@ -179,15 +181,17 @@ class PakitClient:
             Root content ID
         """
         if not REQUESTS_AVAILABLE:
-            raise RuntimeError("requests library required for Pakit uploads. Install: pip install requests")
+            raise RuntimeError(
+                "requests library required for Pakit uploads. Install: pip install requests"
+            )
 
         try:
             # Create tar archive
             import tarfile
             import tempfile
 
-            with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp:
-                with tarfile.open(tmp.name, 'w:gz') as tar:
+            with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
+                with tarfile.open(tmp.name, "w:gz") as tar:
                     tar.add(dir_path, arcname=os.path.basename(dir_path))
 
                 # Upload archive
@@ -202,11 +206,7 @@ class PakitClient:
             logger.error(f"Directory upload error: {e}")
             raise
 
-    def download_file(
-        self,
-        content_hash: str,
-        output_path: str
-    ) -> bool:
+    def download_file(self, content_hash: str, output_path: str) -> bool:
         """
         Download file from Pakit DAG storage.
 
@@ -230,12 +230,11 @@ class PakitClient:
 
         try:
             response = requests.get(
-                f"{self.dag_gateway_url}/api/v1/retrieve/{content_hash}",
-                stream=True
+                f"{self.dag_gateway_url}/api/v1/retrieve/{content_hash}", stream=True
             )
 
             if response.status_code == 200:
-                with open(output_path, 'wb') as f:
+                with open(output_path, "wb") as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
 
@@ -423,11 +422,7 @@ class PakitClient:
             logger.warning(f"Azure Blob download failed: {e}")
             return False
 
-    def _mock_upload(
-        self,
-        path: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def _mock_upload(self, path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
         """Mock upload when Pakit API unavailable."""
         # Generate deterministic hash
         hasher = hashlib.sha256()

@@ -22,6 +22,7 @@ from loguru import logger
 try:
     from substrateinterface import SubstrateInterface, Keypair
     from substrateinterface.exceptions import SubstrateRequestException
+
     SUBSTRATE_AVAILABLE = True
 except ImportError:
     SUBSTRATE_AVAILABLE = False
@@ -53,7 +54,9 @@ class ParticipationRecord:
     """Record of community participation activity."""
 
     account_id: str
-    activity_type: str  # 'FederatedLearning', 'EducationModule', 'GreenProject', 'Volunteer'
+    activity_type: (
+        str  # 'FederatedLearning', 'EducationModule', 'GreenProject', 'Volunteer'
+    )
     points_earned: int
     metadata: dict[str, Any]
     timestamp: int
@@ -76,7 +79,7 @@ class CommunityConnector:
         self,
         websocket_url: str = "ws://127.0.0.1:9944",
         keypair: Keypair | None = None,
-        mock_mode: bool = False
+        mock_mode: bool = False,
     ):
         """
         Initialize Community pallet connector.
@@ -111,7 +114,7 @@ class CommunityConnector:
             self.substrate = SubstrateInterface(
                 url=self.websocket_url,
                 ss58_format=42,  # BelizeChain uses Substrate default
-                type_registry_preset='polkadot'
+                type_registry_preset="polkadot",
             )
             self._connected = True
             logger.info(f"Connected to BelizeChain at {self.websocket_url}")
@@ -156,7 +159,7 @@ class CommunityConnector:
                 education_modules_completed=2,
                 green_project_contributions=5000 * 10**12,  # 5000 DALLA
                 monthly_fee_exemption=100 * 10**12,  # 100 DALLA
-                last_updated=int(datetime.now(timezone.utc).timestamp())
+                last_updated=int(datetime.now(timezone.utc).timestamp()),
             )
 
         if not self._connected or not self.substrate:
@@ -165,9 +168,9 @@ class CommunityConnector:
 
         try:
             result = self.substrate.query(
-                module='Community',
-                storage_function='SocialResponsibilityScores',
-                params=[account_id]
+                module="Community",
+                storage_function="SocialResponsibilityScores",
+                params=[account_id],
             )
 
             if not result or result.value is None:
@@ -177,14 +180,14 @@ class CommunityConnector:
             data = result.value
             return SRSInfo(
                 account_id=account_id,
-                score=int(data['score']),
-                tier=int(data['tier']),
-                participation_count=int(data['participation_count']),
-                volunteer_hours=int(data['volunteer_hours']),
-                education_modules_completed=int(data['education_modules_completed']),
-                green_project_contributions=int(data['green_project_contributions']),
-                monthly_fee_exemption=int(data['monthly_fee_exemption']),
-                last_updated=int(data['last_updated'])
+                score=int(data["score"]),
+                tier=int(data["tier"]),
+                participation_count=int(data["participation_count"]),
+                volunteer_hours=int(data["volunteer_hours"]),
+                education_modules_completed=int(data["education_modules_completed"]),
+                green_project_contributions=int(data["green_project_contributions"]),
+                monthly_fee_exemption=int(data["monthly_fee_exemption"]),
+                last_updated=int(data["last_updated"]),
             )
 
         except Exception as e:
@@ -206,7 +209,7 @@ class CommunityConnector:
         activity_type: str,
         quality_score: float | None = None,
         contribution_amount: int | None = None,
-        metadata: dict[str, Any] | None = None
+        metadata: dict[str, Any] | None = None,
     ) -> tuple[bool, str]:
         """
         Record community participation activity (updates SRS).
@@ -222,7 +225,9 @@ class CommunityConnector:
             (success: bool, tx_hash: str)
         """
         if self.mock_mode:
-            logger.info(f"Mock: Recording {activity_type} participation for {account_id[:8]}...")
+            logger.info(
+                f"Mock: Recording {activity_type} participation for {account_id[:8]}..."
+            )
             return (True, "0xMOCK_TX_HASH")
 
         if not self._connected or not self.substrate:
@@ -236,27 +241,27 @@ class CommunityConnector:
         try:
             # Build extrinsic call
             call = self.substrate.compose_call(
-                call_module='Community',
-                call_function='record_participation',
+                call_module="Community",
+                call_function="record_participation",
                 call_params={
-                    'account': account_id,
-                    'activity_type': activity_type,
-                    'quality_score': quality_score if quality_score is not None else 0,
-                    'contribution_amount': contribution_amount if contribution_amount is not None else 0,
-                    'metadata': json.dumps(metadata) if metadata else ""
-                }
+                    "account": account_id,
+                    "activity_type": activity_type,
+                    "quality_score": quality_score if quality_score is not None else 0,
+                    "contribution_amount": (
+                        contribution_amount if contribution_amount is not None else 0
+                    ),
+                    "metadata": json.dumps(metadata) if metadata else "",
+                },
             )
 
             # Create signed extrinsic
             extrinsic = self.substrate.create_signed_extrinsic(
-                call=call,
-                keypair=self.keypair
+                call=call, keypair=self.keypair
             )
 
             # Submit extrinsic
             receipt = self.substrate.submit_extrinsic(
-                extrinsic,
-                wait_for_inclusion=True
+                extrinsic, wait_for_inclusion=True
             )
 
             if receipt.is_success:
@@ -276,7 +281,7 @@ class CommunityConnector:
         round_number: int,
         quality_score: float,
         samples_trained: int,
-        training_duration_seconds: int
+        training_duration_seconds: int,
     ) -> tuple[bool, str]:
         """
         Record federated learning contribution (Nawal AI specific).
@@ -292,24 +297,21 @@ class CommunityConnector:
             (success: bool, tx_hash: str)
         """
         metadata = {
-            'round_number': round_number,
-            'samples_trained': samples_trained,
-            'training_duration': training_duration_seconds,
-            'timestamp': datetime.now(timezone.utc).isoformat()
+            "round_number": round_number,
+            "samples_trained": samples_trained,
+            "training_duration": training_duration_seconds,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         return await self.record_participation(
             account_id=account_id,
-            activity_type='FederatedLearning',
+            activity_type="FederatedLearning",
             quality_score=quality_score,
-            metadata=metadata
+            metadata=metadata,
         )
 
     async def record_education_completion(
-        self,
-        account_id: str,
-        module_id: int,
-        completion_score: float
+        self, account_id: str, module_id: int, completion_score: float
     ) -> tuple[bool, str]:
         """
         Record education module completion.
@@ -323,22 +325,19 @@ class CommunityConnector:
             (success: bool, tx_hash: str)
         """
         metadata = {
-            'module_id': module_id,
-            'completion_date': datetime.now(timezone.utc).isoformat()
+            "module_id": module_id,
+            "completion_date": datetime.now(timezone.utc).isoformat(),
         }
 
         return await self.record_participation(
             account_id=account_id,
-            activity_type='EducationModule',
+            activity_type="EducationModule",
             quality_score=completion_score,
-            metadata=metadata
+            metadata=metadata,
         )
 
     async def record_green_project_contribution(
-        self,
-        account_id: str,
-        project_id: int,
-        amount_dalla: float
+        self, account_id: str, project_id: int, amount_dalla: float
     ) -> tuple[bool, str]:
         """
         Record green project contribution.
@@ -353,15 +352,15 @@ class CommunityConnector:
         """
         amount_planck = int(amount_dalla * 10**12)
         metadata = {
-            'project_id': project_id,
-            'contribution_date': datetime.now(timezone.utc).isoformat()
+            "project_id": project_id,
+            "contribution_date": datetime.now(timezone.utc).isoformat(),
         }
 
         return await self.record_participation(
             account_id=account_id,
-            activity_type='GreenProject',
+            activity_type="GreenProject",
             contribution_amount=amount_planck,
-            metadata=metadata
+            metadata=metadata,
         )
 
     # =========================================================================
@@ -386,10 +385,7 @@ async def example_usage():
     """Example usage of CommunityConnector."""
 
     # Initialize connector (mock mode for demonstration)
-    connector = CommunityConnector(
-        websocket_url="ws://127.0.0.1:9944",
-        mock_mode=True
-    )
+    connector = CommunityConnector(websocket_url="ws://127.0.0.1:9944", mock_mode=True)
 
     # Connect to blockchain
     await connector.connect()
@@ -410,7 +406,7 @@ async def example_usage():
         round_number=42,
         quality_score=87.5,
         samples_trained=1000,
-        training_duration_seconds=3600
+        training_duration_seconds=3600,
     )
 
     print(f"Participation recorded: {success} (tx: {tx_hash})")

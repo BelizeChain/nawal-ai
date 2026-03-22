@@ -7,6 +7,7 @@ The executive controller (Prefrontal Cortex) is responsible for:
   - Selecting the best plan (classically or via quantum optimizer)
   - Dispatching the chosen plan to the Action layer
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -16,11 +17,11 @@ from typing import Any, Dict, List, Optional
 
 
 class GoalStatus(Enum):
-    PENDING   = "pending"
-    ACTIVE    = "active"
-    BLOCKED   = "blocked"
+    PENDING = "pending"
+    ACTIVE = "active"
+    BLOCKED = "blocked"
     COMPLETED = "completed"
-    FAILED    = "failed"
+    FAILED = "failed"
 
 
 @dataclass
@@ -36,6 +37,7 @@ class Goal:
         status      : Current lifecycle state.
         sub_goals   : Optional decomposition into child goals.
     """
+
     goal_id: str
     description: str
     priority: float = 0.5
@@ -56,6 +58,7 @@ class Plan:
         score      : Estimated value / feasibility (0.0–1.0).
         metadata   : Planner-specific annotations.
     """
+
     plan_id: str
     goal_id: str
     steps: List[Dict[str, Any]]

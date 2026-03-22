@@ -9,6 +9,7 @@ Covers:
   - DPOptimizer     — zero_grad, step, privacy_spent property
   - create_dp_optimizer convenience function
 """
+
 from __future__ import annotations
 
 import math
@@ -28,10 +29,10 @@ from security.differential_privacy import (
     create_dp_optimizer,
 )
 
-
 # ---------------------------------------------------------------------------
 # Tiny model for gradient tests
 # ---------------------------------------------------------------------------
+
 
 class _TinyModel(nn.Module):
     def __init__(self):
@@ -54,6 +55,7 @@ def _model_with_grads(scale: float = 1.0) -> _TinyModel:
 # ---------------------------------------------------------------------------
 # PrivacyBudget
 # ---------------------------------------------------------------------------
+
 
 class TestPrivacyBudget:
 
@@ -90,7 +92,14 @@ class TestPrivacyBudget:
     def test_to_dict_keys(self):
         budget = PrivacyBudget()
         d = budget.to_dict()
-        assert set(d.keys()) == {"epsilon", "delta", "spent_epsilon", "steps", "remaining", "exhausted"}
+        assert set(d.keys()) == {
+            "epsilon",
+            "delta",
+            "spent_epsilon",
+            "steps",
+            "remaining",
+            "exhausted",
+        }
 
     def test_to_dict_values(self):
         budget = PrivacyBudget(epsilon=1.0, delta=1e-5, spent_epsilon=0.3, steps=5)
@@ -104,6 +113,7 @@ class TestPrivacyBudget:
 # ---------------------------------------------------------------------------
 # PrivacyBudgetExhaustedError
 # ---------------------------------------------------------------------------
+
 
 class TestPrivacyBudgetExhaustedError:
 
@@ -119,6 +129,7 @@ class TestPrivacyBudgetExhaustedError:
 # DifferentialPrivacy — init
 # ---------------------------------------------------------------------------
 
+
 class TestDifferentialPrivacyInit:
 
     def test_default_noise_multiplier_one(self):
@@ -130,7 +141,9 @@ class TestDifferentialPrivacyInit:
         assert dp.noise_multiplier == pytest.approx(2.5)
 
     def test_auto_compute_noise_multiplier_with_target_steps(self):
-        dp = DifferentialPrivacy(epsilon=1.0, delta=1e-5, target_steps=1000, sampling_rate=0.01)
+        dp = DifferentialPrivacy(
+            epsilon=1.0, delta=1e-5, target_steps=1000, sampling_rate=0.01
+        )
         # Should compute a positive noise multiplier >= 0.1
         assert dp.noise_multiplier >= 0.1
 
@@ -159,6 +172,7 @@ class TestDifferentialPrivacyInit:
 # ---------------------------------------------------------------------------
 # DifferentialPrivacy — clip_gradients
 # ---------------------------------------------------------------------------
+
 
 class TestClipGradients:
 
@@ -190,7 +204,9 @@ class TestClipGradients:
     def test_small_gradients_not_clipped(self):
         """Gradients already below clip_norm should not change."""
         model = _model_with_grads(scale=0.001)  # Tiny gradients
-        original_grads = {n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None}
+        original_grads = {
+            n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None
+        }
         dp = DifferentialPrivacy(clip_norm=100.0)
         dp.clip_gradients(model)
         for name, orig in original_grads.items():
@@ -201,11 +217,14 @@ class TestClipGradients:
 # DifferentialPrivacy — add_noise
 # ---------------------------------------------------------------------------
 
+
 class TestAddNoise:
 
     def test_add_noise_modifies_gradients(self):
         model = _model_with_grads()
-        original = {n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None}
+        original = {
+            n: p.grad.clone() for n, p in model.named_parameters() if p.grad is not None
+        }
         dp = DifferentialPrivacy(noise_multiplier=10.0, clip_norm=1.0)
         dp.add_noise(model)
         # At least one gradient should differ
@@ -235,6 +254,7 @@ class TestAddNoise:
 # ---------------------------------------------------------------------------
 # DifferentialPrivacy — privacy budget
 # ---------------------------------------------------------------------------
+
 
 class TestPrivacyBudgetUpdates:
 
@@ -277,7 +297,9 @@ class TestPrivacyBudgetUpdates:
         assert dp.can_continue_training() is False
 
     def test_to_dict_structure(self):
-        dp = DifferentialPrivacy(epsilon=1.0, clip_norm=0.5, noise_multiplier=1.2, sampling_rate=0.01)
+        dp = DifferentialPrivacy(
+            epsilon=1.0, clip_norm=0.5, noise_multiplier=1.2, sampling_rate=0.01
+        )
         d = dp.to_dict()
         assert "budget" in d
         assert d["clip_norm"] == 0.5
@@ -289,6 +311,7 @@ class TestPrivacyBudgetUpdates:
 # PrivacyAccountant
 # ---------------------------------------------------------------------------
 
+
 class TestPrivacyAccountant:
 
     def test_default_orders(self):
@@ -296,7 +319,9 @@ class TestPrivacyAccountant:
         assert pa.orders == [1.5, 2, 3, 5, 10, 20, 50, 100]
 
     def test_custom_orders(self):
-        pa = PrivacyAccountant(epsilon=1.0, delta=1e-5, sampling_rate=0.01, orders=[2, 5])
+        pa = PrivacyAccountant(
+            epsilon=1.0, delta=1e-5, sampling_rate=0.01, orders=[2, 5]
+        )
         assert pa.orders == [2, 5]
 
     def test_rdp_zero_initially(self):
@@ -342,6 +367,7 @@ class TestPrivacyAccountant:
 # DPOptimizer
 # ---------------------------------------------------------------------------
 
+
 class TestDPOptimizer:
 
     def _setup(self):
@@ -386,6 +412,7 @@ class TestDPOptimizer:
 # ---------------------------------------------------------------------------
 # create_dp_optimizer
 # ---------------------------------------------------------------------------
+
 
 class TestCreateDPOptimizer:
 
