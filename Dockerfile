@@ -13,9 +13,13 @@ FROM base-${COMPUTE}                              AS base
 
 # GPU images don't ship Python — install 3.11 from deadsnakes PPA
 ARG COMPUTE
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
 RUN if [ "$COMPUTE" = "gpu" ]; then \
+      ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
       apt-get update && \
-      apt-get install -y --no-install-recommends software-properties-common gpg-agent && \
+      apt-get install -y --no-install-recommends \
+        software-properties-common gpg-agent curl && \
       add-apt-repository -y ppa:deadsnakes/ppa && \
       apt-get update && \
       apt-get install -y --no-install-recommends \
