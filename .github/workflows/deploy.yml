@@ -122,7 +122,8 @@ jobs:
 
       - name: Deploy to AKS
         run: |
-          cat <<EOFK | kubectl apply --server-side --force-conflicts -f -
+          kubectl delete deployment nawal-ai -n belizechain --ignore-not-found
+          cat <<EOFK | kubectl apply -f -
           apiVersion: apps/v1
           kind: Deployment
           metadata:
