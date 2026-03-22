@@ -50,7 +50,7 @@ jobs:
           pip install structlog rich loguru msgpack orjson
           pip install fastapi uvicorn python-multipart
           pip install prometheus-client psutil Pillow
-          pip install pytest pytest-asyncio httpx
+          pip install pytest pytest-asyncio pytest-cov httpx
 
       - name: Run tests
         env:
