@@ -52,8 +52,12 @@ from typing import Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wandb
 from torch.utils.data import DataLoader, Dataset
+
+try:
+    import wandb
+except ImportError:
+    wandb = None  # type: ignore[assignment]
 from tqdm import tqdm
 
 from architecture.config import NawalModelConfig

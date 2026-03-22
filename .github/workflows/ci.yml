@@ -64,16 +64,8 @@ jobs:
       - name: Install remaining dependencies
         continue-on-error: true
         run: |
-          pip install --no-deps flwr
-          pip install numpy pandas scikit-learn scipy
-          pip install transformers datasets accelerate huggingface-hub
-          pip install cryptography pynacl pycryptodome
-          pip install pydantic pydantic-settings pyyaml python-dotenv
-          pip install structlog rich loguru msgpack orjson
-          pip install aiohttp websockets grpcio "protobuf>=4.21.0,<5.0.0"
-          pip install fastapi uvicorn python-multipart
-          pip install prometheus-client psutil Pillow
-          pip install substrate-interface || true
+          sed -e '/^torch/d' -e '/^torchvision/d' -e 's/flwr\[simulation\]/flwr/' requirements.txt > /tmp/ci-req.txt
+          pip install -r /tmp/ci-req.txt
           pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist ruff mypy
 
       - name: Run linting (Ruff)
