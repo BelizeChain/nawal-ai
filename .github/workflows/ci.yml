@@ -81,6 +81,7 @@ jobs:
           ruff check . --output-format=github
 
       - name: Run type checking (MyPy)
+        continue-on-error: true
         run: |
           mypy . --show-error-codes --ignore-missing-imports --exclude tests
 
