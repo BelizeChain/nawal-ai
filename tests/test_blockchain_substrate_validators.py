@@ -731,17 +731,16 @@ class TestDataManagerCustomJSON:
         assert len(manager.dataset) == 20
 
     def test_load_unsupported_type_raises(self, tmp_path):
+        from unittest.mock import patch
         from data.data_manager import DataManager, DatasetConfig, DatasetType
         cfg = DatasetConfig(
             dataset_type=DatasetType.WIKITEXT2,
             cache_dir=tmp_path / "cache",
         )
-        manager = DataManager(cfg)
-        if not __import__('data.data_manager', fromlist=['HF_AVAILABLE']).HF_AVAILABLE:
+        with patch("data.data_manager.HF_AVAILABLE", False):
+            manager = DataManager(cfg)
             with pytest.raises(RuntimeError, match="HuggingFace"):
                 manager.load_dataset()
-        else:
-            pytest.skip("HuggingFace available; skip HF error path")
 
     def test_load_with_max_samples(self, tmp_path):
         from data.data_manager import DataManager, DatasetConfig, DatasetType

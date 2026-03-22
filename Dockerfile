@@ -1,47 +1,39 @@
 # Nawal Federated Learning Server Dockerfile
-FROM python:3.11-slim AS builder
+# Single-stage build to minimize peak memory usage during build
+FROM python:3.11.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system + runtime dependencies in one layer, then clean up
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
     curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install uv for fast, backtrack-free dependency resolution
-RUN pip install --no-cache-dir uv
-
-# Install PyTorch CPU first to avoid resolution conflicts
-RUN uv pip install --no-cache --system torch torchvision --index-url https://download.pytorch.org/whl/cpu
-
-# Copy and install remaining requirements
-# Strip flwr[simulation] → flwr (drops Ray ~2 GB) and wandb for production.
-# Dev installs that inflate build time but aren't needed at runtime.
-COPY requirements.txt ./
-RUN sed \
-      -e 's/flwr\[simulation\]/flwr/g' \
-      -e 's/cryptography>=42.0.4,<43.0.0/cryptography>=44.0.0/g' \
-      -e '/^wandb/d' \
-      requirements.txt > /tmp/prod-req.txt && \
-    uv pip install --no-cache --system -r /tmp/prod-req.txt
-
-# --- Production stage ---
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install only runtime dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    curl \
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed Python packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Install uv for fast dependency resolution
+RUN pip install --no-cache-dir uv
+
+# Install PyTorch CPU first (largest dep — isolated layer for caching)
+RUN uv pip install --no-cache --system \
+    torch torchvision \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Copy and install remaining requirements
+# Strip flwr[simulation] → flwr (drops Ray ~2 GB) and wandb for production.
+COPY requirements.txt ./
+RUN sed \
+      -e 's/flwr\[simulation\]/flwr/g' \
+      -e 's/cryptography>=42.0.4,<43.0.0/cryptography>=44.0.0,<45.0.0/g' \
+      -e '/^wandb/d' \
+      requirements.txt > /tmp/prod-req.txt && \
+    uv pip install --no-cache --system -r /tmp/prod-req.txt && \
+    rm -f /tmp/prod-req.txt
+
+# Remove build tools no longer needed at runtime (shrinks image)
+RUN apt-get purge -y --auto-remove build-essential && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
 RUN groupadd -r nawal && useradd -r -g nawal -d /app -s /sbin/nologin nawal
@@ -52,8 +44,9 @@ COPY . .
 # Set PYTHONPATH so flat-layout modules are importable
 ENV PYTHONPATH=/app
 
-# Create directories for models and logs with correct ownership
-RUN mkdir -p /app/models /app/logs /app/data && \
+# Create directories matching config.prod.yaml storage paths
+RUN mkdir -p /app/models /app/logs /app/data \
+             /var/lib/nawal/checkpoints /var/log/nawal /var/lib/nawal/data && \
     chown -R nawal:nawal /app
 
 # Switch to non-root user
@@ -66,7 +59,7 @@ EXPOSE 8080
 ENV PYTHONUNBUFFERED=1
 ENV FL_SERVER_ADDRESS=0.0.0.0:8080
 ENV NAWAL_API_HOST=0.0.0.0
-ENV NAWAL_API_PORT=8080
+ENV NAWAL_PORT=8080
 ENV NAWAL_ENV=production
 
 # Health check
@@ -74,4 +67,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
 # Run the FL aggregator
-CMD ["python", "api_server.py", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "api_server.py"]

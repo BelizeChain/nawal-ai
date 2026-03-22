@@ -1057,12 +1057,28 @@ class TestPayrollConnectorVerifyReal:
     """Lines 411, 414 — real-mode verify_payroll."""
 
     def _submission_data(self):
-        """Return dict that passes PayrollProof.verify() (needs non-empty strings)."""
+        """Return dict with valid PayrollProof commitment data."""
+        import json, hashlib, secrets, hmac as hmac_mod
+        merkle_root = "0xdeadbeef1234"
+        nonce = secrets.token_hex(32)
+        entry_commit = hmac_mod.new(
+            nonce.encode(), b"EMP|1000|800|2025-01", hashlib.sha256
+        ).hexdigest()
+        aggregate = hashlib.sha256(entry_commit.encode()).hexdigest()
+        merkle_binding = hashlib.sha256(
+            (aggregate + merkle_root).encode()
+        ).hexdigest()
+        proof_json = json.dumps({
+            "version": 1, "scheme": "hmac-sha256-commitment",
+            "nonce": nonce, "entry_commitments": [entry_commit],
+            "aggregate_commitment": aggregate, "entry_count": 1,
+            "merkle_binding": merkle_binding, "timestamp": 0.0,
+        })
         return {
-            "zk_proof": "abc123proof",
+            "zk_proof": proof_json,
             "total_gross": "1000000000000",
             "total_tax": "200000000000",
-            "merkle_root": "0xdeadbeef1234",
+            "merkle_root": merkle_root,
         }
 
     def test_real_verify_payroll_success(self):

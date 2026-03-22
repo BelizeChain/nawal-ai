@@ -136,11 +136,19 @@ class HybridNawalEngine:
         )
 
     def _ensure_teacher_loaded(self) -> None:
-        """Lazy load DeepSeek teacher on first fallback"""
+        """Lazy load DeepSeek teacher on first fallback.
+
+        Raises RuntimeError if the teacher cannot be loaded so the
+        caller can fall back to Nawal.
+        """
         if self.teacher is None:
             logger.info("Loading DeepSeek teacher for first fallback...")
-            self.teacher = create_deepseek_teacher()
-            logger.info("DeepSeek teacher loaded")
+            try:
+                self.teacher = create_deepseek_teacher()
+                logger.info("DeepSeek teacher loaded")
+            except Exception as e:
+                logger.error(f"Failed to load DeepSeek teacher: {e}")
+                raise RuntimeError("DeepSeek teacher unavailable") from e
 
     def generate(
         self,
@@ -214,14 +222,29 @@ class HybridNawalEngine:
             model_used = "nawal"
 
         else:
-            # Use DeepSeek (teacher path)
-            self._ensure_teacher_loaded()
-            teacher_response = self.teacher.generate(
-                prompt=prompt,
-                max_tokens=max_length,
-            )
-            response_text = teacher_response["text"]
-            model_used = "deepseek"
+            # Use DeepSeek (teacher path) with fallback to Nawal on failure
+            try:
+                self._ensure_teacher_loaded()
+                teacher_response = self.teacher.generate(
+                    prompt=prompt,
+                    max_tokens=max_length,
+                )
+                response_text = teacher_response["text"]
+                model_used = "deepseek"
+            except Exception as e:
+                logger.error(
+                    f"DeepSeek teacher failed, falling back to Nawal: {e}",
+                    exc_info=True,
+                )
+                responses = self.nawal.generate(
+                    prompt=prompt,
+                    max_length=max_length,
+                    temperature=temperature,
+                    detect_language=False,
+                )
+                response_text = responses[0]
+                model_used = "nawal"
+                decision = "nawal"  # Update for metadata accuracy
 
         # Calculate latency
         end_time = datetime.now(timezone.utc)

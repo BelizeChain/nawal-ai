@@ -87,6 +87,9 @@ class TextCortex(AbstractCortex):
         device      : "cpu", "cuda", or "auto".
     """
 
+    # Maximum character length for hash-ngram mode (prevents unbounded n-gram lists)
+    MAX_TEXT_LENGTH = 100_000
+
     def __init__(
         self,
         embed_dim: int = 256,
@@ -121,8 +124,14 @@ class TextCortex(AbstractCortex):
         """Coerce input to a clean text string."""
         if not isinstance(raw_input, str):
             raw_input = str(raw_input)
+        # Strip null bytes and control characters (keep newlines/tabs)
+        raw_input = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', raw_input)
         # Collapse whitespace
-        return " ".join(raw_input.split())
+        text = " ".join(raw_input.split())
+        # Enforce length limit for hash-ngram mode (BERT has its own max_length)
+        if not self.model_name and len(text) > self.MAX_TEXT_LENGTH:
+            text = text[:self.MAX_TEXT_LENGTH]
+        return text
 
     def encode(self, raw_input: Any) -> List[float]:
         """

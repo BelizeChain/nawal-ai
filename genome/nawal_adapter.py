@@ -67,29 +67,47 @@ class GenomeToNawalAdapter:
             num_heads = 12
             num_layers = 12
 
-        # Extract activation from genome hyperparameters
+        # Extract vocab_size from embedding layer if present
+        embedding_layers = [
+            layer for layer in genome.encoder_layers
+            if layer.layer_type == LayerType.EMBEDDING
+        ]
+        vocab_size = 52000  # Belizean extended vocab default
+        if embedding_layers and embedding_layers[0].input_size:
+            vocab_size = embedding_layers[0].input_size
+
+        # Extract max_position_embeddings from positional encoding layer
+        pos_layers = [
+            layer for layer in genome.encoder_layers
+            if layer.layer_type == LayerType.POSITIONAL_ENCODING
+        ]
+        max_position_embeddings = 1024
+        if pos_layers and pos_layers[0].parameters.get("max_seq_len"):
+            max_position_embeddings = pos_layers[0].parameters["max_seq_len"]
+
+        # Extract activation from transformer layers (not hyperparameters)
         activation_map = {
             "gelu": "gelu",
             "relu": "relu",
             "silu": "swish",
             "swish": "swish",
         }
-        activation = activation_map.get(
-            getattr(genome.hyperparameters, "activation", "gelu").lower(),
-            "gelu"
-        )
+        raw_activation = "gelu"
+        if transformer_layers and transformer_layers[0].activation:
+            raw_activation = transformer_layers[0].activation
+        activation = activation_map.get(raw_activation.lower(), "gelu")
 
         # Extract dropout
         dropout = getattr(genome.hyperparameters, "dropout_rate", 0.1)
 
         # Create NawalConfig from genome specifications
         config = NawalConfig(
-            vocab_size=52000,  # Belizean extended vocab
+            vocab_size=vocab_size,
             hidden_size=hidden_size,
             num_layers=num_layers,
             num_heads=num_heads,
             intermediate_size=hidden_size * 4,  # Standard 4x expansion
-            max_position_embeddings=1024,
+            max_position_embeddings=max_position_embeddings,
             dropout=dropout,
             attention_dropout=dropout,
             activation=activation,

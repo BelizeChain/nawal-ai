@@ -104,7 +104,7 @@ class TestExceptionPaths:
 
             mock_req.get.side_effect = Exception("unexpected error")
             client = PakitClient()
-            result = client.download_file("hashxyz", str(tmp_path / "out.bin"))
+            result = client.download_file("ab" * 32, str(tmp_path / "out.bin"))
 
         assert result is False
 
@@ -115,7 +115,7 @@ class TestExceptionPaths:
 
             mock_req.post.side_effect = Exception("boom")
             client = PakitClient()
-            result = client.pin_content("hashxyz")
+            result = client.pin_content("ab" * 32)
 
         assert result is False
 
@@ -126,7 +126,7 @@ class TestExceptionPaths:
 
             mock_req.get.side_effect = Exception("network failure")
             client = PakitClient()
-            result = client.get_metadata("hashxyz")
+            result = client.get_metadata("ab" * 32)
 
         assert result is None
 

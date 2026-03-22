@@ -8,9 +8,10 @@ import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, AsyncIterator
+from typing import Any, Optional, List, Dict, AsyncIterator
 import torch
 import asyncio
 import logging
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 # Application Lifespan (replaces deprecated @app.on_event)
 # =============================================================================
 
+# Environment detection
+_is_production = os.getenv("NAWAL_ENV", "development").lower() == "production"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: load model on startup, cleanup on shutdown."""
@@ -48,6 +53,8 @@ async def lifespan(app: FastAPI):
 
     app.state.model = model
     app.state.dp_guard = DPInferenceGuard(epsilon=2.0)
+    app.state.belizeid_verifier = BelizeIDVerifier()
+    app.state.metrics = InferenceMetricsCollector()
     yield
     # Shutdown cleanup
     app.state.model = None
@@ -60,10 +67,9 @@ app = FastAPI(
     description="Privacy-preserving LLM inference for BelizeChain",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
 )
-
-belizeid_verifier = BelizeIDVerifier()
-metrics = InferenceMetricsCollector()
 
 
 # =============================================================================
@@ -137,27 +143,38 @@ class ModelInfo(BaseModel):
     privacy_budget: Dict[str, float]
 
 
-async def verify_belizeid(belizeid: Optional[str] = Header(None)) -> Optional[str]:
-    """Dependency: Verify BelizeID authentication"""
-    if belizeid:
-        is_valid = await belizeid_verifier.verify(belizeid)
-        if not is_valid:
-            raise HTTPException(status_code=401, detail="Invalid BelizeID")
-        return belizeid
-    return None
+class BatchInferenceResponse(BaseModel):
+    """Response for batch inference."""
+    results: List[Dict[str, Any]]
+    total: int
+
+
+async def verify_belizeid(request: Request, belizeid: Optional[str] = Header(None)) -> str:
+    """Dependency: Verify BelizeID authentication (required)."""
+    if not belizeid:
+        raise HTTPException(status_code=401, detail="BelizeID header required")
+    is_valid = await request.app.state.belizeid_verifier.verify(belizeid)
+    if not is_valid:
+        raise HTTPException(status_code=401, detail="Invalid BelizeID")
+    return belizeid
 
 
 @app.get("/health")
 async def health_check(request: Request):
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "model_loaded": request.app.state.model is not None,
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
+    model_loaded = request.app.state.model is not None
+    status_str = "healthy" if model_loaded else "degraded"
+    return JSONResponse(
+        content={
+            "status": status_str,
+            "model_loaded": model_loaded,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+        status_code=200 if model_loaded else 503,
+    )
 
 
-@app.get("/model/info", response_model=ModelInfo)
+@app.get("/model/info", response_model=ModelInfo, status_code=200)
 async def get_model_info(request: Request):
     """Get model metadata and statistics"""
     model = request.app.state.model
@@ -177,11 +194,11 @@ async def get_model_info(request: Request):
     )
 
 
-@app.post("/infer", response_model=InferenceResponse)
+@app.post("/infer", response_model=InferenceResponse, status_code=200)
 async def generate_text(
     request: InferenceRequest,
     http_request: Request,
-    belizeid: Optional[str] = Depends(verify_belizeid)
+    belizeid: str = Depends(verify_belizeid)
 ):
     """Generate text from prompt (non-streaming)"""
     model = http_request.app.state.model
@@ -204,8 +221,8 @@ async def generate_text(
         inference_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
 
         # Log metrics
-        await metrics.log_inference(
-            user_id=belizeid or "anonymous",
+        await http_request.app.state.metrics.log_inference(
+            user_id=belizeid,
             prompt_length=len(request.prompt),
             output_length=len(output),
             inference_time=inference_time
@@ -224,11 +241,11 @@ async def generate_text(
         raise HTTPException(status_code=500, detail="Inference failed. Check server logs.")
 
 
-@app.post("/infer/stream")
+@app.post("/infer/stream", status_code=200)
 async def generate_text_stream(
     request: InferenceRequest,
     http_request: Request,
-    belizeid: Optional[str] = Depends(verify_belizeid)
+    belizeid: str = Depends(verify_belizeid)
 ):
     """Generate text with streaming response"""
     model = http_request.app.state.model
@@ -256,11 +273,11 @@ async def generate_text_stream(
     )
 
 
-@app.post("/batch/infer")
+@app.post("/batch/infer", response_model=BatchInferenceResponse, status_code=200)
 async def batch_inference(
     requests: List[InferenceRequest],
     http_request: Request,
-    belizeid: Optional[str] = Depends(verify_belizeid)
+    belizeid: str = Depends(verify_belizeid)
 ):
     """Process multiple inference requests in batch"""
     model = http_request.app.state.model
@@ -274,24 +291,48 @@ async def batch_inference(
     for req in requests:
         try:
             response = await generate_text(req, http_request, belizeid)
-            results.append({"status": "success", "data": response})
+            results.append({"status": "success", "data": response.model_dump()})
         except Exception as e:
             results.append({"status": "error", "error": str(e)})
 
     return {"results": results, "total": len(requests)}
 
 
-@app.get("/metrics")
-async def get_metrics():
+@app.get("/metrics", status_code=200)
+async def get_metrics(request: Request, _belizeid: str = Depends(verify_belizeid)):
     """Get inference metrics (Prometheus format)"""
-    return await metrics.export_prometheus()
+    return await request.app.state.metrics.export_prometheus()
+
+
+# =============================================================================
+# Exception Handlers
+# =============================================================================
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Reformat 422 validation errors into consistent envelope."""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Validation error", "errors": exc.errors()},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all for unhandled exceptions — never leak internals."""
+    logger.error(f"Unhandled exception on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         app,
-        host="127.0.0.1",  # Security: bind to localhost only (use reverse proxy for external access)
-        port=8000,
-        log_level="info"
+        host=os.getenv("NAWAL_INFERENCE_HOST", "127.0.0.1"),
+        port=int(os.getenv("NAWAL_INFERENCE_PORT", "8000")),
+        log_level="info",
     )

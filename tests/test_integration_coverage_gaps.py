@@ -727,6 +727,7 @@ class TestKinichQuantumConnector:
         conn.kinich_endpoint = "http://test:8002"
         conn.classical_dim = 16
         conn.quantum_dim = 4
+        conn.request_timeout = 30.0
 
         features = np.random.randn(2, 16)
 
@@ -757,6 +758,7 @@ class TestKinichQuantumConnector:
         conn.kinich_endpoint = "http://test:8002"
         conn.classical_dim = 16
         conn.quantum_dim = 4
+        conn.request_timeout = 30.0
 
         mock_response = AsyncMock()
         mock_response.status = 500

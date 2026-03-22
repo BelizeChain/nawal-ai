@@ -15,6 +15,7 @@ Python: 3.13+
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -35,6 +36,8 @@ try:
 except ImportError:
     COMMUNITY_AVAILABLE = False
     logger.warning("CommunityConnector not available, SRS tracking disabled")
+
+from .rewards import PLANCK_PER_DALLA
 
 
 # =============================================================================
@@ -171,6 +174,12 @@ class StakingConnector:
         self._mock_participants: dict[str, ParticipantInfo] = {}
         self._mock_submissions: list[TrainingSubmission] = []
 
+        # Duplicate-submission guard: set of (participant_id, round_number)
+        self._submitted_proofs: set[tuple[str, int]] = set()
+
+        # Bounded retry queue for failed submissions
+        self._failed_submissions: deque[TrainingSubmission] = deque(maxlen=100)
+
         logger.info(
             "Initialized StakingConnector",
             node_url=node_url,
@@ -194,31 +203,46 @@ class StakingConnector:
 
             return True
 
-        try:
-            self.substrate = SubstrateInterface(url=self.node_url)
-            self.is_connected = True
+        max_retries = 3
+        base_delay = 1.0
 
-            # Get chain info
-            chain = self.substrate.chain
-            properties = self.substrate.properties
+        for attempt in range(max_retries):
+            try:
+                self.substrate = SubstrateInterface(url=self.node_url)
+                self.is_connected = True
 
-            logger.info(
-                "Connected to BelizeChain",
-                chain=chain,
-                properties=properties,
-            )
+                # Get chain info
+                chain = self.substrate.chain
+                properties = self.substrate.properties
 
-            # Also connect community connector if enabled
-            if self.enable_community_tracking and self.community_connector:
-                await self.community_connector.connect()
-                logger.info("Community connector initialized")
+                logger.info(
+                    "Connected to BelizeChain",
+                    chain=chain,
+                    properties=properties,
+                )
 
-            return True
+                # Also connect community connector if enabled
+                if self.enable_community_tracking and self.community_connector:
+                    await self.community_connector.connect()
+                    logger.info("Community connector initialized")
 
-        except Exception as e:
-            logger.error("Failed to connect to BelizeChain", error=str(e))
-            self.is_connected = False
-            return False
+                return True
+
+            except Exception as e:
+                delay = base_delay * (2 ** attempt)
+                logger.warning(
+                    "Connection attempt failed",
+                    attempt=attempt + 1,
+                    max_retries=max_retries,
+                    delay=delay,
+                    error=str(e),
+                )
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(delay)
+
+        logger.error("Failed to connect to BelizeChain after all retries")
+        self.is_connected = False
+        return False
 
     async def disconnect(self) -> None:
         """Disconnect from BelizeChain node."""
@@ -454,6 +478,16 @@ class StakingConnector:
             logger.error("Invalid submission", errors=errors)
             return False
 
+        # Duplicate-submission guard
+        proof_key = (submission.participant_id, submission.round_number)
+        if proof_key in self._submitted_proofs:
+            logger.warning(
+                "Duplicate submission rejected",
+                participant=submission.participant_id,
+                round=submission.round_number,
+            )
+            return False
+
         if self.mock_mode:
             # Check if participant is enrolled
             if submission.participant_id not in self._mock_participants:
@@ -474,6 +508,8 @@ class StakingConnector:
                 (participant.avg_fitness_score * (n - 1) + submission.fitness_score) / n
             )
             participant.last_submission = submission.timestamp
+
+            self._submitted_proofs.add(proof_key)
 
             logger.info(
                 "Mock: Submitted training proof",
@@ -516,6 +552,8 @@ class StakingConnector:
             )
 
             if receipt.is_success:
+                self._submitted_proofs.add(proof_key)
+
                 logger.info(
                     "Submitted training proof",
                     participant=submission.participant_id,
@@ -558,6 +596,7 @@ class StakingConnector:
                 participant=submission.participant_id,
                 error=str(e),
             )
+            self._failed_submissions.append(submission)
             return False
 
     async def claim_rewards(
@@ -581,13 +620,13 @@ class StakingConnector:
                 participant = self._mock_participants[account_id]
                 # Simple reward calculation: 10 DALLA per round * avg fitness
                 reward = int(
-                    participant.training_rounds_completed * 10 * 1e12  # 10 DALLA
+                    participant.training_rounds_completed * 10 * PLANCK_PER_DALLA  # 10 DALLA
                     * (participant.avg_fitness_score / 100)
                 )
                 logger.info(
                     "Mock: Claimed rewards",
                     account_id=account_id,
-                    reward_dalla=reward / 1e12,
+                    reward_dalla=reward / PLANCK_PER_DALLA,
                 )
                 return True, reward
             return False, 0
@@ -627,7 +666,7 @@ class StakingConnector:
                 logger.info(
                     "Claimed rewards",
                     account_id=account_id,
-                    reward_dalla=reward_amount / 1e12,
+                    reward_dalla=reward_amount / PLANCK_PER_DALLA,
                     block_hash=receipt.block_hash,
                 )
                 return True, reward_amount

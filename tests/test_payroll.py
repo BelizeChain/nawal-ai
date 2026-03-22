@@ -335,15 +335,29 @@ class TestPayrollProof:
     """Test suite for PayrollProof."""
 
     def test_proof_verification(self):
-        """Test ZK proof verification (simplified)."""
+        """Test ZK proof verification with valid commitment proof."""
+        import json, hashlib, secrets, hmac as hmac_mod
+        merkle_root = "root_hash_123"
+        nonce = secrets.token_hex(32)
+        entry_commit = hmac_mod.new(
+            nonce.encode(), b"EMP|1000|800|2025-01", hashlib.sha256
+        ).hexdigest()
+        aggregate = hashlib.sha256(entry_commit.encode()).hexdigest()
+        merkle_binding = hashlib.sha256(
+            (aggregate + merkle_root).encode()
+        ).hexdigest()
+        proof_json = json.dumps({
+            "version": 1, "scheme": "hmac-sha256-commitment",
+            "nonce": nonce, "entry_commitments": [entry_commit],
+            "aggregate_commitment": aggregate, "entry_count": 1,
+            "merkle_binding": merkle_binding, "timestamp": 0.0,
+        })
         proof = PayrollProof(
             proof_type="zk-snark",
-            proof_data="abc123def456",
+            proof_data=proof_json,
             public_inputs=["1000", "200"],
-            commitment="root_hash_123",
+            commitment=merkle_root,
         )
-
-        # Current implementation just checks non-empty
         assert proof.verify() is True
 
     def test_empty_proof_fails(self):

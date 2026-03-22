@@ -905,9 +905,8 @@ class TestHuggingFaceTokenizer:
     def test_hf_tokenizer_module_attribute(self):
         """Checks the HF_AVAILABLE flag in the tokenizers module."""
         import data.tokenizers as tok_mod
-        # Should have an HF_AVAILABLE attribute (True or False)
-        assert hasattr(tok_mod, "HF_AVAILABLE") or True  # graceful: don't fail if missing
-        pytest.skip("HuggingFaceTokenizer not exported from data.tokenizers; skip")
+        assert hasattr(tok_mod, "HF_AVAILABLE")
+        assert isinstance(tok_mod.HF_AVAILABLE, bool)
 
 
 ###############################################################################
@@ -1044,8 +1043,8 @@ class TestTransformerRemaining:
     def test_transformer_forward_with_mask(self):
         import torch
         from architecture.transformer import NawalTransformer
-        from architecture.config import NawalConfig
-        cfg = NawalConfig(
+        from architecture.config import NawalModelConfig
+        cfg = NawalModelConfig(
             vocab_size=100,
             hidden_size=32,
             num_heads=2,
@@ -1082,17 +1081,12 @@ class TestAggregatorRemaining:
 
 class TestHybridModules:
     def test_hybrid_memory_import(self):
-        try:
-            from hybrid.quantum_memory import QuantumHippocampus
-            qm = QuantumHippocampus()
-            assert qm is not None
-        except (ImportError, Exception):
-            pytest.skip("Quantum memory not available")
+        from unittest.mock import MagicMock
+        from quantum.quantum_memory import QuantumMemory
+        qm = QuantumMemory(backing_store=MagicMock())
+        assert qm is not None
 
     def test_hybrid_optimizer_import(self):
-        try:
-            from hybrid.quantum_optimizer import QuantumPlanSelector
-            qs = QuantumPlanSelector()
-            assert qs is not None
-        except (ImportError, Exception):
-            pytest.skip("Quantum optimizer not available")
+        from quantum.quantum_optimizer import QuantumPlanOptimizer
+        qs = QuantumPlanOptimizer()
+        assert qs is not None

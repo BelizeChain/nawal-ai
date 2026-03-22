@@ -96,6 +96,8 @@ class MemoryManager:
         embedding_dim: int = 768,
         qdrant_url: Optional[str] = None,
     ) -> None:
+        if consolidation_age < 0:
+            raise ValueError("consolidation_age must be ≥ 0")
         self.consolidation_age = consolidation_age
         self.embedding_dim = embedding_dim
 
@@ -213,8 +215,10 @@ class MemoryManager:
                 if dedup and rec.key in seen_keys:
                     continue
                 seen_keys.add(rec.key)
-                sim = _cosine(q, np.asarray(rec.embedding, dtype=np.float32)) \
-                      if rec.embedding else 0.0
+                if rec.embedding is not None and len(rec.embedding) > 0:
+                    sim = _cosine(q, np.asarray(rec.embedding, dtype=np.float32))
+                else:
+                    sim = 0.0
                 gathered.append((sim, rec))
 
         gathered.sort(key=lambda x: x[0], reverse=True)

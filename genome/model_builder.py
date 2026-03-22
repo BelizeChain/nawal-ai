@@ -20,6 +20,7 @@ Python: 3.13+
 
 from __future__ import annotations
 
+import inspect
 import math
 from typing import Any
 import torch
@@ -602,6 +603,17 @@ class GenomeModel(nn.Module):
             params=self.count_parameters(),
         )
 
+        # Pre-compute which layers accept attention_mask to avoid
+        # catching TypeError at runtime (which would mask real bugs).
+        self._encoder_accepts_mask = [
+            "attention_mask" in inspect.signature(layer.forward).parameters
+            for layer in self.encoder_layers
+        ]
+        self._decoder_accepts_mask = [
+            "attention_mask" in inspect.signature(layer.forward).parameters
+            for layer in self.decoder_layers
+        ] if self.decoder_layers else []
+
     def forward(
         self,
         input_ids: torch.Tensor,
@@ -707,21 +719,19 @@ class GenomeModel(nn.Module):
             attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
             attention_mask = (1.0 - attention_mask) * -10000.0
 
-        # Encoder layers - handle both transformer blocks and feedforward layers
-        for layer in self.encoder_layers:
-            # Try calling with attention_mask first (for TransformerBlock)
-            try:
+        # Encoder layers - use pre-computed mask acceptance flags
+        for layer, accepts_mask in zip(self.encoder_layers, self._encoder_accepts_mask):
+            if accepts_mask and attention_mask is not None:
                 hidden_states = layer(hidden_states, attention_mask)
-            except TypeError:
-                # Layer doesn't accept attention_mask (e.g., FeedForward, Dropout)
+            else:
                 hidden_states = layer(hidden_states)
 
         # Decoder layers (if any)
         if self.decoder_layers:
-            for layer in self.decoder_layers:
-                try:
+            for layer, accepts_mask in zip(self.decoder_layers, self._decoder_accepts_mask):
+                if accepts_mask and attention_mask is not None:
                     hidden_states = layer(hidden_states, attention_mask)
-                except TypeError:
+                else:
                     hidden_states = layer(hidden_states)
 
         # Output

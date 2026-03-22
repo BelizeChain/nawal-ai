@@ -65,6 +65,10 @@ class MetricType(Enum):
     NETWORK_SENT = "network_sent"
     NETWORK_RECV = "network_recv"
 
+    # BelizeChain-specific metrics
+    SOVEREIGNTY_RATE = "sovereignty_rate"
+    POUW_REWARD = "pouw_reward"
+
 
 @dataclass
 class Metric:

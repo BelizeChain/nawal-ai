@@ -202,51 +202,58 @@ class TestPakitClientHTTP:
 
     def test_download_success(self, tmp_path):
         """download_file returns True and writes file on 200."""
+        valid_cid = "ab" * 32  # 64-char hex
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.iter_content.return_value = [b"chunk1", b"chunk2"]
         output_path = str(tmp_path / "downloaded.bin")
 
-        with patch("storage.pakit_client.requests.get", return_value=mock_response):
+        with patch("storage.pakit_client.requests.get", return_value=mock_response), \
+             patch.object(PakitClient, "_compute_file_hash", return_value=valid_cid):
             client = PakitClient()
-            result = client.download_file("hash123", output_path)
+            result = client.download_file(valid_cid, output_path)
 
         assert result is True
         assert Path(output_path).read_bytes() == b"chunk1chunk2"
 
     def test_download_not_found_returns_false(self, tmp_path):
+        valid_cid = "cd" * 32
         mock_response = MagicMock()
         mock_response.status_code = 404
         output_path = str(tmp_path / "out.bin")
 
         with patch("storage.pakit_client.requests.get", return_value=mock_response):
-            result = PakitClient().download_file("badhash", output_path)
+            result = PakitClient().download_file(valid_cid, output_path)
 
         assert result is False
 
     def test_download_no_requests_returns_false(self):
+        valid_cid = "ef" * 32
         with patch("storage.pakit_client.REQUESTS_AVAILABLE", False):
-            result = PakitClient().download_file("hash", "/tmp/out.bin")
+            result = PakitClient().download_file(valid_cid, "/tmp/out.bin")
         assert result is False
 
     def test_pin_content_success(self):
+        valid_cid = "ab" * 32
         mock_response = MagicMock()
         mock_response.status_code = 200
         with patch("storage.pakit_client.requests.post", return_value=mock_response):
-            result = PakitClient().pin_content("hash123")
+            result = PakitClient().pin_content(valid_cid)
         assert result is True
 
     def test_pin_content_failure(self):
+        valid_cid = "cd" * 32
         mock_response = MagicMock()
         mock_response.status_code = 404
         with patch("storage.pakit_client.requests.post", return_value=mock_response):
-            result = PakitClient().pin_content("badhash")
+            result = PakitClient().pin_content(valid_cid)
         assert result is False
 
     def test_pin_content_no_requests_returns_true(self):
         """When requests not available, pin mocks success."""
+        valid_cid = "ef" * 32
         with patch("storage.pakit_client.REQUESTS_AVAILABLE", False):
-            result = PakitClient().pin_content("hash")
+            result = PakitClient().pin_content(valid_cid)
         assert result is True
 
     def test_get_metadata_success(self):
@@ -255,19 +262,21 @@ class TestPakitClientHTTP:
         mock_response.json.return_value = {"version": "1.0", "size": 1024}
 
         with patch("storage.pakit_client.requests.get", return_value=mock_response):
-            meta = PakitClient().get_metadata("hash123")
+            meta = PakitClient().get_metadata("ab" * 32)
         assert meta == {"version": "1.0", "size": 1024}
 
     def test_get_metadata_not_found_returns_none(self):
+        valid_cid = "cd" * 32
         mock_response = MagicMock()
         mock_response.status_code = 404
         with patch("storage.pakit_client.requests.get", return_value=mock_response):
-            meta = PakitClient().get_metadata("badhash")
+            meta = PakitClient().get_metadata(valid_cid)
         assert meta is None
 
     def test_get_metadata_no_requests_returns_none(self):
+        valid_cid = "ef" * 32
         with patch("storage.pakit_client.REQUESTS_AVAILABLE", False):
-            meta = PakitClient().get_metadata("hash")
+            meta = PakitClient().get_metadata(valid_cid)
         assert meta is None
 
     def test_upload_network_error_raises(self, tmp_path):

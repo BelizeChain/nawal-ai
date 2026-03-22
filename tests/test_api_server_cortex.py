@@ -46,8 +46,7 @@ class TestCortexInit:
         assert NawalTransformer is not None
 
     def test_import_config(self):
-        from cortex import NawalConfig, NawalModelConfig
-        assert NawalConfig is not None
+        from cortex import NawalModelConfig
         assert NawalModelConfig is not None
 
     def test_import_attention(self):
@@ -205,20 +204,22 @@ class TestApiServerEndpoints:
 
     def test_health_check(self, setup_state):
         from api_server import health_check
-        result = _run(health_check())
-        assert result["status"] == "healthy"
-        assert result["blockchain_connected"] is False
+        response = _run(health_check())
+        data = json.loads(response.body)
+        assert data["status"] == "healthy"
+        assert data["blockchain_connected"] is False
 
     def test_health_no_blockchain(self, setup_state):
         from api_server import health_check
-        result = _run(health_check())
-        assert result["blockchain_connected"] is False
+        response = _run(health_check())
+        data = json.loads(response.body)
+        assert data["blockchain_connected"] is False
 
     def test_get_status(self, setup_state):
         from api_server import get_status
         result = _run(get_status())
-        assert "service" in result
-        assert result["active_rounds"] == 0
+        assert result.service == "Nawal Federated Learning"
+        assert result.active_rounds == 0
 
     def test_start_fl_round(self, setup_state):
         from api_server import start_fl_round, StartRoundRequest
@@ -443,6 +444,10 @@ class TestApiServerEndpoints:
 
     # ---- auth middleware unit tests (no TestClient needed) ----
 
+    @staticmethod
+    async def _noop_call_next(request):
+        return None
+
     def test_auth_disabled_no_header_needed(self, setup_state):
         from api_server import verify_api_key
         class MockRequest:
@@ -451,7 +456,7 @@ class TestApiServerEndpoints:
             headers = {}
             query_params = {}
         # auth disabled → function returns None (no exception)
-        result = _run(verify_api_key(MockRequest()))
+        result = _run(verify_api_key(MockRequest(), self._noop_call_next))
         assert result is None
 
     def test_auth_health_skips_check(self, setup_state):
@@ -466,12 +471,11 @@ class TestApiServerEndpoints:
             headers = {}
             query_params = {}
         # /health path → skips auth even when enabled
-        result = _run(verify_api_key(MockRequest()))
+        result = _run(verify_api_key(MockRequest(), self._noop_call_next))
         assert result is None
 
     def test_auth_enabled_missing_key(self, setup_state):
         from api_server import verify_api_key, ServerConfig
-        from fastapi import HTTPException
         setup_state.config = ServerConfig(
             blockchain_enabled=False, enable_auth=True, api_key="secret-key",
             checkpoint_dir=setup_state.config.checkpoint_dir,
@@ -481,9 +485,8 @@ class TestApiServerEndpoints:
                 path = "/api/v1/status"
             headers = {}
             query_params = {}
-        with pytest.raises(HTTPException) as exc_info:
-            _run(verify_api_key(MockRequest()))
-        assert exc_info.value.status_code == 401
+        result = _run(verify_api_key(MockRequest(), self._noop_call_next))
+        assert result.status_code == 401
 
     def test_auth_enabled_correct_key(self, setup_state):
         from api_server import verify_api_key, ServerConfig
@@ -497,7 +500,7 @@ class TestApiServerEndpoints:
             headers = {"X-API-Key": "correct-key"}
             query_params = {}
         # correct key → returns None (no exception)
-        result = _run(verify_api_key(MockRequest()))
+        result = _run(verify_api_key(MockRequest(), self._noop_call_next))
         assert result is None
 
 

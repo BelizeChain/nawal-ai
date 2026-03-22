@@ -55,7 +55,9 @@ class KinichQuantumConnector:
         classical_dim: int = 768,
         quantum_dim: int = 8,
         enable_caching: bool = True,
-        fallback_to_classical: bool = True
+        fallback_to_classical: bool = True,
+        request_timeout: float = 30.0,
+        circuit_breaker_threshold: int = 5,
     ):
         """
         Initialize Kinich quantum connector.
@@ -66,16 +68,24 @@ class KinichQuantumConnector:
             quantum_dim: Dimension of quantum features (number of qubits)
             enable_caching: Cache quantum results for repeated inputs
             fallback_to_classical: Fall back to classical if quantum unavailable
+            request_timeout: HTTP request timeout in seconds
+            circuit_breaker_threshold: Consecutive failures before disabling quantum path
         """
         self.kinich_endpoint = kinich_endpoint
         self.classical_dim = classical_dim
         self.quantum_dim = quantum_dim
         self.enable_caching = enable_caching
         self.fallback_to_classical = fallback_to_classical
+        self.request_timeout = request_timeout
 
         # Lazy import Kinich components
         self.bridge = None
         self.kinich_available = False
+
+        # Circuit breaker state
+        self._circuit_breaker_threshold = circuit_breaker_threshold
+        self._consecutive_failures: int = 0
+        self._circuit_open: bool = False
 
         # Cache for quantum results (bounded to prevent memory leaks)
         self._cache_max_size: int = 1024
@@ -131,6 +141,49 @@ class KinichQuantumConnector:
             if not self.fallback_to_classical:
                 raise
 
+    def _validate_features(self, features: np.ndarray) -> np.ndarray:
+        """Validate and sanitize input features."""
+        if features.ndim == 1:
+            features = features.reshape(1, -1)
+        if features.ndim != 2:
+            raise ValueError(
+                f"features must be 2D [batch, {self.classical_dim}], got shape {features.shape}"
+            )
+        if features.shape[1] != self.classical_dim:
+            raise ValueError(
+                f"features dim {features.shape[1]} != classical_dim {self.classical_dim}"
+            )
+        if np.any(np.isnan(features)) or np.any(np.isinf(features)):
+            raise ValueError("features contain NaN or Inf values")
+        return features
+
+    def _is_quantum_available(self) -> bool:
+        """Check if quantum path is available (health + circuit breaker)."""
+        return self.kinich_available and not self._circuit_open
+
+    def _record_quantum_success(self) -> None:
+        """Record a successful quantum call, resetting the circuit breaker."""
+        self._consecutive_failures = 0
+        if self._circuit_open:
+            self._circuit_open = False
+            logger.info("Circuit breaker closed — Kinich recovered")
+
+    def _record_quantum_failure(self) -> None:
+        """Record a quantum failure, potentially opening the circuit breaker."""
+        self._consecutive_failures += 1
+        if self._consecutive_failures >= self._circuit_breaker_threshold:
+            self._circuit_open = True
+            logger.warning(
+                f"Circuit breaker OPEN after {self._consecutive_failures} "
+                f"consecutive failures — skipping Kinich calls"
+            )
+
+    def reset_circuit_breaker(self) -> None:
+        """Manually reset the circuit breaker (e.g. after Kinich restart)."""
+        self._consecutive_failures = 0
+        self._circuit_open = False
+        logger.info("Circuit breaker manually reset")
+
     async def quantum_process(
         self,
         features: np.ndarray,
@@ -151,6 +204,9 @@ class KinichQuantumConnector:
         import time
         start_time = time.time()
 
+        # Validate input
+        features = self._validate_features(features)
+
         # Check cache
         if self.enable_caching:
             cache_key = self._get_cache_key(features)
@@ -159,13 +215,15 @@ class KinichQuantumConnector:
                 logger.debug("Cache hit - returning cached result")
                 return self.result_cache[cache_key]
 
-        # Process via Kinich
-        if self.kinich_available and self.bridge is not None:
+        # Process via Kinich (circuit breaker guards the quantum path)
+        if self._is_quantum_available():
             try:
                 result = await self._quantum_forward(features, model_type, **kwargs)
                 self.stats['quantum_calls'] += 1
+                self._record_quantum_success()
             except Exception as e:
                 logger.warning(f"Quantum processing failed: {e}")
+                self._record_quantum_failure()
                 if self.fallback_to_classical:
                     result = self._classical_fallback(features)
                     self.stats['fallback_calls'] += 1
@@ -220,14 +278,28 @@ class KinichQuantumConnector:
             async with session.post(
                 f"{self.kinich_endpoint}/api/v1/qml/process",
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=60)
+                timeout=aiohttp.ClientTimeout(total=self.request_timeout)
             ) as resp:
                 if resp.status != 200:
                     error_text = await resp.text()
                     raise RuntimeError(f"Kinich API error: {error_text}")
 
                 result = await resp.json()
+
+                if "quantum_enhanced_features" not in result:
+                    raise RuntimeError(
+                        f"Kinich response missing 'quantum_enhanced_features' key, "
+                        f"got keys: {list(result.keys())}"
+                    )
+
                 classical_results = np.array(result["quantum_enhanced_features"])
+
+                # Validate response shape matches input
+                if classical_results.shape != features.shape:
+                    raise RuntimeError(
+                        f"Kinich response shape {classical_results.shape} != "
+                        f"input shape {features.shape}"
+                    )
 
         return classical_results
 
@@ -277,8 +349,9 @@ class KinichQuantumConnector:
         # Simple classical transformation (PCA-like)
         # In production, this would use trained classical model
         if not hasattr(self, '_fallback_matrix'):
-            self._fallback_matrix = np.random.randn(
-                self.classical_dim, self.classical_dim
+            rng = np.random.default_rng(seed=42)
+            self._fallback_matrix = rng.standard_normal(
+                (self.classical_dim, self.classical_dim)
             ) * 0.01
 
         result = features @ self._fallback_matrix.T
@@ -318,7 +391,9 @@ class KinichQuantumConnector:
                 self.stats['total_latency'] / total_calls
                 if total_calls > 0 else 0.0
             ),
-            'kinich_available': self.kinich_available
+            'kinich_available': self.kinich_available,
+            'circuit_open': self._circuit_open,
+            'consecutive_failures': self._consecutive_failures
         }
 
     def clear_cache(self) -> None:

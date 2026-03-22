@@ -39,7 +39,7 @@ class FeedForward(nn.Module):
 
         # Activation function
         if config.activation == "gelu":
-            self.activation = nn.GELU()
+            self.activation = nn.GELU(approximate="none")
         elif config.activation == "relu":
             self.activation = nn.ReLU()
         elif config.activation == "swish" or config.activation == "silu":
@@ -109,7 +109,7 @@ class GatedFeedForward(nn.Module):
 
         # Activation
         if config.activation == "gelu":
-            self.activation = nn.GELU()
+            self.activation = nn.GELU(approximate="none")
         elif config.activation == "silu" or config.activation == "swish":
             self.activation = nn.SiLU()
         else:

@@ -149,10 +149,9 @@ class NawalModelConfig:
         )
         transformer_params = self.num_layers * per_block
 
-        # LM head
-        lm_head = self.vocab_size * self.hidden_size
+        # LM head weight is tied with token embeddings, so not counted separately
 
-        total = token_emb + pos_emb + transformer_params + lm_head
+        total = token_emb + pos_emb + transformer_params
         return total
 
     def __repr__(self) -> str:
@@ -168,5 +167,5 @@ class NawalModelConfig:
         )
 
 
-# Backward-compatible alias
-NawalConfig = NawalModelConfig
+# NOTE: Do NOT alias NawalConfig here — that name belongs to the
+# system-level Pydantic config in config.py.  Use NawalModelConfig directly.

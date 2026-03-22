@@ -23,7 +23,7 @@ Examples:
 
     Creating a new model from scratch::
 
-        config = NawalConfig.nawal_small()  # 117M parameters
+        config = NawalModelConfig.nawal_small()  # 117M parameters
         model = Nawal(config=config)
         model.save_pretrained("/path/to/model")
 
@@ -45,7 +45,7 @@ from typing import Optional, Dict, Any, List
 import logging
 
 # Import pure Nawal architecture (NO external model dependencies)
-from nawal.architecture import NawalConfig, NawalTransformer
+from nawal.architecture import NawalModelConfig, NawalTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class Nawal(nn.Module):
         - Earns validators DALLA rewards through PoUW
 
     Attributes:
-        config (NawalConfig): Model architecture configuration.
+        config (NawalModelConfig): Model architecture configuration.
         transformer (NawalTransformer): Core transformer model.
         tokenizer: Tokenizer with Belizean vocabulary extensions.
         language_detector (LanguageDetector): Automatic language detection.
@@ -84,7 +84,7 @@ class Nawal(nn.Module):
 
         Use custom configuration::
 
-            config = NawalConfig(
+            config = NawalModelConfig(
                 vocab_size=50000,
                 hidden_size=1024,
                 num_layers=24,
@@ -103,7 +103,7 @@ class Nawal(nn.Module):
 
     def __init__(
         self,
-        config: Optional[NawalConfig] = None,
+        config: Optional[NawalModelConfig] = None,
         model_size: str = "small",
     ):
         """Initialize Nawal language model.
@@ -124,13 +124,13 @@ class Nawal(nn.Module):
         # Use custom config or create default based on model size
         if config is None:
             if model_size == "small":
-                config = NawalConfig.nawal_small()
+                config = NawalModelConfig.nawal_small()
             elif model_size == "medium":
-                config = NawalConfig.nawal_medium()
+                config = NawalModelConfig.nawal_medium()
             elif model_size == "large":
-                config = NawalConfig.nawal_large()
+                config = NawalModelConfig.nawal_large()
             else:
-                config = NawalConfig()  # Default
+                config = NawalModelConfig()  # Default
 
         self.config = config
 
@@ -298,8 +298,16 @@ class Nawal(nn.Module):
         # Tokenize input
         input_ids = self.tokenizer.encode(prompt, return_tensors="pt")
 
-        # Generate using pure Nawal transformer
+        # Guard against prompt longer than max_length
         max_new_tokens = max_length - input_ids.size(1)
+        if max_new_tokens < 1:
+            logger.warning(
+                f"Prompt length ({input_ids.size(1)}) >= max_length ({max_length}); "
+                "returning prompt as-is"
+            )
+            return [self.tokenizer.decode(input_ids[0], skip_special_tokens=True)]
+
+        # Generate using pure Nawal transformer
         output_ids = self.transformer.generate(
             input_ids,
             max_new_tokens=max_new_tokens,
@@ -457,9 +465,9 @@ def create_nawal(
         Initialized Nawal model
     """
     config_factory = {
-        "small": NawalConfig.nawal_small,
-        "medium": NawalConfig.nawal_medium,
-        "large": NawalConfig.nawal_large,
+        "small": NawalModelConfig.nawal_small,
+        "medium": NawalModelConfig.nawal_medium,
+        "large": NawalModelConfig.nawal_large,
     }
 
     config = config_factory[size]()

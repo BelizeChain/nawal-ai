@@ -9,10 +9,13 @@ Decision logic:
 """
 
 import hashlib
+import threading
 import torch
 from typing import Dict, Optional, Tuple
 import logging
 from datetime import datetime, timezone
+
+from .sovereignty_metrics import SovereigntyMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +43,7 @@ class IntelligentRouter:
         self.threshold = confidence_threshold
         self.log_fallbacks = log_fallbacks
         self.fallback_log_path = fallback_log_path
+        self._lock = threading.Lock()
 
         # Statistics
         self.stats = {
@@ -48,6 +52,9 @@ class IntelligentRouter:
             "deepseek_fallback": 0,
             "sovereignty_rate": 0.0,  # % handled by Nawal
         }
+
+        # Time-windowed sovereignty tracker
+        self.sovereignty_metrics = SovereigntyMetrics()
 
         logger.info(f"Initialized IntelligentRouter with threshold={confidence_threshold}")
 
@@ -70,24 +77,25 @@ class IntelligentRouter:
                 - decision: "nawal" or "deepseek"
                 - metadata: Routing information for logging
         """
-        self.stats["total_queries"] += 1
-
         # Check confidence threshold
         overall_confidence = confidence_scores["overall"]
         use_nawal = overall_confidence >= self.threshold
 
         decision = "nawal" if use_nawal else "deepseek"
 
-        # Update statistics
-        if use_nawal:
-            self.stats["nawal_handled"] += 1
-        else:
-            self.stats["deepseek_fallback"] += 1
+        # Thread-safe statistics update
+        with self._lock:
+            self.stats["total_queries"] += 1
+            if use_nawal:
+                self.stats["nawal_handled"] += 1
+            else:
+                self.stats["deepseek_fallback"] += 1
+            self.stats["sovereignty_rate"] = (
+                self.stats["nawal_handled"] / self.stats["total_queries"]
+            )
 
-        # Update sovereignty rate
-        self.stats["sovereignty_rate"] = (
-            self.stats["nawal_handled"] / self.stats["total_queries"]
-        )
+        # Record in time-windowed tracker
+        self.sovereignty_metrics.record(decision)
 
         # Prepare metadata
         metadata = {
@@ -139,20 +147,26 @@ class IntelligentRouter:
             f.write(json.dumps(log_entry) + '\n')
 
     def get_statistics(self) -> Dict:
-        """Get routing statistics"""
+        """Get routing statistics (includes rolling windowed sovereignty rate)"""
+        with self._lock:
+            stats_copy = {**self.stats}
         return {
-            **self.stats,
+            **stats_copy,
+            "sovereignty_rate_windowed": self.sovereignty_metrics.sovereignty_rate(),
+            "sovereignty_snapshot": self.sovereignty_metrics.snapshot(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def reset_statistics(self) -> None:
         """Reset routing statistics"""
-        self.stats = {
-            "total_queries": 0,
-            "nawal_handled": 0,
-            "deepseek_fallback": 0,
-            "sovereignty_rate": 0.0,
-        }
+        with self._lock:
+            self.stats = {
+                "total_queries": 0,
+                "nawal_handled": 0,
+                "deepseek_fallback": 0,
+                "sovereignty_rate": 0.0,
+            }
+        self.sovereignty_metrics.reset()
         logger.info("Reset routing statistics")
 
     def update_threshold(self, new_threshold: float) -> None:

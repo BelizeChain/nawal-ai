@@ -311,7 +311,7 @@ class MutationOperator:
             layer_type = random.choice(list(LayerType))
 
         # Create new layer
-        hidden_size = genome.hyperparameters.hidden_size
+        hidden_size = genome.hidden_size
         new_layer = ArchitectureLayer(
             layer_id=f"layer_{len(layers)}_{random.randint(1000, 9999)}",
             layer_type=layer_type,
@@ -389,11 +389,18 @@ class MutationOperator:
         # Modify size parameters (±20%)
         if random.random() < 0.5 and layer.hidden_size is not None:
             multiplier = random.uniform(0.8, 1.2)
-            layer.hidden_size = max(64, min(4096, int(layer.hidden_size * multiplier)))
+            new_hidden = max(64, min(4096, int(layer.hidden_size * multiplier)))
+            # Ensure hidden_size is divisible by num_heads
+            if layer.num_heads:
+                new_hidden = max(layer.num_heads, (new_hidden // layer.num_heads) * layer.num_heads)
+            layer.hidden_size = new_hidden
 
         # Modify type-specific parameters
         if hasattr(layer, 'num_heads') and layer.num_heads:
-            layer.num_heads = random.choice([4, 8, 12, 16])
+            # Pick num_heads that evenly divides hidden_size
+            candidates = [h for h in [4, 8, 12, 16] if layer.hidden_size and layer.hidden_size % h == 0]
+            if candidates:
+                layer.num_heads = random.choice(candidates)
 
         if hasattr(layer, 'num_experts') and layer.num_experts:
             layer.num_experts = random.choice([4, 8, 16, 32])
@@ -441,7 +448,7 @@ class MutationOperator:
             return
 
         # Add a transformer/attention layer with proper config
-        hidden_size = genome.hyperparameters.hidden_size
+        hidden_size = genome.hidden_size
         n_heads = max(1, hidden_size // 64)  # Sensible default
         attention_layer = ArchitectureLayer(
             layer_id=f"attn_{len(genome.encoder_layers)}_{random.randint(1000, 9999)}",
@@ -465,7 +472,7 @@ class MutationOperator:
         # Add MoE to encoder
         moe_layer = ArchitectureLayer(
             layer_type=LayerType.MIXTURE_OF_EXPERTS,
-            hidden_size=genome.hyperparameters.hidden_size if hasattr(genome.hyperparameters, 'hidden_size') else genome.hidden_size,
+            hidden_size=genome.hidden_size,
             num_experts=8,
             expert_capacity=64,
         )
@@ -481,7 +488,7 @@ class MutationOperator:
             return
 
         # Add SSM layer (e.g., Mamba/S4)
-        _hidden = genome.hyperparameters.hidden_size if hasattr(genome.hyperparameters, 'hidden_size') else genome.hidden_size
+        _hidden = genome.hidden_size
         ssm_layer = ArchitectureLayer(
             layer_type=LayerType.LINEAR,  # Simplified as LINEAR for now
             hidden_size=_hidden,

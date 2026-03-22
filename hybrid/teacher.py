@@ -29,6 +29,7 @@ class DeepSeekConfig:
     tensor_parallel_size: int = 1  # Number of GPUs
     quantization: Optional[str] = "awq"  # "awq", "gptq", "bitsandbytes", or None
     gpu_memory_utilization: float = 0.9
+    max_num_seqs: int = 64  # Bound vLLM queue to prevent unbounded growth
 
 
 class DeepSeekTeacher:
@@ -80,6 +81,7 @@ class DeepSeekTeacher:
                 tensor_parallel_size=self.config.tensor_parallel_size,
                 quantization=self.config.quantization,
                 gpu_memory_utilization=self.config.gpu_memory_utilization,
+                max_num_seqs=self.config.max_num_seqs,
             )
 
             logger.info("DeepSeek model loaded successfully")

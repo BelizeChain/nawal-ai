@@ -224,11 +224,18 @@ class ByzantineDetector:
         """
         num_clients = len(client_updates)
         f = self.num_byzantine
-        k = num_clients - f - 2
 
-        if k <= 0:
-            logger.warning("Too many Byzantine clients for Krum, using FedAvg")
+        # Blanchard et al. 2017 requires 2f + 2 < n for Krum convergence.
+        # When the condition is not met, fall back to FedAvg rather than
+        # crashing — the caller may not control the number of participants.
+        if 2 * f + 2 >= num_clients:
+            logger.warning(
+                f"Krum requires 2f + 2 < n (got f={f}, n={num_clients}). "
+                f"Falling back to FedAvg."
+            )
             return self._fedavg(client_updates)
+
+        k = num_clients - f - 2
 
         # Compute pairwise distances
         distances = self._compute_pairwise_distances(client_updates)
@@ -269,6 +276,13 @@ class ByzantineDetector:
 
         if m is None:
             m = num_clients - f
+
+        # Blanchard et al. 2017 requires 2f + 2 < n for Krum scoring.
+        if 2 * f + 2 >= num_clients:
+            raise ValueError(
+                f"Multi-Krum requires 2f + 2 < n (got f={f}, n={num_clients}). "
+                f"Need at least {2 * f + 3} clients for {f} Byzantine."
+            )
 
         # Compute pairwise distances
         distances = self._compute_pairwise_distances(client_updates)

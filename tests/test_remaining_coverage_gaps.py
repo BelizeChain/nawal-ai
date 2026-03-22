@@ -382,11 +382,12 @@ class TestMeshNetworkHandleIncoming:
     async def test_handle_incoming_duplicate(self, mesh_client):
         """Duplicate message → 200 duplicate."""
         mesh_client.seen_messages["existing_id"] = 1.0
+        now = datetime.now(timezone.utc).timestamp()
         msg_dict = {
             "message_id": "existing_id",
             "message_type": "heartbeat",
             "sender_id": "s1",
-            "timestamp": 1.0,
+            "timestamp": now,
             "payload": {},
         }
         request = AsyncMock()
@@ -399,11 +400,12 @@ class TestMeshNetworkHandleIncoming:
     @pytest.mark.asyncio
     async def test_handle_incoming_invalid_signature(self, mesh_client):
         """Message with missing/invalid signature → 403."""
+        now = datetime.now(timezone.utc).timestamp()
         msg_dict = {
             "message_id": "new_id",
             "message_type": "heartbeat",
             "sender_id": "unknown_sender",
-            "timestamp": 1.0,
+            "timestamp": now,
             "payload": {},
             "signature": "badbeef",
         }

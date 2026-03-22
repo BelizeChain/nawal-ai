@@ -3,7 +3,7 @@ Mesh Network Connector for Nawal AI Validators
 
 Implements decentralized P2P mesh networking for validator communication,
 enabling direct model sharing, gossip protocol for FL rounds, and
-Byzantine-resistant distributed consensus.
+supermajority-based consensus primitives (ConsensusRound).
 
 Integrates with BelizeChain's validator registry to discover peers
 and establish encrypted communication channels.
@@ -26,6 +26,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
+import os
+import re
 from dataclasses import dataclass, field
 from collections import OrderedDict
 from datetime import datetime, timezone
@@ -63,6 +66,8 @@ class MessageType(Enum):
     MODEL_DELTA_TRANSFER = "model_delta_transfer"
     HEARTBEAT = "heartbeat"
     GOSSIP = "gossip"
+    CONSENSUS_PROPOSE = "consensus_propose"
+    CONSENSUS_VOTE = "consensus_vote"
 
 
 @dataclass
@@ -181,6 +186,8 @@ class MeshNetworkClient:
         listen_port: int = 9090,
         blockchain_rpc: str = "ws://localhost:9944",
         private_key: Optional[ed25519.Ed25519PrivateKey] = None,
+        gossip_fanout: Optional[int] = None,
+        max_message_age: float = 300.0,
     ):
         """
         Initialize mesh network client.
@@ -190,14 +197,23 @@ class MeshNetworkClient:
             listen_port: Port to listen for incoming connections
             blockchain_rpc: BelizeChain RPC endpoint for peer discovery
             private_key: Ed25519 private key for signing (generated if None)
+            gossip_fanout: Max peers to forward gossip to (None = 50% heuristic)
+            max_message_age: Reject messages older than this many seconds (replay protection)
         """
         self.peer_id = peer_id
         self.listen_port = listen_port
         self.blockchain_rpc = blockchain_rpc
+        self.gossip_fanout = gossip_fanout
+        self._max_message_age = max_message_age
 
-        # Cryptography
+        # Cryptography — explicit key > env var > generate
         if private_key is None:
-            private_key = ed25519.Ed25519PrivateKey.generate()
+            env_hex = os.environ.get("NAWAL_MESH_PRIVATE_KEY")
+            if env_hex:
+                raw = bytes.fromhex(env_hex)
+                private_key = ed25519.Ed25519PrivateKey.from_private_bytes(raw)
+            else:
+                private_key = ed25519.Ed25519PrivateKey.generate()
         self.private_key = private_key
         self.public_key = private_key.public_key()
         self.public_key_hex = self.public_key.public_bytes(
@@ -223,8 +239,12 @@ class MeshNetworkClient:
         self._running = False
         self._message_queue: asyncio.Queue = asyncio.Queue()
 
+        # Consensus state
+        self.consensus_rounds: Dict[str, ConsensusRound] = {}
+
         # Blockchain connection
         self.substrate: Optional[SubstrateInterface] = None
+        self._background_tasks: list = []
 
         logger.info(
             f"Initialized mesh network client {peer_id} "
@@ -258,10 +278,15 @@ class MeshNetworkClient:
 
         self._running = True
 
+        # Register internal consensus vote handler
+        self.register_handler(MessageType.CONSENSUS_VOTE, self._handle_consensus_vote)
+
         # Start background tasks
-        asyncio.create_task(self._heartbeat_loop())
-        asyncio.create_task(self._peer_discovery_loop())
-        asyncio.create_task(self._cleanup_loop())
+        self._background_tasks = [
+            asyncio.create_task(self._heartbeat_loop()),
+            asyncio.create_task(self._peer_discovery_loop()),
+            asyncio.create_task(self._cleanup_loop()),
+        ]
 
         logger.info(f"Mesh network started on port {self.listen_port}")
 
@@ -271,6 +296,16 @@ class MeshNetworkClient:
             return
 
         self._running = False
+
+        # Cancel background tasks
+        for task in getattr(self, "_background_tasks", []):
+            task.cancel()
+        for task in getattr(self, "_background_tasks", []):
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._background_tasks = []
 
         if self.site:
             await self.site.stop()
@@ -373,6 +408,83 @@ class MeshNetworkClient:
             payload=payload,
         )
 
+    # -------------------------------------------------------------------------
+    # Consensus Protocol
+    # -------------------------------------------------------------------------
+
+    async def propose_consensus(
+        self,
+        round_id: str,
+        proposal: str,
+    ) -> ConsensusRound:
+        """Broadcast a consensus proposal to all peers.
+
+        Creates a new ConsensusRound, records it locally, and gossips
+        a CONSENSUS_PROPOSE message to the mesh.  Peers respond with
+        CONSENSUS_VOTE messages which are tallied automatically.
+
+        Args:
+            round_id: Unique identifier for this consensus round.
+            proposal: Opaque proposal value (e.g. model hash).
+
+        Returns:
+            The newly created ConsensusRound.
+        """
+        total = max(len([p for p in self.peers.values() if p.is_alive()]), 1)
+        cr = ConsensusRound(round_id=round_id, proposal=proposal, total_peers=total)
+        self.consensus_rounds[round_id] = cr
+
+        await self._broadcast_message(
+            message_type=MessageType.CONSENSUS_PROPOSE,
+            payload={"round_id": round_id, "proposal": proposal},
+        )
+        logger.info(f"Proposed consensus round {round_id} (peers={total})")
+        return cr
+
+    async def cast_vote(
+        self,
+        round_id: str,
+        approve: bool,
+    ) -> None:
+        """Vote on an existing consensus round and broadcast."""
+        await self._broadcast_message(
+            message_type=MessageType.CONSENSUS_VOTE,
+            payload={
+                "round_id": round_id,
+                "voter_id": self.peer_id,
+                "approve": approve,
+            },
+        )
+
+    async def _handle_consensus_vote(self, message: MeshMessage) -> None:
+        """Internal handler: tally incoming CONSENSUS_VOTE messages."""
+        payload = message.payload
+        round_id = payload.get("round_id")
+        voter_id = payload.get("voter_id", message.sender_id)
+        approve = payload.get("approve", False)
+
+        cr = self.consensus_rounds.get(round_id)
+        if cr is None:
+            logger.debug(f"Ignoring vote for unknown round {round_id}")
+            return
+        if cr.is_finalized:
+            return
+
+        cr.add_vote(voter_id, approve)
+        if cr.is_finalized:
+            logger.info(
+                f"Consensus round {round_id} finalized "
+                f"({cr.approve_count}/{cr.total_peers} approved)"
+            )
+
+    def get_consensus_result(self, round_id: str) -> Optional[ConsensusRound]:
+        """Return the ConsensusRound for a given round_id, or None."""
+        return self.consensus_rounds.get(round_id)
+
+    # -------------------------------------------------------------------------
+    # Peer Discovery
+    # -------------------------------------------------------------------------
+
     async def discover_peers(self) -> List[PeerInfo]:
         """
         Discover peers from blockchain validator registry.
@@ -403,10 +515,15 @@ class MeshNetworkClient:
                     )
 
                     if metadata and "network_address" in metadata:
+                        addr = metadata["network_address"]
+                        if not _is_valid_multiaddr(addr):
+                            logger.warning(f"Invalid multiaddr from validator {validator_account}: {addr}")
+                            continue
+
                         peer = PeerInfo(
                             peer_id=hashlib.sha256(validator_account.encode()).hexdigest()[:16],
                             account_id=validator_account,
-                            multiaddr=metadata["network_address"],
+                            multiaddr=addr,
                             public_key=metadata.get("public_key", ""),
                             stake_amount=metadata.get("stake", 0),
                             last_seen=datetime.now(timezone.utc).timestamp(),
@@ -420,7 +537,7 @@ class MeshNetworkClient:
             return discovered
 
         except Exception as e:
-            logger.error(f"Peer discovery failed: {e}")
+            logger.error(f"Peer discovery failed: {e} — keeping last-known peers")
             return []
 
     # -------------------------------------------------------------------------
@@ -584,6 +701,12 @@ class MeshNetworkClient:
             data = await request.json()
             message = MeshMessage.from_dict(data)
 
+            # Replay protection: reject stale messages
+            age = now - message.timestamp
+            if age > self._max_message_age:
+                logger.warning(f"Rejected stale message {message.message_id} (age={age:.0f}s)")
+                return web.Response(status=400, text="message too old")
+
             # Deduplication via LRU OrderedDict
             if message.message_id in self.seen_messages:
                 return web.Response(status=200, text="duplicate")
@@ -627,8 +750,11 @@ class MeshNetworkClient:
 
         alive_peers = [p for p in self.peers.values() if p.is_alive() and p.peer_id != message.sender_id]
 
-        # Forward to ~50% of peers
-        forward_count = max(1, len(alive_peers) // 2)
+        # Forward to gossip_fanout peers (or ~50% heuristic)
+        if self.gossip_fanout is not None:
+            forward_count = min(self.gossip_fanout, len(alive_peers))
+        else:
+            forward_count = max(1, len(alive_peers) // 2)
         forward_peers = random.sample(alive_peers, min(forward_count, len(alive_peers)))
 
         for peer in forward_peers:
@@ -706,3 +832,58 @@ class MeshNetworkClient:
                 yield message
             except asyncio.TimeoutError:
                 continue
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+_MULTIADDR_RE = re.compile(r"^/ip4/\d{1,3}(\.\d{1,3}){3}/tcp/\d{1,5}$")
+
+
+def _is_valid_multiaddr(addr: str) -> bool:
+    """Validate a simplified multiaddr: /ip4/<ip>/tcp/<port>."""
+    return bool(_MULTIADDR_RE.match(addr))
+
+
+# =============================================================================
+# Consensus Primitive
+# =============================================================================
+
+
+class ConsensusRound:
+    """Supermajority consensus round (2/3 + 1 threshold).
+
+    Tracks votes from peers for a given proposal and determines
+    whether a supermajority has been reached.
+    """
+
+    def __init__(self, round_id: str, proposal: str, total_peers: int):
+        self.round_id = round_id
+        self.proposal = proposal
+        self.total_peers = total_peers
+        self._votes: dict[str, bool] = {}  # peer_id -> approve
+        self.is_finalized = False
+        self._threshold = math.ceil(total_peers * 2 / 3) + 1
+
+    def add_vote(self, peer_id: str, approve: bool) -> None:
+        """Record a vote (first vote per peer wins; ignored after finalization)."""
+        if self.is_finalized:
+            return
+        if peer_id in self._votes:
+            return
+        self._votes[peer_id] = approve
+        if self.has_supermajority():
+            self.is_finalized = True
+
+    @property
+    def vote_count(self) -> int:
+        return len(self._votes)
+
+    @property
+    def approve_count(self) -> int:
+        return sum(1 for v in self._votes.values() if v)
+
+    def has_supermajority(self) -> bool:
+        """True when positive votes >= ceil(total*2/3)+1."""
+        return self.approve_count >= self._threshold

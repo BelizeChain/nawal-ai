@@ -12,7 +12,7 @@ from typing import Optional, Tuple, List
 
 from loguru import logger
 
-from .config import NawalModelConfig, NawalConfig
+from .config import NawalModelConfig
 from .embeddings import NawalEmbeddings
 from .attention import MultiHeadAttention
 from .feedforward import FeedForward
@@ -109,7 +109,7 @@ class NawalTransformer(nn.Module):
     - nawal-large:  1.3B params (1536 hidden, 36 layers)
     """
 
-    def __init__(self, config: NawalConfig):
+    def __init__(self, config: NawalModelConfig):
         super().__init__()
         self.config = config
 
@@ -273,11 +273,28 @@ class NawalTransformer(nn.Module):
 
         with torch.no_grad():
             past_key_values = None
+            cur_len = input_ids.size(1)
 
             for _ in range(max_new_tokens):
+                # Guard against exceeding max position embeddings
+                if cur_len >= self.config.max_position_embeddings:
+                    break
+
+                if past_key_values is None:
+                    # First pass: feed full input_ids
+                    model_input = input_ids
+                    position_ids = None  # embeddings layer handles default
+                else:
+                    # Subsequent passes: feed only the new token with its position
+                    model_input = input_ids[:, -1:]
+                    position_ids = torch.tensor(
+                        [[cur_len - 1]], device=input_ids.device
+                    ).expand(input_ids.size(0), -1)
+
                 # Forward pass
                 outputs = self.forward(
-                    input_ids=input_ids,
+                    input_ids=model_input,
+                    position_ids=position_ids,
                     past_key_values=past_key_values,
                     use_cache=True,
                 )
@@ -319,34 +336,35 @@ class NawalTransformer(nn.Module):
 
                 # Append next token to input_ids
                 input_ids = torch.cat([input_ids, next_token], dim=1)
+                cur_len += 1
 
-                # Stop if EOS token generated
-                if next_token.item() == self.config.eos_token_id:
+                # Stop if EOS token generated (batch-safe)
+                if (next_token == self.config.eos_token_id).all():
                     break
 
         return input_ids
 
     @classmethod
-    def from_config(cls, config: NawalConfig) -> "NawalTransformer":
+    def from_config(cls, config: NawalModelConfig) -> "NawalTransformer":
         """Create model from configuration"""
         return cls(config)
 
     @classmethod
     def nawal_small(cls) -> "NawalTransformer":
         """Create small model (117M parameters)"""
-        config = NawalConfig.nawal_small()
+        config = NawalModelConfig.nawal_small()
         return cls(config)
 
     @classmethod
     def nawal_medium(cls) -> "NawalTransformer":
         """Create medium model (350M parameters)"""
-        config = NawalConfig.nawal_medium()
+        config = NawalModelConfig.nawal_medium()
         return cls(config)
 
     @classmethod
     def nawal_large(cls) -> "NawalTransformer":
         """Create large model (1.3B parameters)"""
-        config = NawalConfig.nawal_large()
+        config = NawalModelConfig.nawal_large()
         return cls(config)
 
     def save_pretrained(self, save_directory: str) -> None:
@@ -371,7 +389,7 @@ class NawalTransformer(nn.Module):
 
         # Load config
         config_path = os.path.join(load_directory, "config.json")
-        config = NawalConfig.load_from_json(config_path)
+        config = NawalModelConfig.load_from_json(config_path)
 
         # Create model
         model = cls(config)

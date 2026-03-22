@@ -26,6 +26,12 @@ coverage.xml
 *.cover
 .hypothesis/
 
+# Large/unnecessary dirs
+audits/
+examples/
+*.cover
+.hypothesis/
+
 # Virtual environments
 .venv/
 venv/
@@ -112,6 +118,8 @@ mypy.ini
 secrets/
 *.key
 *.pem
+*.p12
+*.pfx
 
 # Build artifacts
 *.whl

@@ -160,56 +160,71 @@ class MetacognitionLayer:
             f"goal={str(ctx.get('goal', ''))[:60]!r}"
         )
 
-        # Step 1: Consistency
-        consistency = self._checker.check(candidates, ctx)
+        try:
+            # Step 1: Consistency
+            consistency = self._checker.check(candidates, ctx)
 
-        # Step 2: Critique each candidate
-        critiques: List[CritiqueResult] = [
-            self._critic.critique(c, ctx) for c in candidates
-        ]
+            # Step 2: Critique each candidate
+            critiques: List[CritiqueResult] = [
+                self._critic.critique(c, ctx) for c in candidates
+            ]
 
-        # Step 3: Select best
-        # Prefer: approved + most-consistent + highest critic confidence
-        best_idx, best_critique = self._select_best(
-            candidates, critiques, consistency
-        )
-        best_candidate = candidates[best_idx]
-        approved = critiques[best_idx].approved if critiques else False
+            # Step 3: Select best
+            # Prefer: approved + most-consistent + highest critic confidence
+            best_idx, best_critique = self._select_best(
+                candidates, critiques, consistency
+            )
+            best_candidate = candidates[best_idx]
+            approved = critiques[best_idx].approved if critiques else False
 
-        # Step 4: Calibration
-        verbal_signal = best_candidate if best_candidate else ""
-        signals: Dict[str, Any] = {
-            "verbal": verbal_signal,
-            "consistency": consistency.score,
-        }
-        if best_critique is not None:
-            crit_conf = best_critique.confidence
-            if crit_conf is not None:
-                signals["critic_score"] = crit_conf.value
-        if plan_score      is not None: signals["plan_score"] = plan_score
-        if memory_relevance is not None: signals["memory"]    = memory_relevance
-        if safety_score     is not None: signals["safety"]    = safety_score
+            # Step 4: Calibration
+            verbal_signal = best_candidate if best_candidate else ""
+            signals: Dict[str, Any] = {
+                "verbal": verbal_signal,
+                "consistency": consistency.score,
+            }
+            if best_critique is not None:
+                crit_conf = best_critique.confidence
+                if crit_conf is not None:
+                    signals["critic_score"] = crit_conf.value
+            if plan_score      is not None: signals["plan_score"] = plan_score
+            if memory_relevance is not None: signals["memory"]    = memory_relevance
+            if safety_score     is not None: signals["safety"]    = safety_score
 
-        confidence = self._calib.calibrate(signals, ctx)
+            confidence = self._calib.calibrate(signals, ctx)
 
-        # Step 5: Aggregate issues
-        all_issues = [iss for cr in critiques for iss in cr.issues]
+            # Step 5: Aggregate issues
+            all_issues = [iss for cr in critiques for iss in cr.issues]
 
-        result = ReflectionResult(
-            best_candidate=best_candidate,
-            approved=approved,
-            confidence=confidence,
-            critique=best_critique,
-            consistency=consistency,
-            issues=all_issues,
-            self_description=self._identity.self_description(brief=True),
-        )
+            result = ReflectionResult(
+                best_candidate=best_candidate,
+                approved=approved,
+                confidence=confidence,
+                critique=best_critique,
+                consistency=consistency,
+                issues=all_issues,
+                self_description=self._identity.self_description(brief=True),
+            )
 
-        logger.info(
-            f"MetacognitionLayer result: approved={approved} "
-            f"confidence={confidence.value:.3f} issues={len(all_issues)}"
-        )
-        return result
+            logger.info(
+                f"MetacognitionLayer result: approved={approved} "
+                f"confidence={confidence.value:.3f} issues={len(all_issues)}"
+            )
+            return result
+
+        except Exception as exc:
+            # Metacognition must never block inference — return the first
+            # candidate with a degraded-confidence marker.
+            logger.error(
+                f"MetacognitionLayer.reflect failed ({type(exc).__name__}: "
+                f"{exc}) — passing first candidate through"
+            )
+            return ReflectionResult(
+                best_candidate=candidates[0],
+                approved=False,
+                confidence=ConfidenceScore(value=0.0, method="metacognition_error"),
+                issues=[f"Metacognition error: {exc}"],
+            )
 
     def simulate_actions(
         self,

@@ -635,31 +635,29 @@ class TestKinichConnectorQuantumProcess:
             fallback_to_classical=True,
         )
 
-    def test_quantum_process_uses_fallback(self, conn):
+    async def test_quantum_process_uses_fallback(self, conn):
         feat = np.random.rand(8).astype(np.float32)
-        result = asyncio.get_event_loop().run_until_complete(
-            conn.quantum_process(feat)
-        )
+        result = await conn.quantum_process(feat)
         assert isinstance(result, np.ndarray)
         assert conn.stats['fallback_calls'] >= 1
 
-    def test_quantum_process_caches_result(self, conn):
+    async def test_quantum_process_caches_result(self, conn):
         feat = np.array([1.0] * 8, dtype=np.float32)
-        asyncio.get_event_loop().run_until_complete(conn.quantum_process(feat))
+        await conn.quantum_process(feat)
         assert len(conn.result_cache) > 0
 
-    def test_quantum_process_cache_hit(self, conn):
+    async def test_quantum_process_cache_hit(self, conn):
         feat = np.array([2.0] * 8, dtype=np.float32)
-        asyncio.get_event_loop().run_until_complete(conn.quantum_process(feat))
+        await conn.quantum_process(feat)
         first_fallback = conn.stats['fallback_calls']
-        asyncio.get_event_loop().run_until_complete(conn.quantum_process(feat))
+        await conn.quantum_process(feat)
         # Cache hit — fallback not called again
         assert conn.stats['fallback_calls'] == first_fallback
         assert conn.stats['cache_hits'] >= 1
 
-    def test_quantum_process_statistics_updated(self, conn):
+    async def test_quantum_process_statistics_updated(self, conn):
         feat = np.random.rand(8).astype(np.float32)
-        asyncio.get_event_loop().run_until_complete(conn.quantum_process(feat))
+        await conn.quantum_process(feat)
         assert conn.stats['total_latency'] >= 0.0
 
     def test_repr(self, conn):

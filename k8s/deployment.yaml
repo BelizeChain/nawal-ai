@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nawal-ai
+  namespace: belizechain
+  labels:
+    app: nawal-ai
+    component: federated-learning
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nawal-ai
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: nawal-ai
+        component: federated-learning
+    spec:
+      containers:
+        - name: nawal-ai
+          image: belizechainacr.azurecr.io/nawal:latest
+          ports:
+            - containerPort: 8080
+              name: api
+          env:
+            - name: BLOCKCHAIN_RPC
+              value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
+            - name: ENVIRONMENT
+              value: "production"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: NAWAL_ENV
+              value: "production"
+            - name: NAWAL_API_HOST
+              value: "0.0.0.0"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+          volumeMounts:
+            - name: checkpoints
+              mountPath: /var/lib/nawal/checkpoints
+            - name: models
+              mountPath: /app/models
+      volumes:
+        - name: checkpoints
+          emptyDir: {}
+        - name: models
+          emptyDir: {}

@@ -30,6 +30,7 @@ import time
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, status, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -42,6 +43,10 @@ from nawal.blockchain.staking_connector import (
     ParticipantInfo,
     TrainingSubmission,
 )
+from nawal.blockchain.identity_verifier import create_verifier
+from nawal.maintenance.input_screener import InputScreener
+from nawal.maintenance.output_filter import OutputFilter
+from nawal.maintenance.interfaces import RiskLevel
 from nawal.server.aggregator import FederatedAggregator, AggregationStrategy
 
 
@@ -100,9 +105,10 @@ class ServerConfig(BaseModel):
 class EnrollRequest(BaseModel):
     """Request to enroll FL participant."""
 
-    account_id: str = Field(..., description="Participant account ID (SS58 address)")
+    account_id: str = Field(..., max_length=256, description="Participant account ID (SS58 address)")
     stake_amount: int = Field(..., ge=1000, description="Stake amount in Mahogany")
-    public_key: Optional[str] = Field(None, description="Encryption public key")
+    public_key: Optional[str] = Field(None, max_length=512, description="Encryption public key")
+    belizeid: Optional[str] = Field(None, max_length=64, description="BelizeID for KYC verification")
 
 
 class EnrollResponse(BaseModel):
@@ -117,12 +123,12 @@ class EnrollResponse(BaseModel):
 class SubmitModelRequest(BaseModel):
     """Request to submit model delta."""
 
-    participant_id: str = Field(..., description="Participant ID")
-    round_id: str = Field(..., description="FL round ID")
-    model_cid: str = Field(..., description="IPFS CID of model delta")
+    participant_id: str = Field(..., max_length=256, description="Participant ID")
+    round_id: str = Field(..., max_length=256, description="FL round ID")
+    model_cid: str = Field(..., max_length=512, description="IPFS CID of model delta")
     quality_score: float = Field(..., ge=0.0, le=100.0, description="Model quality (0-100)")
     training_samples: int = Field(..., ge=1, description="Number of training samples")
-    privacy_proof: Optional[str] = Field(None, description="Zero-knowledge privacy proof")
+    privacy_proof: Optional[str] = Field(None, max_length=2048, description="Zero-knowledge privacy proof")
 
 
 class SubmitModelResponse(BaseModel):
@@ -138,7 +144,7 @@ class SubmitModelResponse(BaseModel):
 class StartRoundRequest(BaseModel):
     """Request to start FL round."""
 
-    dataset_name: str = Field(..., description="Dataset identifier")
+    dataset_name: str = Field(..., max_length=256, description="Dataset identifier")
     target_accuracy: float = Field(default=0.85, ge=0.0, le=1.0, description="Target accuracy")
     max_participants: int = Field(default=10, ge=1, le=100, description="Max participants")
     timeout: int = Field(default=3600, ge=60, description="Round timeout (seconds)")
@@ -188,6 +194,16 @@ class SystemMetrics(BaseModel):
     blockchain_connected: bool
 
 
+class StatusResponse(BaseModel):
+    """API status response."""
+
+    service: str
+    version: str
+    blockchain: Dict[str, Any]
+    active_rounds: int
+    total_rounds: int
+
+
 # =============================================================================
 # Global State
 # =============================================================================
@@ -199,6 +215,9 @@ class AppState:
         self.config: Optional[ServerConfig] = None
         self.staking_connector: Optional[StakingConnector] = None
         self.fl_aggregator: Optional[FederatedAggregator] = None
+        self.identity_verifier = None
+        self.input_screener: Optional[InputScreener] = None
+        self.output_filter: Optional[OutputFilter] = None
         self.active_rounds: Dict[str, Dict[str, Any]] = {}
         self.round_counter: int = 0
         # Metrics tracking
@@ -208,6 +227,19 @@ class AppState:
     async def initialize(self, config: ServerConfig):
         """Initialize application state."""
         self.config = config
+
+        # Initialize identity verifier
+        verifier_mode = "production" if _is_production else "development"
+        try:
+            self.identity_verifier = create_verifier(
+                mode=verifier_mode,
+                rpc_url=config.blockchain_rpc,
+            )
+            await self.identity_verifier.connect()
+            logger.info("✅ Identity verifier initialized (mode={})", verifier_mode)
+        except Exception as e:
+            logger.error("❌ Failed to initialize identity verifier: {}", e)
+            self.identity_verifier = None
 
         # Initialize blockchain connector
         if config.blockchain_enabled:
@@ -221,10 +253,17 @@ class AppState:
             except Exception as e:
                 logger.error("❌ Failed to connect to blockchain: {}", e)
                 logger.warning("Running in degraded mode (blockchain unavailable)")
+                self.staking_connector = None
         else:
             logger.info("Blockchain integration disabled")
 
         # Initialize FL aggregator (will be created per round)
+
+        # Initialize content safety filters
+        self.input_screener = InputScreener()
+        self.output_filter = OutputFilter()
+        logger.info("✅ Content safety filters initialized")
+
         logger.info("✅ Nawal API server initialized")
 
     async def shutdown(self):
@@ -263,11 +302,15 @@ async def lifespan(app: FastAPI):
 # FastAPI Application
 # =============================================================================
 
+_is_production = os.getenv("NAWAL_ENV", "development").lower() == "production"
+
 app = FastAPI(
     title="Nawal Federated Learning API",
     description="Production API for BelizeChain federated learning orchestration",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if _is_production else "/docs",
+    redoc_url=None if _is_production else "/redoc",
 )
 
 # CORS middleware — restrict origins in production
@@ -292,13 +335,14 @@ app.add_middleware(
 async def verify_api_key(request: Request, call_next) -> JSONResponse:
     """Verify API key when authentication is enabled."""
     # Skip auth for health check and docs
-    if request.url.path in ("/health", "/docs", "/openapi.json", "/redoc"):
+    if request.url.path in ("/health", "/docs", "/openapi.json", "/redoc", "/healthz", "/readyz"):
         return await call_next(request)
 
     if not app_state.config or not app_state.config.enable_auth:
         return await call_next(request)
 
-    api_key = request.headers.get("X-API-Key") or request.query_params.get("api_key")
+    # Only accept API key from header — query params leak in access logs
+    api_key = request.headers.get("X-API-Key")
     if not api_key or api_key != app_state.config.api_key:
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -341,7 +385,7 @@ _rate_limiter = RateLimiter(
 
 async def rate_limit_middleware(request: Request, call_next):
     """Enforce per-IP rate limiting."""
-    if request.url.path in ("/health",):
+    if request.url.path in ("/health", "/healthz", "/readyz"):
         return await call_next(request)
 
     client_ip = request.client.host if request.client else "unknown"
@@ -356,6 +400,47 @@ async def rate_limit_middleware(request: Request, call_next):
 app.middleware("http")(rate_limit_middleware)
 
 
+async def body_size_limit_middleware(request: Request, call_next):
+    """Reject requests with bodies exceeding 10 MB."""
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > 10_485_760:
+        return JSONResponse(
+            status_code=413,
+            content={"detail": "Request body too large (max 10 MB)"},
+        )
+    return await call_next(request)
+
+
+app.middleware("http")(body_size_limit_middleware)
+
+
+async def content_screening_middleware(request: Request, call_next):
+    """Screen incoming POST/PUT request bodies for harmful content."""
+    if request.method in ("POST", "PUT") and app_state.input_screener:
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            body = await request.body()
+            if body:
+                try:
+                    text = body.decode("utf-8", errors="replace")
+                    result = app_state.input_screener.screen(text)
+                    if result.risk_level in (RiskLevel.HIGH, RiskLevel.BLOCKED):
+                        return JSONResponse(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            content={
+                                "detail": "Request blocked by content safety filter",
+                                "flags": result.flags,
+                            },
+                        )
+                except Exception:
+                    pass  # Don't block on screener errors
+
+    return await call_next(request)
+
+
+app.middleware("http")(content_screening_middleware)
+
+
 # =============================================================================
 # Health & Status Endpoints
 # =============================================================================
@@ -363,28 +448,52 @@ app.middleware("http")(rate_limit_middleware)
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {
-        "status": "healthy",
-        "service": "nawal-fl-api",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "blockchain_connected": app_state.staking_connector is not None,
-    }
+    config_ok = app_state.config is not None
+    blockchain_ok = app_state.staking_connector is not None
+    is_healthy = config_ok
+    return JSONResponse(
+        content={
+            "status": "healthy" if is_healthy else "degraded",
+            "service": "nawal-fl-api",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "blockchain_connected": blockchain_ok,
+        },
+        status_code=200 if is_healthy else 503,
+    )
 
 
-@app.get("/api/v1/status")
+@app.get("/healthz")
+async def liveness_check():
+    """Liveness probe — process is alive."""
+    return {"status": "alive"}
+
+
+@app.get("/readyz")
+async def readiness_check():
+    """Readiness probe — service is ready to accept traffic."""
+    config_ok = app_state.config is not None
+    blockchain_ok = app_state.staking_connector is not None
+    is_ready = config_ok
+    return JSONResponse(
+        content={"ready": is_ready, "blockchain_connected": blockchain_ok},
+        status_code=200 if is_ready else 503,
+    )
+
+
+@app.get("/api/v1/status", response_model=StatusResponse, status_code=200)
 async def get_status():
     """Get API status and configuration."""
-    return {
-        "service": "Nawal Federated Learning",
-        "version": "1.0.0",
-        "blockchain": {
-            "enabled": app_state.config.blockchain_enabled,
+    return StatusResponse(
+        service="Nawal Federated Learning",
+        version="1.0.0",
+        blockchain={
+            "enabled": app_state.config.blockchain_enabled if app_state.config else False,
             "connected": app_state.staking_connector is not None,
-            "rpc_url": app_state.config.blockchain_rpc,
+            "rpc_url": app_state.config.blockchain_rpc if app_state.config else "",
         },
-        "active_rounds": len(app_state.active_rounds),
-        "total_rounds": app_state.round_counter,
-    }
+        active_rounds=len(app_state.active_rounds),
+        total_rounds=app_state.round_counter,
+    )
 
 
 # =============================================================================
@@ -444,7 +553,7 @@ async def start_fl_round(request: StartRoundRequest):
         )
 
 
-@app.get("/api/v1/fl/rounds/{round_id}", response_model=RoundStatus)
+@app.get("/api/v1/fl/rounds/{round_id}", response_model=RoundStatus, status_code=200)
 async def get_round_status(round_id: str):
     """Get FL round status."""
     if round_id not in app_state.active_rounds:
@@ -470,7 +579,7 @@ async def get_round_status(round_id: str):
 # Participant Management
 # =============================================================================
 
-@app.post("/api/v1/fl/participants/enroll", response_model=EnrollResponse)
+@app.post("/api/v1/fl/participants/enroll", response_model=EnrollResponse, status_code=status.HTTP_201_CREATED)
 async def enroll_participant(request: EnrollRequest):
     """
     Enroll participant in federated learning.
@@ -487,6 +596,20 @@ async def enroll_participant(request: EnrollRequest):
                 detail="Blockchain connector not available"
             )
 
+        # Verify KYC via BelizeID before enrollment
+        if app_state.identity_verifier and request.belizeid:
+            is_verified = await app_state.identity_verifier.verify(request.belizeid)
+            if not is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="KYC verification failed for the provided BelizeID",
+                )
+        elif _is_production and not request.belizeid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="BelizeID is required for enrollment in production",
+            )
+
         # Enroll via blockchain
         result = await app_state.staking_connector.enroll_participant(
             account_id=request.account_id,
@@ -499,7 +622,7 @@ async def enroll_participant(request: EnrollRequest):
                 detail=result["message"]
             )
 
-        logger.info("✅ Enrolled participant: {}", request.account_id)
+        logger.debug("Enrolled participant: {}", request.account_id)
 
         return EnrollResponse(
             success=True,
@@ -518,7 +641,7 @@ async def enroll_participant(request: EnrollRequest):
         )
 
 
-@app.post("/api/v1/fl/participants/submit", response_model=SubmitModelResponse)
+@app.post("/api/v1/fl/participants/submit", response_model=SubmitModelResponse, status_code=status.HTTP_201_CREATED)
 async def submit_model_delta(request: SubmitModelRequest):
     """
     Submit model delta for FL round.
@@ -605,7 +728,7 @@ async def submit_model_delta(request: SubmitModelRequest):
         )
 
 
-@app.get("/api/v1/fl/participants/{account_id}", response_model=ParticipantStats)
+@app.get("/api/v1/fl/participants/{account_id}", response_model=ParticipantStats, status_code=200)
 async def get_participant_stats(account_id: str):
     """Get participant statistics."""
     try:
@@ -621,7 +744,7 @@ async def get_participant_stats(account_id: str):
         if not participant:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Participant {account_id} not found"
+                detail="Participant not found"
             )
 
         # Get last submission timestamp
@@ -653,7 +776,7 @@ async def get_participant_stats(account_id: str):
 # System Metrics
 # =============================================================================
 
-@app.get("/api/v1/fl/metrics", response_model=SystemMetrics)
+@app.get("/api/v1/fl/metrics", response_model=SystemMetrics, status_code=200)
 async def get_system_metrics():
     """Get system-wide FL metrics."""
     try:
@@ -703,18 +826,51 @@ async def get_system_metrics():
 
 
 # =============================================================================
+# Exception Handlers
+# =============================================================================
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Reformat 422 validation errors into consistent envelope."""
+    return JSONResponse(
+        status_code=422,
+        content={"detail": "Validation error", "errors": exc.errors()},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all for unhandled exceptions — never leak internals."""
+    logger.error("Unhandled exception on {}: {}", request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
+
+# =============================================================================
 # Main Entry Point
 # =============================================================================
 
 def main():
     """Run API server."""
-    # Configure logging
-    logger.add(
-        "logs/nawal_api_{time}.log",
-        rotation="1 day",
-        retention="30 days",
-        level="INFO"
-    )
+    # Configure logging via the central monitoring module so that
+    # env vars (NAWAL_LOG_LEVEL, NAWAL_LOG_SERIALIZE, NAWAL_ENV) are
+    # respected and JSON serialization is enabled in production.
+    try:
+        from nawal.monitoring.logging_config import configure_logging
+        configure_logging(
+            log_file=Path("logs/nawal_api.log"),
+        )
+    except Exception:
+        # Fallback: direct loguru setup
+        logger.add(
+            "logs/nawal_api_{time}.log",
+            rotation="1 day",
+            retention="30 days",
+            level="INFO",
+        )
 
     # Get configuration from environment
     # Priority: NAWAL_API_HOST → NAWAL_HOST → HOST → default

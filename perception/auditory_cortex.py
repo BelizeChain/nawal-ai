@@ -135,15 +135,21 @@ class AuditoryCortex(AbstractCortex):
     def preprocess(self, raw_input: Any) -> Any:
         """
         Accept np.ndarray [samples], a file path str, or raw bytes.
-        Returns float32 mono numpy array at self.sample_rate.
+        Returns float32 mono numpy array at self.sample_rate,
+        trimmed to max_duration.
         """
         if not NUMPY_AVAILABLE:
             return raw_input  # pass through for stub
 
+        max_samples = int(self.sample_rate * self.max_duration)
+
         if isinstance(raw_input, str):
             # File path
             audio, sr = self._load_audio_file(raw_input)
-            return self._resample(audio, sr, self.sample_rate)
+            audio = self._resample(audio, sr, self.sample_rate)
+            if len(audio) > max_samples:
+                audio = audio[:max_samples]
+            return audio
 
         if isinstance(raw_input, bytes):
             import io
@@ -154,13 +160,18 @@ class AuditoryCortex(AbstractCortex):
                 audio = waveform.mean(0).numpy()
             else:
                 return raw_input
-            return self._resample(audio, sr, self.sample_rate)
+            audio = self._resample(audio, sr, self.sample_rate)
+            if len(audio) > max_samples:
+                audio = audio[:max_samples]
+            return audio
 
         if NUMPY_AVAILABLE and isinstance(raw_input, np.ndarray):
             # Assume already at target sample rate; ensure float32 mono
             arr = raw_input.astype("float32")
             if arr.ndim == 2:
                 arr = arr.mean(axis=0)
+            if len(arr) > max_samples:
+                arr = arr[:max_samples]
             return arr
 
         return raw_input

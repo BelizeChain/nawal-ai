@@ -381,6 +381,9 @@ class FederatedAggregator:
         # Pending updates
         self.pending_updates: dict[int, list[ModelUpdate]] = defaultdict(list)
 
+        # Participation tracking for fairness (C7.5)
+        self.participation_counts: dict[int, int] = defaultdict(int)
+
         # History
         self.aggregation_history: list[AggregationRound] = []
 
@@ -473,7 +476,10 @@ class FederatedAggregator:
 
     def select_clients(self, total_clients: int, num_to_select: int | None = None) -> list[int]:
         """
-        Select clients for federated round (backward compatibility).
+        Select clients for federated round with fairness guarantee.
+
+        Clients with fewer past selections are prioritized so that every
+        participant is included within a bounded number of rounds.
 
         Args:
             total_clients: Total number of available clients
@@ -497,8 +503,18 @@ class FederatedAggregator:
         # Don't select more than available
         final_num = min(n, total_clients)
 
-        # Random selection without replacement
-        return random.sample(range(total_clients), final_num)
+        # Fair selection: sort by participation count (ascending), break ties randomly
+        all_clients = list(range(total_clients))
+        random.shuffle(all_clients)  # randomize tie-breaking
+        all_clients.sort(key=lambda c: self.participation_counts[c])
+
+        selected = all_clients[:final_num]
+
+        # Update participation counts
+        for c in selected:
+            self.participation_counts[c] += 1
+
+        return selected
 
     def select_clients_by_fraction(self, total_clients: int) -> list[int]:
         """

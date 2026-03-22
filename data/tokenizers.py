@@ -469,6 +469,9 @@ class NawalTokenizerWrapper:
     def vocab_size(self) -> int:
         return len(self._tokenizer.vocab)
 
+    def __len__(self) -> int:
+        return self.vocab_size
+
     # ------------------------------------------------------------------
     # Vocabulary management
     # ------------------------------------------------------------------

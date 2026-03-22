@@ -5,6 +5,8 @@
 project_name: nawal
 version: 1.1.0
 environment: production
+debug: false
+log_level: WARNING
 
 # Validator Identity (set via environment variables)
 validator_id: null  # Set via NAWAL_VALIDATOR_ID
@@ -25,7 +27,7 @@ evolution:
 
 # Federated Learning Configuration
 federated:
-  aggregation_strategy: fedavg  # FedAvg for production
+  aggregation_strategy: trimmed_mean  # Byzantine-robust aggregation for production
   min_participants: 5  # Minimum 5 validators
   max_participants: 100  # Up to 100 validators
   num_rounds: 1000  # Many rounds

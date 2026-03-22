@@ -202,21 +202,21 @@ def sample_population(genome_config, evolution_config, innovation_history):
     """Create a sample population for testing."""
     from nawal.genome.population import PopulationConfig, PopulationManager
     from nawal.genome.encoding import Genome, ArchitectureLayer, LayerType
-    
+
     # Create population config from evolution config
     pop_config = PopulationConfig(
         target_size=evolution_config.population_size,
         max_size=evolution_config.population_size + 10,
         min_size=max(2, evolution_config.population_size // 2),
     )
-    
+
     population = PopulationManager(config=pop_config)
-    
+
     # Get hidden size from genome config or use default
     hidden_size = getattr(genome_config, 'hidden_size', 64)
     if hasattr(genome_config, 'hidden_layers') and genome_config.hidden_layers:
         hidden_size = genome_config.hidden_layers[0]
-    
+
     # Initialize with some genomes that have encoder layers
     for i in range(pop_config.target_size):
         genome = Genome(
@@ -232,39 +232,39 @@ def sample_population(genome_config, evolution_config, innovation_history):
             ],
         )
         population.add_genome(genome)
-    
+
     # Add legacy attributes for backward compatibility
     population.genome_config = genome_config
     population.evolution_config = evolution_config
     population.innovation_history = innovation_history
     population.generation = 0
     population.genomes = list(population.genomes.values())
-    
+
     # Add legacy methods
     def initialize():
         pass
-    
+
     def tournament_selection(tournament_size=3):
         if len(population.genomes) == 0:
             return None
         import random
         return random.choice(population.genomes)
-    
+
     def evolve():
         population.generation += 1
-    
+
     def get_best_genome():
         """Get genome with highest fitness_score."""
         valid_genomes = [g for g in population.genomes if g.fitness_score is not None]
         if not valid_genomes:
             return None
         return max(valid_genomes, key=lambda g: g.fitness_score)
-    
+
     population.initialize = initialize
     population.tournament_selection = tournament_selection
     population.evolve = evolve
     population.get_best_genome = get_best_genome
-    
+
     return population
 
 
@@ -304,10 +304,10 @@ def train_val_dataloaders(sample_dataset):
     train_dataset, val_dataset = torch.utils.data.random_split(
         sample_dataset, [train_size, val_size]
     )
-    
+
     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=8, shuffle=False)
-    
+
     return train_loader, val_loader
 
 
@@ -428,13 +428,13 @@ def poisoned_gradients():
         "weight": torch.randn(16, 10) * 0.01,
         "bias": torch.randn(16) * 0.01,
     }
-    
+
     # Poisoned gradients (10x larger)
     poisoned = {
         "weight": torch.randn(16, 10) * 0.1,
         "bias": torch.randn(16) * 0.1,
     }
-    
+
     return {"normal": normal, "poisoned": poisoned}
 
 
@@ -465,7 +465,7 @@ def pytest_collection_modifyitems(config, items):
     """Modify test collection to handle markers."""
     skip_slow = pytest.mark.skip(reason="slow test (use --runslow to run)")
     skip_gpu = pytest.mark.skip(reason="requires GPU")
-    
+
     for item in items:
         if "slow" in item.keywords and not config.getoption("--runslow", default=False):
             item.add_marker(skip_slow)

@@ -5,6 +5,8 @@
 project_name: nawal
 version: 1.1.0
 environment: development
+debug: true
+log_level: DEBUG
 
 # Validator Identity (use environment variables or override locally)
 validator_id: null  # Set via NAWAL_VALIDATOR_ID

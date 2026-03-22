@@ -22,24 +22,38 @@ except ImportError:
 
 
 def configure_logging(
-    log_level: str = "INFO",
+    log_level: Optional[str] = None,
     log_file: Optional[Path] = None,
     rotation: str = "100 MB",
     retention: str = "30 days",
     format_string: Optional[str] = None,
-    serialize: bool = False,
+    serialize: Optional[bool] = None,
 ) -> None:
     """
     Configure logging for Nawal AI.
-    
+
     Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+                   Falls back to ``NAWAL_LOG_LEVEL`` env var, then "INFO".
         log_file: Optional log file path
         rotation: Log rotation size/time
         retention: Log retention period
         format_string: Custom format string
-        serialize: Whether to serialize logs as JSON
+        serialize: Whether to serialize logs as JSON.  Falls back to
+                   ``NAWAL_LOG_SERIALIZE`` env var ("true"/"1"), then to
+                   True when ``NAWAL_ENV=production``, else False.
     """
+    import os
+    if log_level is None:
+        log_level = os.getenv("NAWAL_LOG_LEVEL", "INFO")
+    if serialize is None:
+        env_ser = os.getenv("NAWAL_LOG_SERIALIZE", "").lower()
+        if env_ser in ("true", "1"):
+            serialize = True
+        elif env_ser in ("false", "0"):
+            serialize = False
+        else:
+            serialize = os.getenv("NAWAL_ENV", "").lower() == "production"
     if not LOGURU_AVAILABLE:
         # Fallback to standard logging
         logging.basicConfig(
@@ -48,10 +62,10 @@ def configure_logging(
             datefmt="%Y-%m-%d %H:%M:%S",
         )
         return
-    
+
     # Remove default handler
     logger.remove()
-    
+
     # Default format
     if format_string is None:
         if serialize:
@@ -63,7 +77,7 @@ def configure_logging(
                 "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
                 "<level>{message}</level>"
             )
-    
+
     # Console handler
     logger.add(
         sys.stderr,
@@ -72,11 +86,11 @@ def configure_logging(
         colorize=not serialize,
         serialize=serialize,
     )
-    
+
     # File handler
     if log_file:
         log_file.parent.mkdir(parents=True, exist_ok=True)
-        
+
         logger.add(
             str(log_file),
             format=format_string,
@@ -86,7 +100,7 @@ def configure_logging(
             compression="zip",
             serialize=serialize,
         )
-    
+
     # Add context
     logger.configure(extra={"component": "nawal"})
 
@@ -94,10 +108,10 @@ def configure_logging(
 def get_logger(name: str):
     """
     Get logger instance for component.
-    
+
     Args:
         name: Component name
-    
+
     Returns:
         Logger instance
     """
@@ -109,23 +123,23 @@ def get_logger(name: str):
 
 class LogContext:
     """Context manager for structured logging."""
-    
+
     def __init__(self, **kwargs):
         """
         Initialize log context.
-        
+
         Args:
             **kwargs: Context key-value pairs
         """
         self.context = kwargs
         self.token = None
-    
+
     def __enter__(self):
         if LOGURU_AVAILABLE:
             self.token = logger.contextualize(**self.context)
             self.token.__enter__()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if LOGURU_AVAILABLE and self.token:
             self.token.__exit__(exc_type, exc_val, exc_tb)
@@ -218,13 +232,13 @@ def log_blockchain_transaction(tx_type: str, success: bool,
     """Log blockchain transaction."""
     with LogContext(phase="blockchain", tx_type=tx_type):
         status = "success" if success else "failed"
-        
+
         message = f"Transaction {status}: type={tx_type}"
         if block_number is not None:
             message += f", block={block_number}"
         if tx_time is not None:
             message += f", time={tx_time:.2f}s"
-        
+
         if success:
             logger.info(message)
         else:

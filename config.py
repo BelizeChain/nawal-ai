@@ -122,7 +122,7 @@ class FederatedConfig(BaseModel):
     """Configuration for federated learning."""
 
     # Strategy
-    aggregation_strategy: Literal["fedavg", "fedprox", "fedadam"] = Field(
+    aggregation_strategy: Literal["fedavg", "fedprox", "fedadam", "krum", "multi_krum", "trimmed_mean", "median", "phocas"] = Field(
         default="fedavg",
         description="Federated aggregation strategy",
     )
@@ -507,6 +507,16 @@ class NawalConfig(BaseModel):
         description="Environment",
     )
 
+    debug: bool = Field(
+        default=False,
+        description="Enable debug mode (do NOT use in production)",
+    )
+
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
+        default="INFO",
+        description="Logging verbosity level",
+    )
+
     # Components
     evolution: EvolutionConfig = Field(
         default_factory=EvolutionConfig,
@@ -600,21 +610,9 @@ class NawalConfig(BaseModel):
         logger.info(f"Loaded configuration from {path}")
         return cls(**data)
 
-    @classmethod
-    def from_env(cls, prefix: str = "NAWAL_") -> NawalConfig:
-        """
-        Load configuration from environment variables.
-
-        Environment variables should be in the format:
-        NAWAL_EVOLUTION__POPULATION_SIZE=100
-        NAWAL_TRAINING__LEARNING_RATE=0.001
-
-        Args:
-            prefix: Environment variable prefix
-
-        Returns:
-            NawalConfig instance
-        """
+    @staticmethod
+    def _env_to_dict(prefix: str = "NAWAL_") -> dict[str, Any]:
+        """Parse NAWAL_* environment variables into a nested dict."""
         config_dict: dict[str, Any] = {}
 
         for key, value in os.environ.items():
@@ -647,6 +645,24 @@ class NawalConfig(BaseModel):
             except (ValueError, AttributeError):
                 current[final_key] = value
 
+        return config_dict
+
+    @classmethod
+    def from_env(cls, prefix: str = "NAWAL_") -> NawalConfig:
+        """
+        Load configuration from environment variables.
+
+        Environment variables should be in the format:
+        NAWAL_EVOLUTION__POPULATION_SIZE=100
+        NAWAL_TRAINING__LEARNING_RATE=0.001
+
+        Args:
+            prefix: Environment variable prefix
+
+        Returns:
+            NawalConfig instance
+        """
+        config_dict = cls._env_to_dict(prefix)
         logger.info(f"Loaded configuration from environment variables (prefix={prefix})")
         return cls(**config_dict)
 
@@ -709,16 +725,26 @@ class NawalConfig(BaseModel):
 # =============================================================================
 
 
+def _deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge override dict into base dict. Mutates base."""
+    for key, value in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
+    return base
+
+
 def load_config(
     config_path: str | Path | None = None,
     env_prefix: str = "NAWAL_",
 ) -> NawalConfig:
     """
-    Load configuration with automatic format detection.
+    Load configuration with environment variable overrides.
 
-    Priority:
-    1. Explicit config file (YAML or JSON)
-    2. Environment variables
+    Priority (highest to lowest):
+    1. Environment variables (NAWAL_* prefix) — always applied
+    2. Config file (YAML or JSON)
     3. Defaults
 
     Args:
@@ -728,25 +754,40 @@ def load_config(
     Returns:
         NawalConfig instance
     """
-    # Try explicit config file
+    import yaml
+
+    base_dict: dict[str, Any] = {}
+
+    # Load base from file if provided
     if config_path:
         path = Path(config_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
         if path.suffix in (".yaml", ".yml"):
-            return NawalConfig.from_yaml(path)
+            with open(path, "r") as f:
+                base_dict = yaml.safe_load(f) or {}
+            logger.info(f"Loaded base configuration from {path}")
         elif path.suffix == ".json":
-            return NawalConfig.from_json(path)
+            import json
+            with open(path, "r") as f:
+                base_dict = json.load(f)
+            logger.info(f"Loaded base configuration from {path}")
         else:
             raise ValueError(f"Unknown config format: {path.suffix}")
 
-    # Try environment variables
-    env_config = NawalConfig.from_env(env_prefix)
-    if env_config.validator_id or env_config.validator_address:
-        logger.info("Using configuration from environment variables")
-        return env_config
+    # Layer environment variable overrides on top (12-factor compliant)
+    env_overrides = NawalConfig._env_to_dict(env_prefix)
+    if env_overrides:
+        _deep_merge(base_dict, env_overrides)
+        logger.info(f"Applied environment variable overrides (prefix={env_prefix})")
 
-    # Use defaults
-    logger.info("Using default configuration")
-    return NawalConfig()
+    if not base_dict and not env_overrides:
+        logger.warning(
+            "No config file or NAWAL_* environment variables found; using defaults. "
+            "Set a config file path or NAWAL_* env vars for production deployments."
+        )
+
+    return NawalConfig(**base_dict)
 
 
 # =============================================================================

@@ -145,11 +145,21 @@ class MaintenanceLayer:
         """
         report = self.drift_detector.check()
         if report.is_drifted:
-            logger.warning("MaintenanceLayer: drift detected — triggering repair")
-            return self.self_repair.repair(
+            repair_count = self.self_repair.repair_count
+            logger.warning(
+                f"MaintenanceLayer: drift detected — triggering repair "
+                f"(attempt #{repair_count + 1})"
+            )
+            result = self.self_repair.repair(
                 strategy=RepairStrategy.ROLLBACK,
                 drift_report=report,
             )
+            if not result.success:
+                logger.error(
+                    "MaintenanceLayer: repair attempt failed — "
+                    "operator intervention may be required"
+                )
+            return result
         return None
 
     # ------------------------------------------------------------------ #

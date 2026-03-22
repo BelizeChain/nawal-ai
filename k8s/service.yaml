@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nawal-ai
+  namespace: belizechain
+  labels:
+    app: nawal-ai
+spec:
+  selector:
+    app: nawal-ai
+  ports:
+    - name: api
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

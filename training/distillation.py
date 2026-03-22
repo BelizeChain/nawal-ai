@@ -15,9 +15,9 @@ Examples:
     Basic distillation::
 
         from nawal.training import KnowledgeDistillationTrainer
-        from nawal.architecture import NawalConfig
+        from nawal.architecture import NawalModelConfig
 
-        config = NawalConfig.nawal_medium()  # 350M student
+        config = NawalModelConfig.nawal_medium()  # 350M student
         trainer = KnowledgeDistillationTrainer(
             student_config=config,
             teacher_model_id="deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
@@ -56,7 +56,7 @@ from tqdm import tqdm
 import wandb
 
 from architecture.transformer import NawalTransformer
-from architecture.config import NawalConfig
+from architecture.config import NawalModelConfig
 from hybrid.teacher import DeepSeekTeacher
 from storage.pakit_client import PakitClient
 
@@ -180,7 +180,7 @@ class KnowledgeDistillationTrainer:
         Train on local dataset::
 
             trainer = KnowledgeDistillationTrainer(
-                student_config=NawalConfig.nawal_small(),
+                student_config=NawalModelConfig.nawal_small(),
                 teacher_model_id="deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
                 temperature=5.0,
                 alpha=0.8
@@ -213,7 +213,7 @@ class KnowledgeDistillationTrainer:
 
     def __init__(
         self,
-        student_config: Optional[NawalConfig] = None,
+        student_config: Optional[NawalModelConfig] = None,
         student_model: Optional[NawalTransformer] = None,
         teacher_model_id: str = "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
         teacher_model: Optional[DeepSeekTeacher] = None,
@@ -252,7 +252,7 @@ class KnowledgeDistillationTrainer:
         else:
             # Default to medium model
             logger.info("No student config provided, using nawal_medium (350M params)")
-            self.student = NawalTransformer(NawalConfig.nawal_medium())
+            self.student = NawalTransformer(NawalModelConfig.nawal_medium())
 
         self.student = self.student.to(self.device)
         logger.info(f"Student model: {self.student.config.num_parameters():,} parameters")
@@ -624,7 +624,7 @@ class KnowledgeDistillationTrainer:
         checkpoint = torch.load(path, map_location="cpu", weights_only=True)
 
         # Reconstruct config
-        config = NawalConfig(**checkpoint["config"])
+        config = NawalModelConfig(**checkpoint["config"])
         student_model = NawalTransformer(config)
         student_model.load_state_dict(checkpoint["model_state_dict"])
 

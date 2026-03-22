@@ -63,6 +63,8 @@ class SelfRepair(AbstractSelfRepair):
         alert_callback  : Optional callable(DriftReport) for custom alerts.
         auto_repair     : If False, only ALERT is executed; all other
                           strategies reduce to ALERT (default True).
+        max_retries     : Maximum consecutive repair attempts before
+                          escalating to ALERT-only mode (default 5).
     """
 
     def __init__(
@@ -71,15 +73,19 @@ class SelfRepair(AbstractSelfRepair):
         episodic_memory: Optional[Any] = None,
         alert_callback: Optional[Callable[[DriftReport], None]] = None,
         auto_repair: bool = True,
+        max_retries: int = 5,
     ) -> None:
         self._checkpoint_path = Path(checkpoint_path) if checkpoint_path else None
         self._episodic        = episodic_memory
         self._alert_cb        = alert_callback
         self._auto_repair     = auto_repair
+        self._max_retries     = max_retries
+        self._consecutive_failures: int = 0
         self._repair_history: list[Dict[str, Any]] = []
 
         logger.info(
             f"SelfRepair ready: auto_repair={auto_repair} "
+            f"max_retries={max_retries} "
             f"checkpoint_path={checkpoint_path}"
         )
 
@@ -106,6 +112,14 @@ class SelfRepair(AbstractSelfRepair):
             RepairResult describing what was done.
         """
         if not self._auto_repair:
+            strategy = RepairStrategy.ALERT
+
+        # Guard: after max_retries consecutive failures, escalate to ALERT
+        if self._consecutive_failures >= self._max_retries and strategy != RepairStrategy.ALERT:
+            logger.error(
+                f"SelfRepair: {self._consecutive_failures} consecutive failures — "
+                f"escalating to ALERT-only (operator intervention required)"
+            )
             strategy = RepairStrategy.ALERT
 
         t0 = time.perf_counter()
@@ -137,6 +151,12 @@ class SelfRepair(AbstractSelfRepair):
             "success":   result.success,
             "timestamp": time.time(),
         })
+
+        # Track consecutive failures for escalation guard
+        if result.success:
+            self._consecutive_failures = 0
+        else:
+            self._consecutive_failures += 1
 
         return result
 

@@ -51,11 +51,14 @@ class FitnessScores:
     honesty: float  # 0-100: Privacy compliance/Byzantine resistance
 
     def calculate_overall(self) -> float:
-        """Calculate weighted overall fitness score."""
+        """Calculate weighted overall fitness score (clamped to [0, 100])."""
+        q = min(100.0, max(0.0, self.quality))
+        t = min(100.0, max(0.0, self.timeliness))
+        h = min(100.0, max(0.0, self.honesty))
         return (
-            QUALITY_WEIGHT * self.quality +
-            TIMELINESS_WEIGHT * self.timeliness +
-            HONESTY_WEIGHT * self.honesty
+            QUALITY_WEIGHT * q +
+            TIMELINESS_WEIGHT * t +
+            HONESTY_WEIGHT * h
         )
 
     def validate(self) -> list[str]:

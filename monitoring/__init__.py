@@ -17,7 +17,7 @@ License: MIT
 """
 
 from .metrics import MetricsCollector, MetricType, Metric
-from .prometheus_exporter import PrometheusExporter
+from .prometheus_exporter import PrometheusExporter, AzureExporter
 from .logging_config import configure_logging, get_logger
 
 __all__ = [
@@ -25,6 +25,7 @@ __all__ = [
     "MetricType",
     "Metric",
     "PrometheusExporter",
+    "AzureExporter",
     "configure_logging",
     "get_logger",
 ]

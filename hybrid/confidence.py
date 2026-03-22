@@ -84,7 +84,12 @@ class ConfidenceScorer:
 
         return confidence
 
-    def compute_perplexity(self, logits: torch.Tensor, target_ids: torch.Tensor) -> float:
+    def compute_perplexity(
+        self,
+        logits: torch.Tensor,
+        target_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+    ) -> float:
         """
         Compute perplexity of the sequence
 
@@ -94,6 +99,7 @@ class ConfidenceScorer:
         Args:
             logits: Model predictions [batch, seq_len, vocab_size]
             target_ids: Target token IDs [batch, seq_len]
+            attention_mask: Optional mask [batch, seq_len] (1 = real token, 0 = pad)
 
         Returns:
             Perplexity-based confidence score (0-1, higher is better)
@@ -103,12 +109,20 @@ class ConfidenceScorer:
         shift_logits = logits[:, :-1, :].contiguous()
         shift_labels = target_ids[:, 1:].contiguous()
 
-        # Compute cross-entropy loss on shifted sequences
+        # Compute per-token cross-entropy loss
         loss = F.cross_entropy(
             shift_logits.view(-1, shift_logits.size(-1)),
             shift_labels.view(-1),
-            reduction='mean'
-        )
+            reduction='none',
+        ).view(shift_labels.size())
+
+        # Apply attention mask to ignore padding tokens
+        if attention_mask is not None:
+            shift_mask = attention_mask[:, 1:].contiguous()
+            loss = loss * shift_mask
+            loss = loss.sum() / shift_mask.sum().clamp(min=1)
+        else:
+            loss = loss.mean()
 
         # Compute perplexity: exp(loss)
         perplexity = torch.exp(loss).item()

@@ -92,21 +92,21 @@ class TestBlockchainRewards:
     def test_fitness_scores_calculate_overall(self):
         from blockchain.rewards import FitnessScores
 
-        fs = FitnessScores(quality=0.8, timeliness=0.7, honesty=0.9)
+        fs = FitnessScores(quality=80, timeliness=70, honesty=90)
         overall = fs.calculate_overall()
-        assert 0.0 <= overall <= 1.0
+        assert 0.0 <= overall <= 100.0
 
     def test_fitness_scores_validate_ok(self):
         from blockchain.rewards import FitnessScores
 
-        fs = FitnessScores(quality=0.8, timeliness=0.7, honesty=0.9)
+        fs = FitnessScores(quality=80, timeliness=70, honesty=90)
         errs = fs.validate()
         assert len(errs) == 0
 
     def test_fitness_scores_validate_bad(self):
         from blockchain.rewards import FitnessScores
 
-        fs = FitnessScores(quality=1.5, timeliness=-0.1, honesty=0.5)
+        fs = FitnessScores(quality=150, timeliness=-10, honesty=50)
         errs = fs.validate()
         assert len(errs) > 0
 
@@ -114,7 +114,7 @@ class TestBlockchainRewards:
         from blockchain.rewards import FitnessScores, RewardCalculator
 
         calc = RewardCalculator()
-        fs = FitnessScores(quality=0.8, timeliness=0.7, honesty=0.9)
+        fs = FitnessScores(quality=80, timeliness=70, honesty=90)
         rc = calc.calculate_reward("p1", 1, fs, 1_000_000_000_000)
         assert isinstance(str(rc), str)
         assert rc.total_reward_planck >= 0
@@ -132,7 +132,7 @@ class TestBlockchainRewards:
         from blockchain.rewards import FitnessScores, RewardCalculator
 
         calc = RewardCalculator()
-        fs = FitnessScores(quality=0.9, timeliness=0.8, honesty=0.95)
+        fs = FitnessScores(quality=90, timeliness=80, honesty=95)
         # Use large stake so it's above min_stake_dalla
         rc = calc.calculate_reward("part-1", 5, fs, 500_000_000_000_000)
         assert rc.total_reward_planck >= 0
@@ -142,7 +142,7 @@ class TestBlockchainRewards:
         from blockchain.rewards import RewardCalculator
 
         calc = RewardCalculator()
-        est = calc.estimate_monthly_rewards(rounds_per_day=10, avg_fitness=0.85, stake_amount_dalla=1000.0)
+        est = calc.estimate_monthly_rewards(rounds_per_day=10, avg_fitness=85.0, stake_amount_dalla=1000.0)
         assert est > 0.0
 
     def test_reward_distributor(self):
@@ -150,7 +150,7 @@ class TestBlockchainRewards:
 
         calc = RewardCalculator()
         dist = RewardDistributor(calculator=calc)
-        fs = FitnessScores(quality=0.8, timeliness=0.7, honesty=0.9)
+        fs = FitnessScores(quality=80, timeliness=70, honesty=90)
         rc = calc.calculate_reward("pid", 1, fs, 500_000_000_000_000)
         dist.add_pending_reward(rc)
         assert len(dist.get_pending_rewards("pid")) == 1

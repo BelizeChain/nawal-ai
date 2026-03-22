@@ -146,7 +146,7 @@ class TestDefaultStudentBranch:
         mock_student = _make_student()
         mock_student.to = MagicMock(return_value=mock_student)
 
-        with patch("training.distillation.NawalConfig") as MockConfig, \
+        with patch("training.distillation.NawalModelConfig") as MockConfig, \
              patch("training.distillation.NawalTransformer") as MockTransformer:
 
             MockConfig.nawal_medium.return_value = mock_config
@@ -407,7 +407,7 @@ class TestFromCheckpoint:
         # Patch NawalTransformer so it returns a TinyStudent (fast).
         tiny = _make_student()
         with patch("training.distillation.NawalTransformer") as MockT, \
-             patch("training.distillation.NawalConfig") as MockC:
+             patch("training.distillation.NawalModelConfig") as MockC:
 
             mock_cfg = MagicMock()
             MockC.return_value = mock_cfg
@@ -437,7 +437,7 @@ class TestFromCheckpoint:
 
         tiny = _make_student()
         with patch("training.distillation.NawalTransformer", return_value=tiny), \
-             patch("training.distillation.NawalConfig"):
+             patch("training.distillation.NawalModelConfig"):
 
             loaded = KnowledgeDistillationTrainer.from_checkpoint(
                 path,

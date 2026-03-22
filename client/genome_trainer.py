@@ -32,6 +32,7 @@ from loguru import logger
 
 from nawal.genome import Genome, ModelBuilder, GenomeModel
 from nawal.server import ModelUpdate, TrainingMetrics
+from security.differential_privacy import create_dp_optimizer
 
 
 # =============================================================================
@@ -621,6 +622,21 @@ class GenomeTrainer:
         optimizer = self._create_optimizer()
         scheduler = self._create_scheduler(optimizer, len(train_loader))
 
+        # Wrap optimizer with DP-SGD if privacy_epsilon is configured
+        dp_optimizer = None
+        if self.config.privacy_epsilon is not None:
+            dp_optimizer = create_dp_optimizer(
+                optimizer,
+                self.current_model,
+                epsilon=self.config.privacy_epsilon,
+                clip_norm=self.config.max_grad_norm,
+            )
+            logger.info(
+                "DP-SGD enabled",
+                epsilon=self.config.privacy_epsilon,
+                clip_norm=self.config.max_grad_norm,
+            )
+
         # Mixed precision training
         scaler = torch.cuda.amp.GradScaler() if self.config.mixed_precision else None
 
@@ -676,19 +692,25 @@ class GenomeTrainer:
 
                 # Optimizer step (with gradient accumulation)
                 if (batch_idx + 1) % self.config.gradient_accumulation_steps == 0:
-                    if self.config.gradient_clipping:
+                    if dp_optimizer is not None:
+                        # DP-SGD: clip → noise → step handled by DPOptimizer
                         if scaler:
                             scaler.unscale_(optimizer)
-                        torch.nn.utils.clip_grad_norm_(
-                            self.current_model.parameters(),
-                            self.config.max_grad_norm,
-                        )
-
-                    if scaler:
-                        scaler.step(optimizer)
-                        scaler.update()
+                        dp_optimizer.step(self.current_model)
                     else:
-                        optimizer.step()
+                        if self.config.gradient_clipping:
+                            if scaler:
+                                scaler.unscale_(optimizer)
+                            torch.nn.utils.clip_grad_norm_(
+                                self.current_model.parameters(),
+                                self.config.max_grad_norm,
+                            )
+
+                        if scaler:
+                            scaler.step(optimizer)
+                            scaler.update()
+                        else:
+                            optimizer.step()
 
                     optimizer.zero_grad()
 

@@ -1790,7 +1790,7 @@ class TestNawalModel:
     """Cover lines 128-372 of nawal.py."""
 
     @patch("client.nawal.NawalTransformer")
-    @patch("client.nawal.NawalConfig")
+    @patch("client.nawal.NawalModelConfig")
     def test_init_small(self, mock_config_cls, mock_transformer_cls):
         from client.nawal import Nawal
 
@@ -1815,7 +1815,7 @@ class TestNawalModel:
             assert model.config == mock_config
 
     @patch("client.nawal.NawalTransformer")
-    @patch("client.nawal.NawalConfig")
+    @patch("client.nawal.NawalModelConfig")
     def test_forward_delegation(self, mock_config_cls, mock_transformer_cls):
         from client.nawal import Nawal
 
@@ -1841,7 +1841,7 @@ class TestNawalModel:
             mock_transformer.assert_called_once()
 
     @patch("client.nawal.NawalTransformer")
-    @patch("client.nawal.NawalConfig")
+    @patch("client.nawal.NawalModelConfig")
     def test_generate(self, mock_config_cls, mock_transformer_cls):
         from client.nawal import Nawal
 
@@ -1874,7 +1874,7 @@ class TestNawalModel:
         from client.nawal import Nawal
 
         with patch("client.nawal.NawalTransformer") as mock_tf_cls, \
-             patch("client.nawal.NawalConfig") as mock_cfg_cls:
+             patch("client.nawal.NawalModelConfig") as mock_cfg_cls:
             mock_config = MagicMock()
             mock_config.belizean_vocab_extension = False
             mock_config.supported_languages = ["en"]
@@ -1894,7 +1894,7 @@ class TestNawalModel:
                 assert model is not None
 
     @patch("client.nawal.NawalTransformer")
-    @patch("client.nawal.NawalConfig")
+    @patch("client.nawal.NawalModelConfig")
     def test_save_to_belizechain(self, mock_config_cls, mock_transformer_cls):
         from client.nawal import Nawal
 
@@ -1920,7 +1920,7 @@ class TestNawalModel:
                 mock_transformer.save_pretrained.assert_called_with(tmpdir)
 
     @patch("client.nawal.NawalTransformer")
-    @patch("client.nawal.NawalConfig")
+    @patch("client.nawal.NawalModelConfig")
     def test_save_to_belizechain_with_ipfs(self, mock_config_cls, mock_transformer_cls):
         from client.nawal import Nawal
 

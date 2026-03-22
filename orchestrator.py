@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -149,62 +150,98 @@ class EvolutionOrchestrator:
         self.controller = ExecutiveController(memory=self.memory)
 
         # Valuation subsystem (Phase 2) — reward scoring + safety filter
-        self.valuation = ValuationLayer()
+        try:
+            self.valuation = ValuationLayer()
+        except Exception as e:
+            logger.warning("Valuation layer unavailable: {}", e)
+            self.valuation = None
 
         # Metacognition subsystem (Phase 3) — self-critic, confidence, identity
-        self.metacognition = MetacognitionLayer(
-            valuation_layer=self.valuation,
-            persist_path=str(Path(config.storage.data_dir) / "identity.json"),
-        )
-        self.metacognition.load()
+        try:
+            self.metacognition = MetacognitionLayer(
+                valuation_layer=self.valuation,
+                persist_path=str(Path(config.storage.data_dir) / "identity.json"),
+            )
+            self.metacognition.load()
+        except Exception as e:
+            logger.warning("Metacognition layer unavailable: {}", e)
+            self.metacognition = None
 
         # Perception subsystem (Phase 4) — sensory hub (text + vision + audio)
         # Visual and audio cortices default to stub mode; replace model_name
         # in config (perception.visual_model / perception.audio_model) to
         # activate full CLIP / Whisper backbones.
-        self.perception = SensoryHub(
-            hidden_dim=256,
-            device="auto",
-        )
+        try:
+            self.perception = SensoryHub(
+                hidden_dim=256,
+                device="auto",
+            )
+        except Exception as e:
+            logger.warning("Perception layer unavailable: {}", e)
+            self.perception = None
 
         # Quantum subsystems (Phase 5) ─────────────────────────────────────
         # All modules default to classical fallback when Kinich is unavailable.
         # Enable simulation_mode=True to demo quantum behaviour without hardware.
 
         # 5a: Quantum memory — Grover-inspired episodic retrieval
-        self.quantum_memory = QuantumMemory(
-            backing_store=self.memory.episodic,
-        )
+        try:
+            self.quantum_memory = QuantumMemory(
+                backing_store=self.memory.episodic,
+            )
+        except Exception as e:
+            logger.warning("Quantum memory unavailable: {}", e)
+            self.quantum_memory = None
 
         # 5b: Quantum plan optimiser — QAOA-based plan selection
-        self.quantum_optimizer = QuantumPlanOptimizer()
+        try:
+            self.quantum_optimizer = QuantumPlanOptimizer()
+        except Exception as e:
+            logger.warning("Quantum optimizer unavailable: {}", e)
+            self.quantum_optimizer = None
 
         # 5c: Quantum anomaly detector — kernel SVM on telemetry vectors
-        self.quantum_anomaly = QuantumAnomalyDetector()
+        try:
+            self.quantum_anomaly = QuantumAnomalyDetector()
+        except Exception as e:
+            logger.warning("Quantum anomaly detector unavailable: {}", e)
+            self.quantum_anomaly = None
 
         # 5d: Quantum imagination — parallel future-trajectory sampling
         # Wires into the metacognition simulator if present
-        _sim = getattr(self.metacognition, "simulator", None)
-        self.quantum_imagination = QuantumImagination(
-            internal_simulator=_sim,
-        )
+        try:
+            _sim = getattr(self.metacognition, "simulator", None) if self.metacognition else None
+            self.quantum_imagination = QuantumImagination(
+                internal_simulator=_sim,
+            )
+        except Exception as e:
+            logger.warning("Quantum imagination unavailable: {}", e)
+            self.quantum_imagination = None
 
         # Maintenance layer (Phase 5) — Immune System
         # Screens inputs, filters outputs, detects drift, auto-repairs.
-        self.maintenance = MaintenanceLayer(
-            checkpoint_path=str(Path(config.storage.data_dir) / "checkpoints"),
-            episodic_memory=self.memory.episodic,
-            quantum_anomaly_detector=self.quantum_anomaly,
-        )
+        try:
+            self.maintenance = MaintenanceLayer(
+                checkpoint_path=str(Path(config.storage.data_dir) / "checkpoints"),
+                episodic_memory=self.memory.episodic,
+                quantum_anomaly_detector=self.quantum_anomaly,
+            )
+        except Exception as e:
+            logger.warning("Maintenance layer unavailable: {}", e)
+            self.maintenance = None
 
         # Action layer (Phase 5) — Motor Cortex
         # Provides tool-use: web search, code execution, memory read/write.
-        # stub_network_tools=True keeps tests hermetic; set False in production.
-        self.action = ActionLayer(
-            memory_manager=self.memory,
-            safety_screener=getattr(self.maintenance, "input_screener", None),
-            stub_network_tools=True,
-        )
+        # stub_network_tools driven by environment; True keeps tests hermetic.
+        try:
+            self.action = ActionLayer(
+                memory_manager=self.memory,
+                safety_screener=getattr(self.maintenance, "input_screener", None) if self.maintenance else None,
+                stub_network_tools=os.getenv("NAWAL_ENV", "development") != "production",
+            )
+        except Exception as e:
+            logger.warning("Action layer unavailable: {}", e)
+            self.action = None
 
         logger.info(
             "Initialized EvolutionOrchestrator",

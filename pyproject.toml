@@ -45,54 +45,60 @@ classifiers = [
 
 dependencies = [
     # Core ML frameworks
-    "torch>=2.5.0",
-    "torchvision>=0.20.0",
-    "transformers>=4.45.0",
-    "datasets>=3.0.0",
-    "accelerate>=1.0.0",
-    "huggingface-hub>=0.25.0",
+    "torch>=2.5.0,<3.0.0",
+    "torchvision>=0.20.0,<1.0.0",
+    "transformers>=4.45.0,<5.0.0",
+    "datasets>=3.0.0,<4.0.0",
+    "accelerate>=1.0.0,<2.0.0",
+    "huggingface-hub>=0.25.0,<1.0.0",
 
     # Federated learning
-    "flwr[simulation]>=1.11.0",
+    "flwr[simulation]>=1.11.0,<2.0.0",
 
     # Blockchain integration
-    "substrate-interface>=1.7.9",
+    "substrate-interface>=1.7.9,<2.0.0",
 
     # Security & privacy
     "cryptography>=42.0.4,<43.0.0",
-    "pynacl>=1.5.0",
-    "opacus>=1.5.0",  # Differential privacy
+    "pynacl>=1.5.0,<2.0.0",
+    "opacus>=1.5.0,<2.0.0",
+    "pycryptodome>=3.19.0,<4.0.0",
 
     # Data processing & ML utilities
-    "numpy>=2.1.0",
-    "pandas>=2.2.0",
-    "scikit-learn>=1.5.0",
-    "scipy>=1.14.0",
+    "numpy>=2.1.0,<3.0.0",
+    "pandas>=2.2.0,<3.0.0",
+    "scikit-learn>=1.5.0,<2.0.0",
+    "scipy>=1.14.0,<2.0.0",
 
     # Configuration & validation
-    "pyyaml>=6.0.2",
-    "python-dotenv>=1.0.1",
-    "pydantic>=2.9.0",
-    "pydantic-settings>=2.5.0",
+    "pyyaml>=6.0.2,<7.0.0",
+    "python-dotenv>=1.0.1,<2.0.0",
+    "pydantic>=2.9.0,<3.0.0",
+    "pydantic-settings>=2.5.0,<3.0.0",
 
     # Logging & observability
-    "structlog>=24.4.0",
-    "rich>=13.9.0",
+    "structlog>=24.4.0,<25.0.0",
+    "rich>=13.9.0,<14.0.0",
+    "loguru>=0.7.0,<1.0.0",
 
     # Serialization
-    "msgpack>=1.1.0",
-    "orjson>=3.10.0",
+    "msgpack>=1.1.0,<2.0.0",
+    "orjson>=3.10.0,<4.0.0",
 
     # Async networking
-    "aiohttp>=3.10.0",
-    "websockets>=13.1.0",
+    "aiohttp>=3.10.0,<4.0.0",
+    "websockets>=13.1.0,<14.0.0",
 
     # Secure code sandbox
-    "RestrictedPython>=7.0",
+    "RestrictedPython>=7.0,<8.0",
 
     # gRPC for federated communication
-    "grpcio>=1.67.0",
+    "grpcio>=1.67.0,<2.0.0",
     "protobuf>=4.21.6,<5.0.0",
+
+    # Monitoring
+    "prometheus-client>=0.17.0,<1.0.0",
+    "psutil>=5.9.0,<6.0.0",
 ]
 
 [project.optional-dependencies]
@@ -124,6 +130,13 @@ monitoring = [
     "wandb>=0.18.0",
 ]
 
+# Azure Application Insights (optional APM)
+azure = [
+    "azure-monitor-opentelemetry>=1.6.0",
+    "opentelemetry-api>=1.25.0",
+    "opentelemetry-sdk>=1.25.0",
+]
+
 # DeepSeek teacher model support
 deepseek = [
     "vllm>=0.6.0",  # Fast inference for large models
@@ -148,7 +161,7 @@ memory = [
 
 # All optional dependencies
 all = [
-    "nawal-ai[dev,server,monitoring,deepseek,compression,memory]",
+    "nawal-ai[dev,server,monitoring,azure,deepseek,compression,memory]",
 ]
 
 [project.urls]
@@ -272,6 +285,10 @@ filterwarnings = [
     "ignore:.*PyType_Spec.*:DeprecationWarning",
     # Placeholder ZK proofs warn intentionally during tests
     "ignore:Using PLACEHOLDER:UserWarning",
+    # MeshNetworkClient background coroutines interacting with mock GC
+    "ignore:coroutine 'MeshNetworkClient\\._.*' was never awaited:RuntimeWarning",
+    # torch clip_grad_norm_ with empty model parameters during test
+    "ignore:`parameters` is an empty generator:UserWarning",
 ]
 
 # ============================================================================

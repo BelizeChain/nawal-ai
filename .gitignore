@@ -82,6 +82,7 @@ mlruns/
 .env
 .env.local
 .env.*.local
+secrets/
 
 # Temporary Files
 tmp/

@@ -13,12 +13,16 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
-class WorldState:
+class PerceptionWorldState:
     """
     Unified world-state representation produced by the Perception layer.
 
     All modalities contribute embeddings + metadata into a single object
     that is passed to the Core Cortex and Memory systems.
+
+    Note: This is distinct from ``nawal_types.WorldState`` which carries
+    higher-level text/audio content.  ``PerceptionWorldState`` holds the
+    dense embedding vectors produced by sensory cortices.
 
     Attributes:
         text_embedding   : Dense vector from the textual cortex.
@@ -34,6 +38,10 @@ class WorldState:
     raw_text: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     fused_embedding: Optional[List[float]] = None
+
+
+# Backward-compatible alias — prefer PerceptionWorldState in new code.
+WorldState = PerceptionWorldState
 
 
 class AbstractCortex(ABC):
