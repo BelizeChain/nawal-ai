@@ -12,11 +12,10 @@ Author: BelizeChain Team
 License: MIT
 """
 
+
 import pytest
 import torch
 import torch.nn as nn
-from copy import deepcopy
-
 from nawal.server.aggregator import FederatedAggregator
 from nawal.server.metrics_tracker import MetricsTracker
 
@@ -66,7 +65,7 @@ class TestFederatedAggregator:
         global_params = aggregator.fedavg_aggregate(client_params)
 
         # Check all keys are present
-        for key in client_params[0].keys():
+        for key in client_params[0]:
             assert key in global_params
             assert global_params[key].shape == client_params[0][key].shape
 
@@ -102,7 +101,7 @@ class TestFederatedAggregator:
         global_params = aggregator.fedavg_aggregate(single_client)
 
         # Should equal single client parameters
-        for key in single_client[0].keys():
+        for key in single_client[0]:
             assert torch.allclose(global_params[key], single_client[0][key])
 
     def test_empty_client_list(self):
@@ -175,7 +174,7 @@ class TestFederatedRound:
         # Distribute global model to clients
         client_updates = []
 
-        for client_model, dataloader in zip(client_models, client_dataloaders):
+        for client_model, dataloader in zip(client_models, client_dataloaders, strict=False):
             # Load global parameters
             client_model.load_state_dict(global_model.state_dict())
 
@@ -210,11 +209,11 @@ class TestFederatedRound:
         num_rounds = 3
         round_losses = []
 
-        for round_idx in range(num_rounds):
+        for _round_idx in range(num_rounds):
             client_updates = []
             round_loss = 0
 
-            for client_model, dataloader in zip(client_models, client_dataloaders):
+            for client_model, dataloader in zip(client_models, client_dataloaders, strict=False):
                 client_model.load_state_dict(global_model.state_dict())
 
                 config = TrainingConfig(batch_size=8, learning_rate=0.001, device="cpu")
@@ -335,7 +334,7 @@ class TestByzantineResilience:
 
     def test_detect_outlier_updates(self, client_models, byzantine_client_indices):
         """Test detecting Byzantine/malicious client updates."""
-        aggregator = FederatedAggregator()
+        FederatedAggregator()
 
         client_params = []
         for idx, model in enumerate(client_models):
@@ -376,8 +375,8 @@ class TestFederatedIntegration:
         training_config,
     ):
         """Test complete federated training workflow."""
-        from nawal.model_builder import ModelBuilder
         from nawal.client.train import GenomeTrainer
+        from nawal.model_builder import ModelBuilder
 
         builder = ModelBuilder()
         aggregator = FederatedAggregator(config=federated_config)
@@ -440,7 +439,7 @@ class TestFederationPerformance:
         client_params = [model.state_dict() for model in client_models]
 
         start_time = time.time()
-        global_params = aggregator.fedavg_aggregate(client_params)
+        aggregator.fedavg_aggregate(client_params)
         elapsed = time.time() - start_time
 
         # Should be fast (< 1 second for 3 clients)
@@ -458,7 +457,7 @@ class TestFederationPerformance:
         client_params = [m.state_dict() for m in models]
 
         start_time = time.time()
-        global_params = aggregator.fedavg_aggregate(client_params)
+        aggregator.fedavg_aggregate(client_params)
         elapsed = time.time() - start_time
 
         # Should handle 100 clients reasonably fast

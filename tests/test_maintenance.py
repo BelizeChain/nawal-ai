@@ -12,20 +12,18 @@ Coverage:
 
 from __future__ import annotations
 
-import pytest
-
 from nawal.maintenance import (
-    RiskLevel,
-    RepairStrategy,
-    ScreeningResult,
-    FilterResult,
-    DriftReport,
-    RepairResult,
-    InputScreener,
-    OutputFilter,
     DriftDetector,
-    SelfRepair,
+    DriftReport,
+    FilterResult,
+    InputScreener,
     MaintenanceLayer,
+    OutputFilter,
+    RepairResult,
+    RepairStrategy,
+    RiskLevel,
+    ScreeningResult,
+    SelfRepair,
 )
 
 # ═══════════════════════════════════════════════════════════════════════════ #
@@ -60,7 +58,7 @@ def _layer(tmp_path) -> MaintenanceLayer:
 
 class TestRiskLevel:
     def test_order_values(self):
-        from maintenance.input_screener import _RISK_ORDER, _max_risk
+        from maintenance.input_screener import _RISK_ORDER
 
         assert _RISK_ORDER.index(RiskLevel.NONE) < _RISK_ORDER.index(RiskLevel.BLOCKED)
 

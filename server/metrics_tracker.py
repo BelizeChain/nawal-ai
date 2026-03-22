@@ -15,12 +15,13 @@ Python: 3.13+
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
 from loguru import logger
-import json
 
 # =============================================================================
 # Training Metrics
@@ -69,9 +70,7 @@ class TrainingMetrics:
     fitness_score: float | None = None
 
     # Metadata
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def calculate_throughput(self) -> None:
@@ -152,9 +151,7 @@ class AggregatedMetrics:
     avg_fitness: float = 0.0
 
     # Timestamp
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -167,9 +164,7 @@ class AggregatedMetrics:
             "min_train_loss": (
                 self.min_train_loss if self.min_train_loss != float("inf") else None
             ),
-            "max_train_loss": (
-                self.max_train_loss if self.max_train_loss != 0.0 else None
-            ),
+            "max_train_loss": (self.max_train_loss if self.max_train_loss != 0.0 else None),
             "std_train_loss": self.std_train_loss,
             "avg_train_accuracy": self.avg_train_accuracy,
             "min_train_accuracy": self.min_train_accuracy,
@@ -247,18 +242,14 @@ class MetricsTracker:
 
         # Enforce max history
         if len(self.round_metrics[round_num]) > self.max_history:
-            self.round_metrics[round_num] = self.round_metrics[round_num][
-                -self.max_history :
-            ]
+            self.round_metrics[round_num] = self.round_metrics[round_num][-self.max_history :]
 
         logger.debug(
             "Metrics recorded",
             participant=metrics.participant_id,
             round=round_num,
             loss=f"{metrics.train_loss:.4f}",
-            accuracy=(
-                f"{metrics.train_accuracy:.2f}%" if metrics.train_accuracy else "N/A"
-            ),
+            accuracy=(f"{metrics.train_accuracy:.2f}%" if metrics.train_accuracy else "N/A"),
         )
 
     def aggregate_round_metrics(self, round_number: int) -> AggregatedMetrics:
@@ -297,9 +288,7 @@ class MetricsTracker:
         std_train_loss = variance**0.5
 
         # Accuracy stats
-        train_accuracies = [
-            m.train_accuracy for m in metrics_list if m.train_accuracy is not None
-        ]
+        train_accuracies = [m.train_accuracy for m in metrics_list if m.train_accuracy is not None]
         avg_train_accuracy = (
             sum(train_accuracies) / len(train_accuracies) if train_accuracies else None
         )
@@ -310,12 +299,8 @@ class MetricsTracker:
         val_losses = [m.val_loss for m in metrics_list if m.val_loss is not None]
         avg_val_loss = sum(val_losses) / len(val_losses) if val_losses else None
 
-        val_accuracies = [
-            m.val_accuracy for m in metrics_list if m.val_accuracy is not None
-        ]
-        avg_val_accuracy = (
-            sum(val_accuracies) / len(val_accuracies) if val_accuracies else None
-        )
+        val_accuracies = [m.val_accuracy for m in metrics_list if m.val_accuracy is not None]
+        avg_val_accuracy = sum(val_accuracies) / len(val_accuracies) if val_accuracies else None
 
         # Performance stats
         training_times = [m.training_time for m in metrics_list]
@@ -326,35 +311,21 @@ class MetricsTracker:
         avg_throughput = sum(throughputs) / len(throughputs) if throughputs else 0.0
 
         # Fitness stats
-        quality_scores = [
-            m.quality_score for m in metrics_list if m.quality_score is not None
-        ]
-        avg_quality = (
-            sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
-        )
+        quality_scores = [m.quality_score for m in metrics_list if m.quality_score is not None]
+        avg_quality = sum(quality_scores) / len(quality_scores) if quality_scores else 0.0
 
         timeliness_scores = [
             m.timeliness_score for m in metrics_list if m.timeliness_score is not None
         ]
         avg_timeliness = (
-            sum(timeliness_scores) / len(timeliness_scores)
-            if timeliness_scores
-            else 0.0
+            sum(timeliness_scores) / len(timeliness_scores) if timeliness_scores else 0.0
         )
 
-        honesty_scores = [
-            m.honesty_score for m in metrics_list if m.honesty_score is not None
-        ]
-        avg_honesty = (
-            sum(honesty_scores) / len(honesty_scores) if honesty_scores else 0.0
-        )
+        honesty_scores = [m.honesty_score for m in metrics_list if m.honesty_score is not None]
+        avg_honesty = sum(honesty_scores) / len(honesty_scores) if honesty_scores else 0.0
 
-        fitness_scores = [
-            m.fitness_score for m in metrics_list if m.fitness_score is not None
-        ]
-        avg_fitness = (
-            sum(fitness_scores) / len(fitness_scores) if fitness_scores else 0.0
-        )
+        fitness_scores = [m.fitness_score for m in metrics_list if m.fitness_score is not None]
+        avg_fitness = sum(fitness_scores) / len(fitness_scores) if fitness_scores else 0.0
 
         # Create aggregated metrics
         aggregated = AggregatedMetrics(
@@ -445,9 +416,7 @@ class MetricsTracker:
             return self.loss_history
         return self.loss_history[-last_n:]
 
-    def get_accuracy_history(
-        self, last_n: int | None = None
-    ) -> list[tuple[int, float]]:
+    def get_accuracy_history(self, last_n: int | None = None) -> list[tuple[int, float]]:
         """
         Get accuracy history.
 
@@ -497,9 +466,7 @@ class MetricsTracker:
             # Export all rounds
             data = {
                 "rounds": sorted(self.round_metrics.keys()),
-                "aggregated_metrics": [
-                    agg.to_dict() for agg in self.aggregated_metrics.values()
-                ],
+                "aggregated_metrics": [agg.to_dict() for agg in self.aggregated_metrics.values()],
                 "loss_history": self.loss_history,
                 "accuracy_history": self.accuracy_history,
                 "fitness_history": self.fitness_history,
@@ -525,40 +492,34 @@ class MetricsTracker:
             return ""
 
         # Training loss
-        lines.append(f"# HELP nawal_train_loss Average training loss")
-        lines.append(f"# TYPE nawal_train_loss gauge")
-        lines.append(
-            f'nawal_train_loss{{round="{latest.round_number}"}} {latest.avg_train_loss}'
-        )
+        lines.append("# HELP nawal_train_loss Average training loss")
+        lines.append("# TYPE nawal_train_loss gauge")
+        lines.append(f'nawal_train_loss{{round="{latest.round_number}"}} {latest.avg_train_loss}')
 
         # Training accuracy
         if latest.avg_train_accuracy:
-            lines.append(f"# HELP nawal_train_accuracy Average training accuracy")
-            lines.append(f"# TYPE nawal_train_accuracy gauge")
+            lines.append("# HELP nawal_train_accuracy Average training accuracy")
+            lines.append("# TYPE nawal_train_accuracy gauge")
             lines.append(
                 f'nawal_train_accuracy{{round="{latest.round_number}"}} {latest.avg_train_accuracy}'
             )
 
         # Fitness
-        lines.append(f"# HELP nawal_fitness Average fitness score")
-        lines.append(f"# TYPE nawal_fitness gauge")
-        lines.append(
-            f'nawal_fitness{{round="{latest.round_number}"}} {latest.avg_fitness}'
-        )
+        lines.append("# HELP nawal_fitness Average fitness score")
+        lines.append("# TYPE nawal_fitness gauge")
+        lines.append(f'nawal_fitness{{round="{latest.round_number}"}} {latest.avg_fitness}')
 
         # Participants
-        lines.append(f"# HELP nawal_participants Number of participants")
-        lines.append(f"# TYPE nawal_participants gauge")
+        lines.append("# HELP nawal_participants Number of participants")
+        lines.append("# TYPE nawal_participants gauge")
         lines.append(
             f'nawal_participants{{round="{latest.round_number}"}} {latest.num_participants}'
         )
 
         # Samples
-        lines.append(f"# HELP nawal_samples Total samples trained")
-        lines.append(f"# TYPE nawal_samples counter")
-        lines.append(
-            f'nawal_samples{{round="{latest.round_number}"}} {latest.total_samples}'
-        )
+        lines.append("# HELP nawal_samples Total samples trained")
+        lines.append("# TYPE nawal_samples counter")
+        lines.append(f'nawal_samples{{round="{latest.round_number}"}} {latest.total_samples}')
 
         return "\n".join(lines) + "\n"
 
@@ -582,10 +543,8 @@ class MetricsTracker:
             "total_rounds": len(all_rounds),
             "total_participants": sum(r.num_participants for r in all_rounds),
             "total_samples": sum(r.total_samples for r in all_rounds),
-            "avg_loss_overall": sum(r.avg_train_loss for r in all_rounds)
-            / len(all_rounds),
-            "avg_fitness_overall": sum(r.avg_fitness for r in all_rounds)
-            / len(all_rounds),
+            "avg_loss_overall": sum(r.avg_train_loss for r in all_rounds) / len(all_rounds),
+            "avg_fitness_overall": sum(r.avg_fitness for r in all_rounds) / len(all_rounds),
             "total_training_time": sum(r.total_training_time for r in all_rounds),
             "latest_round": max(self.aggregated_metrics.keys()),
         }
@@ -658,9 +617,7 @@ class MetricsTracker:
 
         self._client_metrics[round_num][metric_name][client_id] = value
 
-    def get_client_metrics(
-        self, metric_name: str, round_num: int
-    ) -> dict[int | str, float]:
+    def get_client_metrics(self, metric_name: str, round_num: int) -> dict[int | str, float]:
         """
         Get all client metrics for a specific metric and round (backward compatibility).
 
@@ -742,7 +699,7 @@ class MetricsTracker:
             logger.warning(f"Metrics file not found: {filepath}")
             return
 
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
 
         # Convert string keys back to integers for round numbers
@@ -765,7 +722,7 @@ class MetricsTracker:
 # =============================================================================
 
 __all__ = [
-    "TrainingMetrics",
     "AggregatedMetrics",
     "MetricsTracker",
+    "TrainingMetrics",
 ]

@@ -8,21 +8,18 @@ This module encodes neural network architectures as "DNA" that can be evolved th
 genetic algorithms.
 """
 
-from enum import Enum, auto
-from typing import Any, Protocol, TypeAlias
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-import uuid
-import json
 import hashlib
-
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+import json
+import uuid
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any, Literal, Protocol
 
 import torch.nn as nn
-from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class LayerType(str, Enum):
+class LayerType(StrEnum):
     """
     Supported neural network layer types for genome encoding.
 
@@ -85,9 +82,7 @@ class ArchitectureLayer(BaseModel):
     Uses Pydantic v2 for validation and serialization.
     """
 
-    model_config = ConfigDict(
-        frozen=False, validate_assignment=True, arbitrary_types_allowed=True
-    )
+    model_config = ConfigDict(frozen=False, validate_assignment=True, arbitrary_types_allowed=True)
 
     layer_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     layer_type: LayerType
@@ -144,9 +139,9 @@ class Hyperparameters(BaseModel):
     gradient_clip_norm: float = Field(default=1.0, gt=0)
 
     # Learning rate schedule
-    lr_scheduler: Literal[
-        "cosine", "linear", "polynomial", "constant", "warmup_stable_decay"
-    ] = "cosine"
+    lr_scheduler: Literal["cosine", "linear", "polynomial", "constant", "warmup_stable_decay"] = (
+        "cosine"
+    )
     warmup_steps: int = Field(default=1000, ge=0)
 
     # Training configuration
@@ -184,9 +179,7 @@ class Genome(BaseModel):
     This is the "DNA" of the AI that evolves over time through genetic algorithms.
     """
 
-    model_config = ConfigDict(
-        frozen=False, validate_assignment=True, arbitrary_types_allowed=True
-    )
+    model_config = ConfigDict(frozen=False, validate_assignment=True, arbitrary_types_allowed=True)
 
     # Identity
     genome_id: str = Field(default_factory=lambda: f"nawal_{uuid.uuid4().hex[:12]}")
@@ -207,7 +200,7 @@ class Genome(BaseModel):
     honesty_score: float | None = Field(default=None, ge=0, le=100)
 
     # Metadata
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     trained_by: list[str] = Field(default_factory=list)  # Validator IDs
     training_samples: int = Field(default=0, ge=0)
 
@@ -264,9 +257,7 @@ class Genome(BaseModel):
     @property
     def output_normalization(self) -> str:
         """Get output normalization type"""
-        return (
-            LayerType.LAYER_NORM.value
-        )  # Return string value for NormalizationFactory
+        return LayerType.LAYER_NORM.value  # Return string value for NormalizationFactory
 
     @property
     def tie_word_embeddings(self) -> bool:
@@ -292,9 +283,7 @@ class Genome(BaseModel):
         """Backward compatibility setter for fitness_score"""
         self.fitness_score = value
 
-    def calculate_fitness(
-        self, quality: float, timeliness: float, honesty: float
-    ) -> float:
+    def calculate_fitness(self, quality: float, timeliness: float, honesty: float) -> float:
         """
         Calculate overall fitness score aligned with PoUW consensus.
 
@@ -421,9 +410,7 @@ class GenomeEncoder:
                     input_size=768,
                     output_size=512,
                 ),
-                ArchitectureLayer(
-                    layer_type=LayerType.GELU, parameters={"approximate": "tanh"}
-                ),
+                ArchitectureLayer(layer_type=LayerType.GELU, parameters={"approximate": "tanh"}),
                 ArchitectureLayer(layer_type=LayerType.DROPOUT, dropout_rate=0.1),
                 ArchitectureLayer(
                     layer_type=LayerType.LINEAR,

@@ -25,18 +25,20 @@ Author: BelizeChain Team
 License: MIT
 """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any, Union
 from enum import Enum
+from typing import Any
+
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 from PIL import Image
-import logging
+
+from genome.encoding import ArchitectureLayer, Genome, LayerType
 
 from .model import BelizeChainLLM
-from genome.encoding import Genome, ArchitectureLayer, LayerType
 
 logger = logging.getLogger(__name__)
 
@@ -84,9 +86,9 @@ class DomainDataConfig:
     """Configuration for domain-specific data preprocessing"""
 
     # Image preprocessing
-    image_size: Tuple[int, int] = (224, 224)
-    normalize_mean: Tuple[float, float, float] = (0.485, 0.456, 0.406)
-    normalize_std: Tuple[float, float, float] = (0.229, 0.224, 0.225)
+    image_size: tuple[int, int] = (224, 224)
+    normalize_mean: tuple[float, float, float] = (0.485, 0.456, 0.406)
+    normalize_std: tuple[float, float, float] = (0.229, 0.224, 0.225)
 
     # Data augmentation
     augment_rotation: bool = True
@@ -99,9 +101,7 @@ class DomainDataConfig:
 
     # Text preprocessing
     max_sequence_length: int = 512
-    tokenizer_name: str = (
-        "character"  # Nawal character tokenizer (built-in, no external deps)
-    )
+    tokenizer_name: str = "character"  # Nawal character tokenizer (built-in, no external deps)
 
     # Domain-specific thresholds
     quality_threshold: float = 0.7
@@ -113,7 +113,7 @@ class ModelArchitecturePreferences:
     """Genome evolution preferences for each domain"""
 
     # Preferred layer types (for genome evolution)
-    preferred_layers: List[LayerType] = field(default_factory=list)
+    preferred_layers: list[LayerType] = field(default_factory=list)
 
     # Architecture constraints
     min_layers: int = 3
@@ -145,8 +145,8 @@ class DomainModel(ABC):
     def __init__(
         self,
         domain: ModelDomain,
-        genome: Optional[Genome] = None,
-        config: Optional[DomainDataConfig] = None,
+        genome: Genome | None = None,
+        config: DomainDataConfig | None = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         self.domain = domain
@@ -164,12 +164,11 @@ class DomainModel(ABC):
         self.best_accuracy = 0.0
 
         logger.info(
-            f"Initialized {self.__class__.__name__} "
-            f"(domain={domain.name}, device={device})"
+            f"Initialized {self.__class__.__name__} " f"(domain={domain.name}, device={device})"
         )
 
     @abstractmethod
-    def preprocess_data(self, raw_data: Dict[str, Any]) -> torch.Tensor:
+    def preprocess_data(self, raw_data: dict[str, Any]) -> torch.Tensor:
         """
         Preprocess raw IoT data for model input.
 
@@ -187,7 +186,7 @@ class DomainModel(ABC):
         pass
 
     @abstractmethod
-    def forward(self, input_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, input_tensor: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Run model inference.
 
@@ -205,9 +204,9 @@ class DomainModel(ABC):
     @abstractmethod
     def calculate_improvement(
         self,
-        old_predictions: Dict[str, torch.Tensor],
-        new_predictions: Dict[str, torch.Tensor],
-        ground_truth: Optional[torch.Tensor] = None,
+        old_predictions: dict[str, torch.Tensor],
+        new_predictions: dict[str, torch.Tensor],
+        ground_truth: torch.Tensor | None = None,
     ) -> float:
         """
         Calculate model improvement metric for PoUW rewards.
@@ -252,15 +251,13 @@ class DomainModel(ABC):
         """Get default model architecture if no genome provided"""
         pass
 
-    def _genome_layer_to_pytorch(self, layer: ArchitectureLayer) -> Optional[nn.Module]:
+    def _genome_layer_to_pytorch(self, layer: ArchitectureLayer) -> nn.Module | None:
         """Convert genome layer to PyTorch module"""
         layer_type = layer.layer_type
         params = layer.parameters
 
         if layer_type == LayerType.LINEAR:
-            return nn.Linear(
-                params.get("in_features", 512), params.get("out_features", 512)
-            )
+            return nn.Linear(params.get("in_features", 512), params.get("out_features", 512))
         elif layer_type == LayerType.CONV2D:
             return nn.Conv2d(
                 params.get("in_channels", 3),
@@ -321,8 +318,8 @@ class AgriTechModel(DomainModel):
 
     def __init__(
         self,
-        genome: Optional[Genome] = None,
-        config: Optional[DomainDataConfig] = None,
+        genome: Genome | None = None,
+        config: DomainDataConfig | None = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         super().__init__(
@@ -336,7 +333,7 @@ class AgriTechModel(DomainModel):
         self.ndvi_processor = self._build_ndvi_processor()
         self.pest_detector = self._build_pest_detector()
 
-    def preprocess_data(self, raw_data: Dict[str, Any]) -> torch.Tensor:
+    def preprocess_data(self, raw_data: dict[str, Any]) -> torch.Tensor:
         """
         Preprocess agricultural data.
 
@@ -406,9 +403,7 @@ class AgriTechModel(DomainModel):
 
         # Normalize
         if self.config.sensor_normalization == "minmax":
-            readings = (readings - readings.min()) / (
-                readings.max() - readings.min() + 1e-8
-            )
+            readings = (readings - readings.min()) / (readings.max() - readings.min() + 1e-8)
         elif self.config.sensor_normalization == "zscore":
             readings = (readings - readings.mean()) / (readings.std() + 1e-8)
 
@@ -419,7 +414,7 @@ class AgriTechModel(DomainModel):
         # Similar to sensor data but with different features
         return self._preprocess_sensor_data(weather_data)
 
-    def forward(self, input_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, input_tensor: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Run AgriTech inference.
 
@@ -458,16 +453,15 @@ class AgriTechModel(DomainModel):
 
             return {
                 "predictions": predictions,
-                "confidence": torch.abs(predictions - 0.5)
-                * 2,  # Distance from uncertain (0.5)
+                "confidence": torch.abs(predictions - 0.5) * 2,  # Distance from uncertain (0.5)
                 "features": features,
             }
 
     def calculate_improvement(
         self,
-        old_predictions: Dict[str, torch.Tensor],
-        new_predictions: Dict[str, torch.Tensor],
-        ground_truth: Optional[torch.Tensor] = None,
+        old_predictions: dict[str, torch.Tensor],
+        new_predictions: dict[str, torch.Tensor],
+        ground_truth: torch.Tensor | None = None,
     ) -> float:
         """
         Calculate improvement in crop health prediction accuracy.
@@ -584,8 +578,8 @@ class MarineModel(DomainModel):
 
     def __init__(
         self,
-        genome: Optional[Genome] = None,
-        config: Optional[DomainDataConfig] = None,
+        genome: Genome | None = None,
+        config: DomainDataConfig | None = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         super().__init__(
@@ -599,7 +593,7 @@ class MarineModel(DomainModel):
         self.coral_health_detector = self._build_coral_health_detector()
         self.species_classifier = self._build_species_classifier()
 
-    def preprocess_data(self, raw_data: Dict[str, Any]) -> torch.Tensor:
+    def preprocess_data(self, raw_data: dict[str, Any]) -> torch.Tensor:
         """
         Preprocess marine data.
 
@@ -678,7 +672,7 @@ class MarineModel(DomainModel):
 
         return torch.from_numpy(readings).float().unsqueeze(0)
 
-    def forward(self, input_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, input_tensor: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Run Marine inference.
 
@@ -722,9 +716,9 @@ class MarineModel(DomainModel):
 
     def calculate_improvement(
         self,
-        old_predictions: Dict[str, torch.Tensor],
-        new_predictions: Dict[str, torch.Tensor],
-        ground_truth: Optional[torch.Tensor] = None,
+        old_predictions: dict[str, torch.Tensor],
+        new_predictions: dict[str, torch.Tensor],
+        ground_truth: torch.Tensor | None = None,
     ) -> float:
         """Calculate improvement in marine health prediction"""
         if ground_truth is not None:
@@ -825,8 +819,8 @@ class EducationModel(DomainModel):
 
     def __init__(
         self,
-        genome: Optional[Genome] = None,
-        config: Optional[DomainDataConfig] = None,
+        genome: Genome | None = None,
+        config: DomainDataConfig | None = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         super().__init__(
@@ -847,7 +841,7 @@ class EducationModel(DomainModel):
         )
         self.llm.to(self.device)
 
-    def preprocess_data(self, raw_data: Dict[str, Any]) -> torch.Tensor:
+    def preprocess_data(self, raw_data: dict[str, Any]) -> torch.Tensor:
         """
         Preprocess education data.
 
@@ -888,7 +882,7 @@ class EducationModel(DomainModel):
             # Return zero tensor as fallback
             return torch.zeros(1, 4)
 
-    def forward(self, input_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, input_tensor: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Run Education inference.
 
@@ -924,18 +918,16 @@ class EducationModel(DomainModel):
 
     def calculate_improvement(
         self,
-        old_predictions: Dict[str, torch.Tensor],
-        new_predictions: Dict[str, torch.Tensor],
-        ground_truth: Optional[torch.Tensor] = None,
+        old_predictions: dict[str, torch.Tensor],
+        new_predictions: dict[str, torch.Tensor],
+        ground_truth: torch.Tensor | None = None,
     ) -> float:
         """Calculate improvement in student performance prediction"""
         if ground_truth is not None:
             old_error = torch.abs(old_predictions["predictions"] - ground_truth).mean()
             new_error = torch.abs(new_predictions["predictions"] - ground_truth).mean()
             improvement = max(0.0, (old_error - new_error).item())
-            improvement = min(
-                1.0, improvement * 5
-            )  # Education needs precise predictions
+            improvement = min(1.0, improvement * 5)  # Education needs precise predictions
         else:
             old_conf = old_predictions["confidence"].mean()
             new_conf = new_predictions["confidence"].mean()
@@ -1002,8 +994,8 @@ class TechModel(DomainModel):
 
     def __init__(
         self,
-        genome: Optional[Genome] = None,
-        config: Optional[DomainDataConfig] = None,
+        genome: Genome | None = None,
+        config: DomainDataConfig | None = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         super().__init__(
@@ -1016,7 +1008,7 @@ class TechModel(DomainModel):
         # Tech-specific: Time series analysis for metrics
         self.anomaly_detector = self._build_anomaly_detector()
 
-    def preprocess_data(self, raw_data: Dict[str, Any]) -> torch.Tensor:
+    def preprocess_data(self, raw_data: dict[str, Any]) -> torch.Tensor:
         """
         Preprocess infrastructure metrics.
 
@@ -1039,8 +1031,7 @@ class TechModel(DomainModel):
         itemsize = np.dtype(np.float32).itemsize
         if len(data) % itemsize != 0:
             raise ValueError(
-                f"Metrics data length {len(data)} not aligned to float32 "
-                f"(itemsize={itemsize})"
+                f"Metrics data length {len(data)} not aligned to float32 " f"(itemsize={itemsize})"
             )
         # Parse metrics (assume time series of [cpu, memory, network, disk])
         metrics = np.frombuffer(data, dtype=np.float32)
@@ -1062,7 +1053,7 @@ class TechModel(DomainModel):
 
         return torch.from_numpy(metrics).float().unsqueeze(0)  # (1, T, F)
 
-    def forward(self, input_tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, input_tensor: torch.Tensor) -> dict[str, torch.Tensor]:
         """
         Run Tech inference.
 
@@ -1101,9 +1092,9 @@ class TechModel(DomainModel):
 
     def calculate_improvement(
         self,
-        old_predictions: Dict[str, torch.Tensor],
-        new_predictions: Dict[str, torch.Tensor],
-        ground_truth: Optional[torch.Tensor] = None,
+        old_predictions: dict[str, torch.Tensor],
+        new_predictions: dict[str, torch.Tensor],
+        ground_truth: torch.Tensor | None = None,
     ) -> float:
         """Calculate improvement in infrastructure monitoring"""
         if ground_truth is not None:
@@ -1168,8 +1159,8 @@ class DomainModelFactory:
     @staticmethod
     def create_model(
         domain: ModelDomain,
-        genome: Optional[Genome] = None,
-        config: Optional[DomainDataConfig] = None,
+        genome: Genome | None = None,
+        config: DomainDataConfig | None = None,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ) -> DomainModel:
         """
@@ -1199,12 +1190,12 @@ class DomainModelFactory:
         return model_class(genome=genome, config=config, device=device)
 
     @staticmethod
-    def list_available_domains() -> List[ModelDomain]:
+    def list_available_domains() -> list[ModelDomain]:
         """List all available domains"""
         return list(ModelDomain)
 
     @staticmethod
-    def get_domain_info(domain: ModelDomain) -> Dict[str, Any]:
+    def get_domain_info(domain: ModelDomain) -> dict[str, Any]:
         """Get information about a domain"""
         info = {
             ModelDomain.AGRITECH: {
@@ -1305,11 +1296,7 @@ def calculate_quality_score(
         Quality score 0-1000
     """
     weighted_sum = (
-        accuracy * 30
-        + timeliness * 20
-        + completeness * 15
-        + consistency * 20
-        + provenance * 15
+        accuracy * 30 + timeliness * 20 + completeness * 15 + consistency * 20 + provenance * 15
     )
     return weighted_sum // 10  # Scale to 0-1000
 
@@ -1318,9 +1305,9 @@ def prepare_oracle_submission(
     domain: ModelDomain,
     device_id: bytes,
     data: bytes,
-    predictions: Dict[str, torch.Tensor],
-    quality_metrics: Dict[str, int],
-) -> Dict[str, Any]:
+    predictions: dict[str, torch.Tensor],
+    quality_metrics: dict[str, int],
+) -> dict[str, Any]:
     """
     Prepare data submission for Oracle pallet.
 

@@ -21,7 +21,7 @@ Usage::
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -46,7 +46,7 @@ class ActionExecutor:
     ) -> None:
         self._registry = registry
         self._chain = chain_outputs
-        self._history: List[Dict[str, Any]] = []
+        self._history: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------ #
     # Single tool call                                                     #
@@ -61,17 +61,14 @@ class ActionExecutor:
         self._history.append(
             {
                 "tool": tool_name,
-                "kwargs": {
-                    k: v for k, v in kwargs.items() if k != "code"
-                },  # skip large blobs
+                "kwargs": {k: v for k, v in kwargs.items() if k != "code"},  # skip large blobs
                 "status": result.status,
                 "latency_ms": elapsed,
             }
         )
 
         logger.debug(
-            f"ActionExecutor: '{tool_name}' → {result.status.value} "
-            f"({elapsed:.1f} ms)"
+            f"ActionExecutor: '{tool_name}' → {result.status.value} " f"({elapsed:.1f} ms)"
         )
         return result
 
@@ -79,7 +76,7 @@ class ActionExecutor:
     # Plan execution (list of steps)                                       #
     # ------------------------------------------------------------------ #
 
-    def execute_plan(self, steps: List[Dict[str, Any]]) -> List[ToolResult]:
+    def execute_plan(self, steps: list[dict[str, Any]]) -> list[ToolResult]:
         """
         Execute an ordered plan.
 
@@ -93,7 +90,7 @@ class ActionExecutor:
 
         Returns: list of ToolResult, one per step.
         """
-        results: List[ToolResult] = []
+        results: list[ToolResult] = []
         prev_output: Any = None
 
         for i, step in enumerate(steps):
@@ -122,7 +119,7 @@ class ActionExecutor:
     # Telemetry / introspection                                            #
     # ------------------------------------------------------------------ #
 
-    def history(self) -> List[Dict[str, Any]]:
+    def history(self) -> list[dict[str, Any]]:
         """Return a copy of the execution history."""
         return list(self._history)
 

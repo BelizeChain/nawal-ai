@@ -5,11 +5,11 @@ Pure PyTorch implementation with NO dependencies on HuggingFace or external mode
 Implements scaled dot-product attention with multi-head parallel processing.
 """
 
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import math
-from typing import Optional, Tuple
 
 from .config import NawalModelConfig
 
@@ -120,11 +120,11 @@ class MultiHeadAttention(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        attention_mask: torch.Tensor | None = None,
+        past_key_value: tuple[torch.Tensor, torch.Tensor] | None = None,
         use_cache: bool = False,
         is_causal: bool = True,
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
         """
         Forward pass for multi-head attention
 
@@ -139,7 +139,7 @@ class MultiHeadAttention(nn.Module):
             output: Attention output [batch_size, seq_len, hidden_size]
             new_past_key_value: Updated (key, value) cache if use_cache=True
         """
-        batch_size, seq_len, _ = hidden_states.size()
+        _batch_size, seq_len, _ = hidden_states.size()
 
         # Project to Q, K, V
         query = self.q_proj(hidden_states)
@@ -183,9 +183,7 @@ class MultiHeadAttention(nn.Module):
             # Expand mask to [batch, 1, seq_len, kv_len]
             attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
             attention_mask = attention_mask.to(dtype=attn_weights.dtype)
-            attention_mask = (1.0 - attention_mask) * torch.finfo(
-                attn_weights.dtype
-            ).min
+            attention_mask = (1.0 - attention_mask) * torch.finfo(attn_weights.dtype).min
             attn_weights = attn_weights + attention_mask
 
         # Softmax to get attention probabilities

@@ -27,8 +27,8 @@ Usage::
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from loguru import logger
 
@@ -43,7 +43,7 @@ except ImportError:  # graceful fallback during testing
 # --------------------------------------------------------------------------- #
 
 
-def _safety_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> float:
+def _safety_evaluator(candidate: dict[str, Any], context: dict[str, Any]) -> float:
     """
     Returns 0.0–1.0.  1.0 = perfectly safe, 0.0 = flagged as unsafe.
 
@@ -70,7 +70,7 @@ def _safety_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> flo
     return 1.0
 
 
-def _alignment_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> float:
+def _alignment_evaluator(candidate: dict[str, Any], context: dict[str, Any]) -> float:
     """
     Returns 0.0–1.0.  Simple keyword overlap between candidate text and goal.
 
@@ -88,7 +88,7 @@ def _alignment_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> 
     return min(1.0, overlap)
 
 
-def _novelty_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> float:
+def _novelty_evaluator(candidate: dict[str, Any], context: dict[str, Any]) -> float:
     """
     Returns 0.0–1.0.  Rewards candidates not already present in context history.
 
@@ -103,7 +103,7 @@ def _novelty_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> fl
     return 0.8
 
 
-def _curiosity_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> float:
+def _curiosity_evaluator(candidate: dict[str, Any], context: dict[str, Any]) -> float:
     """
     Returns 0.0–1.0.  Rewards action/search candidates that gather new info.
 
@@ -126,7 +126,7 @@ def _curiosity_evaluator(candidate: Dict[str, Any], context: Dict[str, Any]) -> 
 
 
 # Default drive definitions
-_DEFAULT_DRIVES: List[Tuple[str, float, Callable]] = [
+_DEFAULT_DRIVES: list[tuple[str, float, Callable]] = [
     ("safety", 2.0, _safety_evaluator),
     ("alignment", 1.5, _alignment_evaluator),
     ("novelty", 1.0, _novelty_evaluator),
@@ -150,10 +150,10 @@ class DriveBasedRewardModel(AbstractRewardModel):
 
     def __init__(
         self,
-        drives: Optional[List[Tuple[str, float, Callable]]] = None,
+        drives: list[tuple[str, float, Callable]] | None = None,
     ) -> None:
         raw = drives if drives is not None else _DEFAULT_DRIVES
-        self._drives: Dict[str, Tuple[float, Callable]] = {
+        self._drives: dict[str, tuple[float, Callable]] = {
             name: (weight, fn) for name, weight, fn in raw
         }
 
@@ -165,7 +165,7 @@ class DriveBasedRewardModel(AbstractRewardModel):
         self,
         name: str,
         weight: float,
-        evaluator: Callable[[Dict[str, Any], Dict[str, Any]], float],
+        evaluator: Callable[[dict[str, Any], dict[str, Any]], float],
     ) -> None:
         """Add or replace a drive."""
         self._drives[name] = (weight, evaluator)
@@ -175,7 +175,7 @@ class DriveBasedRewardModel(AbstractRewardModel):
         """Remove a drive by name."""
         self._drives.pop(name, None)
 
-    def drive_names(self) -> List[str]:
+    def drive_names(self) -> list[str]:
         return list(self._drives.keys())
 
     # ------------------------------------------------------------------ #
@@ -184,10 +184,10 @@ class DriveBasedRewardModel(AbstractRewardModel):
 
     def score(
         self,
-        candidates: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
-        drives: Optional[List[DriveSignal]] = None,
-    ) -> List[float]:
+        candidates: list[dict[str, Any]],
+        context: dict[str, Any] | None = None,
+        drives: list[DriveSignal] | None = None,
+    ) -> list[float]:
         """
         Score each candidate.
 
@@ -204,7 +204,7 @@ class DriveBasedRewardModel(AbstractRewardModel):
         effective_drives = self._resolve_drives(drives)
         total_weight = sum(w for _, (w, _) in effective_drives.items()) or 1.0
 
-        scores: List[float] = []
+        scores: list[float] = []
         for candidate in candidates:
             weighted_total = 0.0
             for drive_name, (weight, evaluator) in effective_drives.items():
@@ -220,16 +220,16 @@ class DriveBasedRewardModel(AbstractRewardModel):
 
     def ranked(
         self,
-        candidates: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
-        drives: Optional[List[DriveSignal]] = None,
-    ) -> List[Dict[str, Any]]:
+        candidates: list[dict[str, Any]],
+        context: dict[str, Any] | None = None,
+        drives: list[DriveSignal] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Return candidates sorted by descending score, each augmented with a
         ``_score`` key.
         """
         scores = self.score(candidates, context, drives)
-        annotated = [{**c, "_score": s} for c, s in zip(candidates, scores)]
+        annotated = [{**c, "_score": s} for c, s in zip(candidates, scores, strict=False)]
         annotated.sort(key=lambda x: x["_score"], reverse=True)
         return annotated
 
@@ -239,18 +239,16 @@ class DriveBasedRewardModel(AbstractRewardModel):
 
     def _resolve_drives(
         self,
-        overrides: Optional[List[DriveSignal]],
-    ) -> Dict[str, Tuple[float, Callable]]:
+        overrides: list[DriveSignal] | None,
+    ) -> dict[str, tuple[float, Callable]]:
         """Merge override DriveSignals with registered drives."""
         if not overrides:
             return self._drives
-        merged: Dict[str, Tuple[float, Callable]] = {}
+        merged: dict[str, tuple[float, Callable]] = {}
         for sig in overrides:
             if sig.name in self._drives:
                 _, fn = self._drives[sig.name]
                 merged[sig.name] = (sig.weight, fn)
             else:
-                logger.debug(
-                    f"DriveSignal {sig.name!r} has no registered evaluator; skipped."
-                )
+                logger.debug(f"DriveSignal {sig.name!r} has no registered evaluator; skipped.")
         return merged or self._drives  # fallback to all drives if none matched

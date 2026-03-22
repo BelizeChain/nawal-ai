@@ -13,7 +13,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class GoalStatus(Enum):
@@ -41,9 +41,9 @@ class Goal:
     goal_id: str
     description: str
     priority: float = 0.5
-    context: Dict[str, Any] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
     status: GoalStatus = GoalStatus.PENDING
-    sub_goals: List["Goal"] = field(default_factory=list)
+    sub_goals: list[Goal] = field(default_factory=list)
 
 
 @dataclass
@@ -61,9 +61,9 @@ class Plan:
 
     plan_id: str
     goal_id: str
-    steps: List[Dict[str, Any]]
+    steps: list[dict[str, Any]]
     score: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class AbstractPlanner(ABC):
@@ -79,9 +79,9 @@ class AbstractPlanner(ABC):
     def generate_plans(
         self,
         goal: Goal,
-        world_state: Dict[str, Any],
+        world_state: dict[str, Any],
         n_candidates: int = 3,
-    ) -> List[Plan]:
+    ) -> list[Plan]:
         """
         Produce up to *n_candidates* Plans for *goal* given *world_state*.
 
@@ -97,8 +97,8 @@ class AbstractPlanner(ABC):
     @abstractmethod
     def select_plan(
         self,
-        plans: List[Plan],
-        constraints: Optional[Dict[str, Any]] = None,
+        plans: list[Plan],
+        constraints: dict[str, Any] | None = None,
     ) -> Plan:
         """
         Choose the best Plan from a ranked list.
@@ -125,7 +125,7 @@ class AbstractExecutor(ABC):
         self,
         plan: Plan,
         dry_run: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute *plan* step-by-step.
 

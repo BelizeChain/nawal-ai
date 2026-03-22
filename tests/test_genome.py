@@ -13,14 +13,12 @@ Author: BelizeChain Team
 License: MIT
 """
 
+
 import pytest
 import torch
-from copy import deepcopy
-
-from nawal.genome.dna import DNA, LayerGene, ConnectionGene
-from nawal.genome.operators import MutationOperator, CrossoverOperator
-from nawal.genome.population import Population
+from nawal.genome.dna import DNA, ConnectionGene, LayerGene
 from nawal.genome.history import InnovationHistory
+from nawal.genome.operators import CrossoverOperator, MutationOperator
 
 # ============================================================================
 # DNA Tests
@@ -74,13 +72,12 @@ class TestDNA:
     def test_enable_disable_gene(self, sample_dna):
         """Test enabling/disabling genes."""
         gene = sample_dna.layer_genes[0]
-        original_state = gene.enabled
 
         gene.enabled = False
-        assert gene.enabled == False
+        assert not gene.enabled
 
         gene.enabled = True
-        assert gene.enabled == True
+        assert gene.enabled
 
     def test_dna_clone(self, sample_dna):
         """Test DNA can be cloned."""
@@ -131,7 +128,7 @@ class TestLayerGene:
         assert gene.innovation_id == 1
         assert gene.layer_type == "linear"
         assert gene.params["in_features"] == 10
-        assert gene.enabled == True
+        assert gene.enabled
 
     def test_layer_gene_types(self):
         """Test various layer types."""
@@ -189,7 +186,7 @@ class TestConnectionGene:
         assert gene.innovation_id == 101
         assert gene.source_layer == 0
         assert gene.target_layer == 1
-        assert gene.enabled == True
+        assert gene.enabled
 
     def test_connection_gene_serialization(self):
         """Test ConnectionGene serialization."""
@@ -420,14 +417,14 @@ class TestPopulation:
 
     def test_assign_fitness(self, sample_population, mock_fitness_scores):
         """Test assigning fitness to population."""
-        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores):
+        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores, strict=False):
             genome.fitness_score = fitness
 
         assert all(g.fitness_score is not None for g in sample_population.genomes)
 
     def test_get_best_genome(self, sample_population, mock_fitness_scores):
         """Test retrieving best genome."""
-        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores):
+        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores, strict=False):
             genome.fitness_score = fitness
 
         best = sample_population.get_best_genome()
@@ -435,7 +432,7 @@ class TestPopulation:
 
     def test_tournament_selection(self, sample_population, mock_fitness_scores):
         """Test tournament selection."""
-        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores):
+        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores, strict=False):
             genome.fitness_score = fitness
 
         selected = sample_population.tournament_selection(tournament_size=3)
@@ -444,7 +441,7 @@ class TestPopulation:
 
     def test_evolve_generation(self, sample_population, mock_fitness_scores):
         """Test evolving to next generation."""
-        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores):
+        for genome, fitness in zip(sample_population.genomes, mock_fitness_scores, strict=False):
             genome.fitness_score = fitness
 
         initial_gen = sample_population.generation
@@ -518,8 +515,8 @@ class TestGenomeIntegration:
         self, genome_config, evolution_config, innovation_history
     ):
         """Test complete evolution cycle."""
-        from nawal.genome.population import PopulationConfig, PopulationManager
         from nawal.genome.encoding import Genome
+        from nawal.genome.population import PopulationConfig, PopulationManager
 
         # Create population using fixture (which has backward compatibility)
         pop_config = PopulationConfig(
@@ -615,8 +612,8 @@ class TestC51RoundTrip:
     def test_genome_dict_round_trip(self):
         """to_dict → from_dict preserves all genome fields."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             Hyperparameters,
             LayerType,
         )
@@ -681,9 +678,8 @@ class TestC51RoundTrip:
     def test_genome_json_round_trip(self):
         """to_json → from_json preserves all genome fields."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
-            Hyperparameters,
+            Genome,
             LayerType,
         )
 
@@ -714,8 +710,8 @@ class TestC51RoundTrip:
     def test_clone_preserves_architecture(self):
         """clone() preserves architecture while assigning new ID."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
 
@@ -740,8 +736,8 @@ class TestC51RoundTrip:
     def test_genome_hash_deterministic(self):
         """genome_hash is deterministic — same genome yields same hash on repeated calls."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
 
@@ -760,8 +756,8 @@ class TestC51RoundTrip:
     def test_genome_hash_differs_for_different_architectures(self):
         """Different architectures produce different hashes."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
 
@@ -795,10 +791,10 @@ class TestC52GeneticAlgorithmValidity:
     def _make_genome(self):
         """Helper: create a genome with proper transformer layers."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
-            LayerType,
+            Genome,
             Hyperparameters,
+            LayerType,
         )
 
         return Genome(
@@ -827,7 +823,7 @@ class TestC52GeneticAlgorithmValidity:
 
     def test_mutate_add_layer_no_crash(self):
         """_mutate_add_layer must not crash (was genome.hyperparameters.hidden_size bug)."""
-        from nawal.genome.operators import MutationOperator, MutationConfig
+        from nawal.genome.operators import MutationConfig, MutationOperator
 
         config = MutationConfig(
             add_layer_rate=1.0,
@@ -846,7 +842,7 @@ class TestC52GeneticAlgorithmValidity:
 
     def test_mutate_add_attention_no_crash(self):
         """_mutate_add_attention must not crash (same hidden_size bug)."""
-        from nawal.genome.operators import MutationOperator, MutationConfig
+        from nawal.genome.operators import MutationConfig, MutationOperator
 
         config = MutationConfig(
             add_layer_rate=0.0,
@@ -865,8 +861,9 @@ class TestC52GeneticAlgorithmValidity:
 
     def test_modify_layer_hidden_heads_alignment(self):
         """After _mutate_modify_layer, hidden_size % num_heads must == 0."""
-        from nawal.genome.operators import MutationOperator, MutationConfig
         import random
+
+        from nawal.genome.operators import MutationConfig, MutationOperator
 
         config = MutationConfig(
             add_layer_rate=0.0,
@@ -891,7 +888,7 @@ class TestC52GeneticAlgorithmValidity:
 
     def test_crossover_produces_valid_genome(self):
         """Crossover must produce a genome with valid layer structure."""
-        from nawal.genome.operators import CrossoverOperator, CrossoverConfig
+        from nawal.genome.operators import CrossoverConfig, CrossoverOperator
 
         config = CrossoverConfig(
             uniform_rate=0.2,
@@ -932,8 +929,8 @@ class TestC53AdapterFieldMapping:
     def test_adapter_extracts_vocab_size_from_embedding(self):
         """vocab_size should come from embedding layer, not be hardcoded."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
         from nawal.genome.nawal_adapter import GenomeToNawalAdapter
@@ -960,8 +957,8 @@ class TestC53AdapterFieldMapping:
     def test_adapter_defaults_vocab_size_without_embedding(self):
         """Without embedding layer, vocab_size defaults to 52000."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
         from nawal.genome.nawal_adapter import GenomeToNawalAdapter
@@ -983,8 +980,8 @@ class TestC53AdapterFieldMapping:
     def test_adapter_extracts_activation_from_layer(self):
         """Activation should come from transformer layer, not hyperparameters."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
         from nawal.genome.nawal_adapter import GenomeToNawalAdapter
@@ -1007,8 +1004,8 @@ class TestC53AdapterFieldMapping:
     def test_adapter_extracts_max_position_embeddings(self):
         """max_position_embeddings should come from positional encoding layer."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
         from nawal.genome.nawal_adapter import GenomeToNawalAdapter
@@ -1035,8 +1032,8 @@ class TestC53AdapterFieldMapping:
     def test_adapter_maps_hidden_size_and_heads(self):
         """hidden_size and num_heads must come from genome transformer layers."""
         from nawal.genome.encoding import (
-            Genome,
             ArchitectureLayer,
+            Genome,
             LayerType,
         )
         from nawal.genome.nawal_adapter import GenomeToNawalAdapter

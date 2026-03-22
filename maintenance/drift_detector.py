@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import threading
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional
 
 import numpy as np
 from loguru import logger
@@ -40,14 +39,13 @@ from loguru import logger
 from maintenance.interfaces import (
     AbstractDriftDetector,
     DriftReport,
-    RiskLevel,
 )
 
 # --------------------------------------------------------------------------- #
 # Default drift thresholds (fractional deviation)                               #
 # --------------------------------------------------------------------------- #
 
-DEFAULT_THRESHOLDS: Dict[str, float] = {
+DEFAULT_THRESHOLDS: dict[str, float] = {
     "confidence_mean": 0.15,  # 15% drop triggers alert
     "safety_block_rate": 0.05,  # 5pp increase triggers alert
     "response_length": 0.30,  # 30% change triggers alert
@@ -76,7 +74,7 @@ class DriftDetector(AbstractDriftDetector):
 
     def __init__(
         self,
-        thresholds: Optional[Dict[str, float]] = None,
+        thresholds: dict[str, float] | None = None,
         window_size: int = 100,
         min_observations: int = 1,
     ) -> None:
@@ -85,20 +83,17 @@ class DriftDetector(AbstractDriftDetector):
         self._min_obs = min_observations
 
         self._lock = threading.Lock()
-        self._baseline: Optional[Dict[str, float]] = None
-        self._baseline_id: Optional[str] = None
-        self._observations: Deque[Dict[str, float]] = deque(maxlen=window_size)
+        self._baseline: dict[str, float] | None = None
+        self._baseline_id: str | None = None
+        self._observations: deque[dict[str, float]] = deque(maxlen=window_size)
 
-        logger.info(
-            f"DriftDetector ready: window={window_size} "
-            f"thresholds={self._thresholds}"
-        )
+        logger.info(f"DriftDetector ready: window={window_size} " f"thresholds={self._thresholds}")
 
     # ------------------------------------------------------------------ #
     # Public API                                                           #
     # ------------------------------------------------------------------ #
 
-    def record_baseline(self, checkpoint_id: str, metrics: Dict[str, float]) -> None:
+    def record_baseline(self, checkpoint_id: str, metrics: dict[str, float]) -> None:
         """
         Establish the reference baseline.
 
@@ -112,11 +107,10 @@ class DriftDetector(AbstractDriftDetector):
             self._observations.clear()
 
         logger.info(
-            f"DriftDetector: baseline set from checkpoint={checkpoint_id} "
-            f"metrics={metrics}"
+            f"DriftDetector: baseline set from checkpoint={checkpoint_id} " f"metrics={metrics}"
         )
 
-    def record_observation(self, metrics: Dict[str, float]) -> None:
+    def record_observation(self, metrics: dict[str, float]) -> None:
         """Record a new operational observation."""
         with self._lock:
             self._observations.append(dict(metrics))
@@ -149,9 +143,9 @@ class DriftDetector(AbstractDriftDetector):
             )
 
         # Compute per-metric drift
-        alerts: List[str] = []
-        drift_scores: List[float] = []
-        metrics_out: Dict[str, float] = {}
+        alerts: list[str] = []
+        drift_scores: list[float] = []
+        metrics_out: dict[str, float] = {}
 
         for key, base_val in baseline.items():
             if base_val == 0:
@@ -182,8 +176,7 @@ class DriftDetector(AbstractDriftDetector):
 
         if is_drifted:
             logger.warning(
-                f"DriftDetector: drift detected (score={drift_score:.3f}) "
-                f"alerts={alerts}"
+                f"DriftDetector: drift detected (score={drift_score:.3f}) " f"alerts={alerts}"
             )
 
         return DriftReport(

@@ -5,10 +5,10 @@ Pure PyTorch implementation with NO dependencies on HuggingFace or pretrained mo
 All embeddings initialized randomly for sovereign training.
 """
 
+import math
+
 import torch
 import torch.nn as nn
-import math
-from typing import Optional
 
 from .config import NawalModelConfig
 
@@ -34,9 +34,7 @@ class NawalEmbeddings(nn.Module):
         )
 
         # Position embeddings (max_positions -> hidden_size)
-        self.position_embeddings = nn.Embedding(
-            config.max_position_embeddings, config.hidden_size
-        )
+        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
 
         # Layer normalization
         self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
@@ -49,9 +47,7 @@ class NawalEmbeddings(nn.Module):
 
     def _init_weights(self):
         """Initialize embedding weights with Xavier uniform"""
-        nn.init.normal_(
-            self.token_embeddings.weight, mean=0.0, std=self.config.initializer_range
-        )
+        nn.init.normal_(self.token_embeddings.weight, mean=0.0, std=self.config.initializer_range)
         # Keep padding token embedding at zero
         if self.config.pad_token_id is not None:
             with torch.no_grad():
@@ -64,7 +60,7 @@ class NawalEmbeddings(nn.Module):
     def forward(
         self,
         input_ids: torch.Tensor,
-        position_ids: Optional[torch.Tensor] = None,
+        position_ids: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Forward pass to create input embeddings
@@ -80,9 +76,7 @@ class NawalEmbeddings(nn.Module):
 
         # Create position IDs if not provided
         if position_ids is None:
-            position_ids = torch.arange(
-                seq_len, dtype=torch.long, device=input_ids.device
-            )
+            position_ids = torch.arange(seq_len, dtype=torch.long, device=input_ids.device)
             position_ids = position_ids.unsqueeze(0).expand(batch_size, seq_len)
 
         # Get token embeddings
@@ -118,18 +112,14 @@ class SinusoidalPositionalEmbedding(nn.Module):
         self.config = config
         self.register_buffer(
             "positional_encoding",
-            self._create_sinusoidal_embeddings(
-                config.max_position_embeddings, config.hidden_size
-            ),
+            self._create_sinusoidal_embeddings(config.max_position_embeddings, config.hidden_size),
         )
 
     def _create_sinusoidal_embeddings(self, max_len: int, d_model: int) -> torch.Tensor:
         """Create sinusoidal positional embeddings"""
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model)
-        )
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
 
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
@@ -139,7 +129,7 @@ class SinusoidalPositionalEmbedding(nn.Module):
     def forward(
         self,
         input_ids: torch.Tensor,
-        position_ids: Optional[torch.Tensor] = None,
+        position_ids: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Get sinusoidal positional embeddings

@@ -30,12 +30,12 @@ Public API
 
 from __future__ import annotations
 
+import contextlib
 import math
 import random
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-import numpy as np
 from loguru import logger
 
 from control.interfaces import Plan
@@ -69,7 +69,7 @@ class QuantumPlanOptimizer:
 
     def __init__(
         self,
-        connector: Optional[Any] = None,
+        connector: Any | None = None,
         fallback_to_classical: bool = True,
         simulation_mode: bool = False,
         n_qubits: int = 8,
@@ -83,7 +83,7 @@ class QuantumPlanOptimizer:
         self.sa_iterations = sa_iterations
         self.sa_temperature = sa_temperature
 
-        self.stats: Dict[str, int] = {
+        self.stats: dict[str, int] = {
             "quantum_calls": 0,
             "simulated_calls": 0,
             "classical_calls": 0,
@@ -100,9 +100,9 @@ class QuantumPlanOptimizer:
 
     def select_best_plan(
         self,
-        candidate_plans: List[Plan],
-        objectives: Optional[List[str]] = None,
-        constraints: Optional[Dict[str, Any]] = None,
+        candidate_plans: list[Plan],
+        objectives: list[str] | None = None,
+        constraints: dict[str, Any] | None = None,
     ) -> Plan:
         """
         Select the single best plan from *candidate_plans*.
@@ -127,10 +127,10 @@ class QuantumPlanOptimizer:
 
     def rank_plans(
         self,
-        candidate_plans: List[Plan],
-        objectives: Optional[List[str]] = None,
-        constraints: Optional[Dict[str, Any]] = None,
-    ) -> List[Plan]:
+        candidate_plans: list[Plan],
+        objectives: list[str] | None = None,
+        constraints: dict[str, Any] | None = None,
+    ) -> list[Plan]:
         """
         Return *candidate_plans* sorted from best to worst.
 
@@ -171,9 +171,9 @@ class QuantumPlanOptimizer:
     # ·· Greedy ··········································································
     def _greedy_rank(
         self,
-        plans: List[Plan],
-        objectives: List[str],
-    ) -> List[Plan]:
+        plans: list[Plan],
+        objectives: list[str],
+    ) -> list[Plan]:
         """Sort by composite score (weighted sum of known objective scores)."""
         scored = [(self._composite_score(p, objectives), p) for p in plans]
         scored.sort(key=lambda x: x[0], reverse=True)
@@ -182,10 +182,10 @@ class QuantumPlanOptimizer:
     # ·· Simulated annealing ·····················································
     def _simulated_annealing_rank(
         self,
-        plans: List[Plan],
-        objectives: List[str],
-        constraints: Optional[Dict[str, Any]],
-    ) -> List[Plan]:
+        plans: list[Plan],
+        objectives: list[str],
+        constraints: dict[str, Any] | None,
+    ) -> list[Plan]:
         """
         QUBO-style simulated annealing rank.
 
@@ -203,7 +203,7 @@ class QuantumPlanOptimizer:
         best_energy = current_energy
         T = self.sa_temperature
 
-        for step in range(self.sa_iterations):
+        for _step in range(self.sa_iterations):
             # Random swap proposal
             i, j = random.sample(range(n), 2)
             order[i], order[j] = order[j], order[i]
@@ -227,26 +227,24 @@ class QuantumPlanOptimizer:
     # ·· Quantum (Kinich) ·······················································
     def _qaoa_rank(
         self,
-        plans: List[Plan],
-        objectives: List[str],
-        constraints: Optional[Dict[str, Any]],
-    ) -> List[Plan]:
+        plans: list[Plan],
+        objectives: list[str],
+        constraints: dict[str, Any] | None,
+    ) -> list[Plan]:
         """
         QAOA-based rank via Kinich connector.
 
         PhaseHook — Phase 5: replace with real QAOA HTTP call.
         Falls back to SA for now.
         """
-        logger.debug(
-            "QuantumPlanOptimizer: Kinich live — delegating to SA (Phase 5 QAOA TBD)"
-        )
+        logger.debug("QuantumPlanOptimizer: Kinich live — delegating to SA (Phase 5 QAOA TBD)")
         return self._simulated_annealing_rank(plans, objectives, constraints)
 
     # ------------------------------------------------------------------ #
     # QUBO helpers                                                         #
     # ------------------------------------------------------------------ #
 
-    def _composite_score(self, plan: Plan, objectives: List[str]) -> float:
+    def _composite_score(self, plan: Plan, objectives: list[str]) -> float:
         """
         Weighted composite score for a plan.
 
@@ -258,17 +256,15 @@ class QuantumPlanOptimizer:
         meta = getattr(plan, "metadata", {}) or {}
         for obj in objectives:
             if obj in meta:
-                try:
+                with contextlib.suppress(TypeError, ValueError):
                     bonus += float(meta[obj])
-                except (TypeError, ValueError):
-                    pass
         return base + bonus * 0.1  # metadata objectives add up to 10 % bonus
 
     def _ordering_energy(
         self,
-        order: List[int],
-        scores: List[float],
-        constraints: Optional[Dict[str, Any]],
+        order: list[int],
+        scores: list[float],
+        constraints: dict[str, Any] | None,
     ) -> float:
         """
         Energy function: lower = better ordering.
@@ -287,7 +283,7 @@ class QuantumPlanOptimizer:
             max_steps = constraints.get("max_steps")
             if max_steps is not None:
                 # Plans with too many steps get penalised when ranked first
-                first_plan_idx = order[0]
+                order[0]
                 # We can't access original plans here, so this is illustrative;
                 # in a full impl the plans would be passed alongside their scores
                 pass
@@ -303,12 +299,10 @@ class QuantumPlanOptimizer:
             return False
         return bool(getattr(self._connector, "kinich_available", False))
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         total = sum(self.stats.values())
         return {
             **self.stats,
             "total_calls": total,
-            "quantum_ratio": (
-                self.stats["quantum_calls"] / total if total > 0 else 0.0
-            ),
+            "quantum_ratio": (self.stats["quantum_calls"] / total if total > 0 else 0.0),
         }

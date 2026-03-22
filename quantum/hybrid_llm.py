@@ -4,9 +4,8 @@ Hybrid Quantum-Classical LLM
 Combines Nawal's classical transformer with Kinich's quantum processing.
 """
 
-import numpy as np
 import logging
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +149,7 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
         input_ids: "torch.Tensor",
         attention_mask: Optional["torch.Tensor"] = None,
         return_intermediate: bool = False,
-    ) -> Dict[str, "torch.Tensor"]:
+    ) -> dict[str, "torch.Tensor"]:
         """
         Forward pass through hybrid model.
 
@@ -255,8 +254,7 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
                 # Apply top-k filtering
                 if top_k > 0:
                     indices_to_remove = (
-                        next_token_logits
-                        < torch.topk(next_token_logits, top_k)[0][..., -1, None]
+                        next_token_logits < torch.topk(next_token_logits, top_k)[0][..., -1, None]
                     )
                     next_token_logits[indices_to_remove] = float("-inf")
 
@@ -269,7 +267,7 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
 
         return generated
 
-    def get_quantum_statistics(self) -> Dict[str, Any]:
+    def get_quantum_statistics(self) -> dict[str, Any]:
         """Get statistics from quantum layer."""
         if self.quantum_layer is not None:
             return self.quantum_layer.connector.get_statistics()
@@ -279,9 +277,7 @@ class HybridQuantumClassicalLLM(nn.Module if TORCH_AVAILABLE else object):
 class TransformerLayer(nn.Module):
     """Standard transformer layer."""
 
-    def __init__(
-        self, hidden_dim: int, num_heads: int, ff_dim: int, dropout: float = 0.1
-    ):
+    def __init__(self, hidden_dim: int, num_heads: int, ff_dim: int, dropout: float = 0.1):
         super().__init__()
 
         self.attention = nn.MultiheadAttention(

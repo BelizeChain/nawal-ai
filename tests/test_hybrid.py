@@ -13,15 +13,11 @@ run entirely in-process with no GPU or network.
 from __future__ import annotations
 
 import json
-import math
-import os
 from pathlib import Path
-from typing import Dict
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 import pytest
 import torch
-import torch.nn.functional as F
 
 from hybrid.confidence import ConfidenceScorer
 from hybrid.router import IntelligentRouter
@@ -58,7 +54,7 @@ def _uniform_logits(vocab_size: int = 100) -> torch.Tensor:
     return torch.zeros(1, vocab_size)
 
 
-def _make_confidence_scores(overall: float) -> Dict[str, float]:
+def _make_confidence_scores(overall: float) -> dict[str, float]:
     return {
         "overall": overall,
         "entropy": overall,

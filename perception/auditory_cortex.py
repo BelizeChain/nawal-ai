@@ -30,8 +30,7 @@ Dependencies
 from __future__ import annotations
 
 import hashlib
-import math
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import torch
 from loguru import logger
@@ -65,7 +64,7 @@ except ImportError:
     TORCHAUDIO_AVAILABLE = False
 
 
-def _hash_audio(samples: Any, dim: int) -> List[float]:
+def _hash_audio(samples: Any, dim: int) -> list[float]:
     """Deterministic hash-embedding from raw audio samples (stub mode)."""
     if NUMPY_AVAILABLE and isinstance(samples, np.ndarray):
         raw = samples.tobytes()[:8192]
@@ -77,7 +76,7 @@ def _hash_audio(samples: Any, dim: int) -> List[float]:
         raw = str(id(samples)).encode()
 
     digest = hashlib.sha256(raw).digest()
-    out: List[float] = []
+    out: list[float] = []
     for i in range(dim):
         byte_idx = (i * 4) % len(digest)
         val = int.from_bytes(digest[byte_idx : byte_idx + 4], "big", signed=True)
@@ -105,13 +104,13 @@ class AuditoryCortex(AbstractCortex):
 
     def __init__(
         self,
-        model_name: Optional[str] = DEFAULT_MODEL,
+        model_name: str | None = DEFAULT_MODEL,
         embed_dim: int = 512,
         sample_rate: int = WHISPER_SR,
         max_duration: float = 30.0,
         device: str = "auto",
         stub_mode: bool = False,
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> None:
         self.model_name = model_name
         self.embed_dim = embed_dim
@@ -120,9 +119,7 @@ class AuditoryCortex(AbstractCortex):
         self.stub_mode = stub_mode or (model_name is None)
         self.language = language
         self.device = (
-            ("cuda" if torch.cuda.is_available() else "cpu")
-            if device == "auto"
-            else device
+            ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else device
         )
 
         self._processor: Any = None
@@ -183,7 +180,7 @@ class AuditoryCortex(AbstractCortex):
 
         return raw_input
 
-    def encode(self, raw_input: Any) -> List[float]:
+    def encode(self, raw_input: Any) -> list[float]:
         """
         Encode audio to a float embedding.
 
@@ -221,7 +218,7 @@ class AuditoryCortex(AbstractCortex):
 
         return self._whisper_transcribe(audio)
 
-    def _to_world_state(self, embedding: List[float], raw_input: Any) -> WorldState:
+    def _to_world_state(self, embedding: list[float], raw_input: Any) -> WorldState:
         return WorldState(
             audio_embedding=embedding,
             metadata={
@@ -248,12 +245,10 @@ class AuditoryCortex(AbstractCortex):
             self._model = WhisperModel.from_pretrained(self.model_name).to(self.device)
             self._model.eval()
         except Exception as exc:
-            logger.warning(
-                f"AuditoryCortex: Whisper load failed ({exc}). " "Activating stub mode."
-            )
+            logger.warning(f"AuditoryCortex: Whisper load failed ({exc}). " "Activating stub mode.")
             self.stub_mode = True
 
-    def _whisper_embed(self, audio: Any) -> List[float]:
+    def _whisper_embed(self, audio: Any) -> list[float]:
         """Run Whisper encoder and mean-pool its hidden state."""
         if not NUMPY_AVAILABLE:
             return _hash_audio(audio, self.embed_dim)
@@ -294,7 +289,7 @@ class AuditoryCortex(AbstractCortex):
             return_tensors="pt",
         ).to(self.device)
 
-        generate_kwargs: Dict[str, Any] = {}
+        generate_kwargs: dict[str, Any] = {}
         if self.language:
             generate_kwargs["language"] = self.language
 
@@ -302,9 +297,7 @@ class AuditoryCortex(AbstractCortex):
             # We need to use a GenerationMixin model — load ForConditionalGeneration
             # The base WhisperModel doesn't have generate(); use AutoModelForSpeechSeq2Seq
             # This is a fallback — in _load_model we switch to the generation model
-            token_ids = self._model.generate(
-                inputs["input_features"], **generate_kwargs
-            )
+            token_ids = self._model.generate(inputs["input_features"], **generate_kwargs)
 
         return self._processor.batch_decode(token_ids, skip_special_tokens=True)[0]
 

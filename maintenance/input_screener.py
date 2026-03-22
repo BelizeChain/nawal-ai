@@ -22,7 +22,7 @@ domain-specific rules without subclassing.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from loguru import logger
 
@@ -36,7 +36,7 @@ from maintenance.interfaces import (
 # Default block patterns                                                        #
 # --------------------------------------------------------------------------- #
 
-_BLOCKED: List[Tuple[str, str, RiskLevel]] = [
+_BLOCKED: list[tuple[str, str, RiskLevel]] = [
     # (pattern, label, severity)
     # Harm / physical violence
     (
@@ -107,7 +107,7 @@ _BLOCKED: List[Tuple[str, str, RiskLevel]] = [
     ),
 ]
 
-_PII_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
+_PII_PATTERNS: list[tuple[str, str, RiskLevel]] = [
     (
         r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b",
         "email_pii",
@@ -118,7 +118,7 @@ _PII_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
     (r"\b\d{3}-\d{2}-\d{4}\b", "ssn_pii", RiskLevel.MEDIUM),
 ]
 
-_INJECTION_HEURISTICS: List[Tuple[str, str, RiskLevel]] = [
+_INJECTION_HEURISTICS: list[tuple[str, str, RiskLevel]] = [
     # Excessive special characters often used in injection payloads
     (r"(\\n|\\r){5,}", "excessive_escapes", RiskLevel.MEDIUM),
     # Any null byte(s) — common injection smuggling technique
@@ -146,30 +146,27 @@ class InputScreener(AbstractInputScreener):
 
     def __init__(
         self,
-        extra_patterns: Optional[List[Tuple[str, str, RiskLevel]]] = None,
+        extra_patterns: list[tuple[str, str, RiskLevel]] | None = None,
         max_prompt_len: int = _SAFE_PASSLENGTH,
         pii_check: bool = True,
     ) -> None:
-        self._patterns: List[Tuple[re.Pattern, str, RiskLevel]] = []
+        self._patterns: list[tuple[re.Pattern, str, RiskLevel]] = []
         self._max_len = max_prompt_len
         self._pii_check = pii_check
 
         for pat, label, level in _BLOCKED + (extra_patterns or []):
-            self._patterns.append(
-                (re.compile(pat, re.IGNORECASE | re.DOTALL), label, level)
-            )
+            self._patterns.append((re.compile(pat, re.IGNORECASE | re.DOTALL), label, level))
 
-        self._pii: List[Tuple[re.Pattern, str, RiskLevel]] = [
+        self._pii: list[tuple[re.Pattern, str, RiskLevel]] = [
             (re.compile(p, re.IGNORECASE), lbl, lvl) for p, lbl, lvl in _PII_PATTERNS
         ]
-        self._heuristics: List[Tuple[re.Pattern, str, RiskLevel]] = [
+        self._heuristics: list[tuple[re.Pattern, str, RiskLevel]] = [
             (re.compile(p, re.IGNORECASE | re.DOTALL), lbl, lvl)
             for p, lbl, lvl in _INJECTION_HEURISTICS
         ]
 
         logger.info(
-            f"InputScreener ready: {len(self._patterns)} patterns "
-            f"max_len={max_prompt_len}"
+            f"InputScreener ready: {len(self._patterns)} patterns " f"max_len={max_prompt_len}"
         )
 
     # ------------------------------------------------------------------ #
@@ -179,7 +176,7 @@ class InputScreener(AbstractInputScreener):
     def screen(
         self,
         prompt: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> ScreeningResult:
         """
         Analyse *prompt* for safety violations.
@@ -187,7 +184,7 @@ class InputScreener(AbstractInputScreener):
         Returns a ScreeningResult where is_safe=False means the request
         should be blocked before reaching the model.
         """
-        flags: List[str] = []
+        flags: list[str] = []
         max_level = RiskLevel.NONE
         sanitized = prompt
 
@@ -221,9 +218,7 @@ class InputScreener(AbstractInputScreener):
         is_safe = max_level == RiskLevel.NONE
 
         if not is_safe:
-            logger.warning(
-                f"InputScreener blocked prompt: risk={max_level} flags={flags}"
-            )
+            logger.warning(f"InputScreener blocked prompt: risk={max_level} flags={flags}")
 
         return ScreeningResult(
             is_safe=is_safe,
@@ -233,9 +228,7 @@ class InputScreener(AbstractInputScreener):
             metadata={"prompt_len": len(prompt)},
         )
 
-    def add_pattern(
-        self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH
-    ) -> None:
+    def add_pattern(self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH) -> None:
         """Register an additional block pattern at runtime.
 
         *pattern* may be a raw string or a pre-compiled ``re.Pattern``.

@@ -9,16 +9,17 @@ Date: February 2026
 """
 
 import hashlib
+from unittest.mock import Mock
+
 import pytest
-from unittest.mock import Mock, patch
 
 from blockchain.payroll_connector import (
+    EmployeeType,
     PayrollConnector,
     PayrollEntry,
-    PayrollSubmission,
-    PayrollStatus,
-    EmployeeType,
     PayrollProof,
+    PayrollStatus,
+    PayrollSubmission,
 )
 
 
@@ -336,7 +337,10 @@ class TestPayrollProof:
 
     def test_proof_verification(self):
         """Test ZK proof verification with valid commitment proof."""
-        import json, hashlib, secrets, hmac as hmac_mod
+        import hashlib
+        import hmac as hmac_mod
+        import json
+        import secrets
 
         merkle_root = "root_hash_123"
         nonce = secrets.token_hex(32)

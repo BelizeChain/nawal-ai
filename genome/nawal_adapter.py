@@ -11,10 +11,7 @@ Instead of generic ModelBuilder, we now use the Nawal-specific architecture.
 """
 
 import torch
-from typing import Optional
-
 from loguru import logger
-
 from nawal.architecture import NawalModelConfig, NawalTransformer
 
 # Backward-compatible alias
@@ -72,9 +69,7 @@ class GenomeToNawalAdapter:
 
         # Extract vocab_size from embedding layer if present
         embedding_layers = [
-            layer
-            for layer in genome.encoder_layers
-            if layer.layer_type == LayerType.EMBEDDING
+            layer for layer in genome.encoder_layers if layer.layer_type == LayerType.EMBEDDING
         ]
         vocab_size = 52000  # Belizean extended vocab default
         if embedding_layers and embedding_layers[0].input_size:
@@ -165,16 +160,8 @@ class GenomeToNawalAdapter:
         # Simplified FLOPs estimation for transformer
         # Attention: 4 * hidden^2 * seq_len * num_layers
         # FFN: 8 * hidden^2 * seq_len * num_layers
-        attention_flops = (
-            4 * config.hidden_size * config.hidden_size * seq_len * config.num_layers
-        )
-        ffn_flops = (
-            8
-            * config.hidden_size
-            * config.intermediate_size
-            * seq_len
-            * config.num_layers
-        )
+        attention_flops = 4 * config.hidden_size * config.hidden_size * seq_len * config.num_layers
+        ffn_flops = 8 * config.hidden_size * config.intermediate_size * seq_len * config.num_layers
 
         total_flops = attention_flops + ffn_flops
 
@@ -235,8 +222,8 @@ class NawalGenomeBuilder:
     def build_from_genome(
         self,
         genome: Genome,
-        device: Optional[str] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: str | None = None,
+        dtype: torch.dtype | None = None,
     ) -> NawalTransformer:
         """
         Build and initialize Nawal model from genome
@@ -347,7 +334,7 @@ def create_baseline_nawal_genome() -> Genome:
     Returns:
         Genome configured for nawal-small architecture
     """
-    from nawal.genome.encoding import GenomeEncoder, ArchitectureLayer
+    from nawal.genome.encoding import ArchitectureLayer, GenomeEncoder
 
     encoder = GenomeEncoder()
     genome = encoder.create_baseline_genome()

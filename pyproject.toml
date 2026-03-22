@@ -190,7 +190,36 @@ src = [".", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
-ignore = ["E501", "B008", "B904"]
+ignore = [
+    "E501",   # line too long (handled by black)
+    "E402",   # module-level import not at top (conditional imports)
+    "E741",   # ambiguous variable name (common in ML: l, I, O)
+    "B008",   # function call in default arg
+    "B904",   # raise without from in except
+    "B017",   # assertRaises(Exception) too broad
+    "B023",   # function definition does not bind loop variable
+    "B007",   # unused loop variable
+    "N801",   # class name should use CapWords (ML convention)
+    "N802",   # function name should be lowercase
+    "N803",   # argument name should be lowercase (ML: X, T)
+    "N806",   # variable in function should be lowercase (ML: X, T)
+    "N811",   # constant imported as non-constant
+    "N812",   # lowercase imported as non-lowercase
+    "N814",   # camelCase imported as constant
+    "N817",   # CamelCase imported as acronym
+    "RUF001", # ambiguous unicode character in string
+    "RUF002", # ambiguous unicode character in docstring
+    "RUF003", # ambiguous unicode character in comment
+    "RUF006", # asyncio.create_task without reference (fire-and-forget)
+    "RUF012", # mutable class variable without ClassVar
+    "RUF043", # regex pattern metacharacters not escaped
+    "RUF059", # unpacked variable never used
+    "SIM102", # nested if (style preference)
+    "SIM105", # use contextlib.suppress (style preference)
+    "SIM108", # use ternary operator (readability)
+    "SIM115", # use context handler for open (style preference)
+    "SIM117", # nested with statements (style preference)
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]
@@ -205,6 +234,28 @@ known-first-party = [
     "architecture", "genome", "integration", "security",
     "server", "storage", "monitoring", "data", "training",
 ]
+
+# ============================================================================
+# isort Configuration (standalone — must match ruff.lint.isort)
+# ============================================================================
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = [
+    "core", "api", "blockchain", "client", "hybrid", "models",
+    "quantum", "cortex", "memory", "control", "perception",
+    "valuation", "metacognition", "action", "maintenance",
+    "architecture", "genome", "integration", "security",
+    "server", "storage", "monitoring", "data", "training",
+]
+skip = ["tests", "venv", ".venv"]
+
+# ============================================================================
+# Black Configuration
+# ============================================================================
+[tool.black]
+line-length = 100
+target-version = ["py311"]
 
 # ============================================================================
 # MyPy Configuration

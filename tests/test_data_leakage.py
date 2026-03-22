@@ -6,12 +6,11 @@ These tests mirror the style used in the differential privacy tests and focus
 on unit-level verification of each detection method plus integration checks.
 """
 
+
 import pytest
 import torch
-from unittest.mock import Mock
-
 from nawal.client.genome_trainer import GenomeTrainer, TrainingConfig
-from nawal.genome.dna import Genome, ArchitectureLayer, LayerType
+from nawal.genome.dna import ArchitectureLayer, Genome, LayerType
 
 
 @pytest.fixture

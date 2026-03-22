@@ -13,24 +13,19 @@ Phase: 3 (Integration Layer)
 """
 
 import asyncio
-import hashlib
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Any
 from enum import Enum
+from typing import Any
 
 import torch
-import numpy as np
-from substrateinterface import SubstrateInterface, Keypair
-
 from loguru import logger
-
 from nawal.client.domain_models import (
     DomainModelFactory,
     ModelDomain,
-    calculate_quality_score,
     prepare_oracle_submission,
 )
+from substrateinterface import Keypair, SubstrateInterface
 
 
 class DeviceType(Enum):
@@ -55,7 +50,7 @@ class IoTDeviceInfo:
     device_type: DeviceType
     domain: ModelDomain
     operator: str  # AccountId (SS58 format)
-    location: Optional[Tuple[float, float]]
+    location: tuple[float, float] | None
     reputation_score: int
     total_submissions: int
     is_verified: bool
@@ -69,10 +64,10 @@ class IoTDataSubmission:
     device_id: bytes
     data: bytes
     feed_type: str
-    location: Optional[Tuple[float, float]]
+    location: tuple[float, float] | None
     timestamp: int
-    quality_metrics: Dict[str, int]
-    metadata: Optional[Dict[str, Any]]
+    quality_metrics: dict[str, int]
+    metadata: dict[str, Any] | None
 
 
 class OracleDataFetcher:
@@ -98,7 +93,7 @@ class OracleDataFetcher:
             type_registry_preset="substrate-node-template",
         )
 
-    def get_device_info(self, device_id: bytes) -> Optional[IoTDeviceInfo]:
+    def get_device_info(self, device_id: bytes) -> IoTDeviceInfo | None:
         """
         Query IoTDevices storage for device information.
 
@@ -143,9 +138,9 @@ class OracleDataFetcher:
 
     def get_pending_submissions(
         self,
-        domain: Optional[ModelDomain] = None,
+        domain: ModelDomain | None = None,
         limit: int = 100,
-    ) -> List[IoTDataSubmission]:
+    ) -> list[IoTDataSubmission]:
         """
         Query PendingSubmissions storage for unprocessed data.
 
@@ -207,7 +202,7 @@ class OracleDataFetcher:
 
         return submissions
 
-    def get_operator_stats(self, operator: str) -> Dict[str, Any]:
+    def get_operator_stats(self, operator: str) -> dict[str, Any]:
         """
         Query OperatorStats storage for operator performance.
 
@@ -259,7 +254,7 @@ class DataPreprocessor:
             device: PyTorch device ('cpu' or 'cuda')
         """
         self.device = device
-        self.models: Dict[ModelDomain, Any] = {}
+        self.models: dict[ModelDomain, Any] = {}
 
     def get_model(self, domain: ModelDomain):
         """Get or create domain model (cached)."""
@@ -274,7 +269,7 @@ class DataPreprocessor:
         self,
         submission: IoTDataSubmission,
         device_info: IoTDeviceInfo,
-    ) -> Tuple[torch.Tensor, Any]:
+    ) -> tuple[torch.Tensor, Any]:
         """
         Preprocess IoT data for domain-specific model.
 
@@ -326,7 +321,7 @@ class ModelInferenceRunner:
         model: Any,
         input_tensor: torch.Tensor,
         domain: ModelDomain,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Run model inference and track performance.
 
@@ -373,14 +368,12 @@ class ModelInferenceRunner:
                 "error": str(e),
             }
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get inference statistics."""
         stats = self.inference_stats.copy()
 
         if stats["total_inferences"] > 0:
-            stats["average_time_ms"] = (
-                stats["total_time_ms"] / stats["total_inferences"]
-            )
+            stats["average_time_ms"] = stats["total_time_ms"] / stats["total_inferences"]
 
         return stats
 
@@ -401,7 +394,7 @@ class ResultSubmitter:
     def __init__(
         self,
         substrate_url: str = "ws://127.0.0.1:9944",
-        keypair: Optional[Keypair] = None,
+        keypair: Keypair | None = None,
     ):
         """
         Initialize submitter.
@@ -425,9 +418,9 @@ class ResultSubmitter:
     def submit_prediction(
         self,
         submission: IoTDataSubmission,
-        predictions: Dict[str, torch.Tensor],
+        predictions: dict[str, torch.Tensor],
         device_info: IoTDeviceInfo,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Submit model predictions to Oracle pallet.
 
@@ -488,7 +481,7 @@ class ResultSubmitter:
             logger.error(f"Error submitting prediction: {e}")
             return None
 
-    def claim_rewards(self, operator: Optional[str] = None) -> Optional[str]:
+    def claim_rewards(self, operator: str | None = None) -> str | None:
         """
         Claim accumulated Oracle rewards for operator.
 
@@ -542,7 +535,7 @@ class OraclePipeline:
         self,
         substrate_url: str = "ws://127.0.0.1:9944",
         device: str = "cpu",
-        keypair: Optional[Keypair] = None,
+        keypair: Keypair | None = None,
     ):
         """
         Initialize complete pipeline.
@@ -573,9 +566,7 @@ class OraclePipeline:
         # 1. Get device info
         device_info = self.fetcher.get_device_info(submission.device_id)
         if device_info is None:
-            logger.warning(
-                f"Device {submission.device_id.hex()[:16]}... not registered"
-            )
+            logger.warning(f"Device {submission.device_id.hex()[:16]}... not registered")
             return False
 
         # 2. Preprocess data
@@ -595,9 +586,9 @@ class OraclePipeline:
 
     async def process_pending_submissions(
         self,
-        domain: Optional[ModelDomain] = None,
+        domain: ModelDomain | None = None,
         limit: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Process all pending submissions for a domain.
 
@@ -608,9 +599,7 @@ class OraclePipeline:
         Returns:
             Processing statistics
         """
-        logger.info(
-            f"Fetching pending submissions (domain={domain.name if domain else 'ALL'})..."
-        )
+        logger.info(f"Fetching pending submissions (domain={domain.name if domain else 'ALL'})...")
 
         # Fetch pending submissions
         submissions = self.fetcher.get_pending_submissions(domain, limit)
@@ -635,15 +624,13 @@ class OraclePipeline:
         # Add inference stats
         results["inference_stats"] = self.runner.get_stats()
 
-        logger.info(
-            f"Processing complete: {results['success']}/{results['total']} successful"
-        )
+        logger.info(f"Processing complete: {results['success']}/{results['total']} successful")
 
         return results
 
     async def process_loop(
         self,
-        domain: Optional[ModelDomain] = None,
+        domain: ModelDomain | None = None,
         interval_seconds: int = 10,
     ):
         """
@@ -672,23 +659,15 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="BelizeChain Oracle Pipeline")
-    parser.add_argument(
-        "--url", default="ws://127.0.0.1:9944", help="Substrate node URL"
-    )
+    parser.add_argument("--url", default="ws://127.0.0.1:9944", help="Substrate node URL")
     parser.add_argument(
         "--domain",
         choices=["agritech", "marine", "education", "tech", "general"],
         help="Filter by domain",
     )
-    parser.add_argument(
-        "--device", default="cpu", choices=["cpu", "cuda"], help="PyTorch device"
-    )
-    parser.add_argument(
-        "--loop", action="store_true", help="Run continuous processing loop"
-    )
-    parser.add_argument(
-        "--interval", type=int, default=10, help="Loop interval (seconds)"
-    )
+    parser.add_argument("--device", default="cpu", choices=["cpu", "cuda"], help="PyTorch device")
+    parser.add_argument("--loop", action="store_true", help="Run continuous processing loop")
+    parser.add_argument("--interval", type=int, default=10, help="Loop interval (seconds)")
 
     args = parser.parse_args()
 

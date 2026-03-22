@@ -3,9 +3,9 @@ Differential privacy guard for inference.
 Prevents model inversion attacks by adding calibrated noise to model outputs.
 """
 
-import torch
 from contextlib import contextmanager
-from typing import Optional
+
+import torch
 
 
 class DPInferenceGuard:
@@ -32,9 +32,7 @@ class DPInferenceGuard:
         """
         scale = self.sensitivity / self.epsilon
         noise = (
-            torch.distributions.Laplace(loc=0.0, scale=scale)
-            .sample(tensor.shape)
-            .to(tensor.device)
+            torch.distributions.Laplace(loc=0.0, scale=scale).sample(tensor.shape).to(tensor.device)
         )
         return tensor + noise
 

@@ -16,35 +16,35 @@ Canonical import:
     from nawal.metacognition import MetacognitionLayer
 """
 
+from metacognition.confidence_calibrator import ConfidenceCalibrator
+from metacognition.consistency_checker import ConsistencyChecker, ConsistencyResult
+from metacognition.identity_module import AgentProfile, DecisionRecord, IdentityModule
 from metacognition.interfaces import (
     AbstractCritic,
     AbstractSimulator,
     ConfidenceScore,
     CritiqueResult,
 )
-from metacognition.self_critic import SelfCritic
-from metacognition.consistency_checker import ConsistencyChecker, ConsistencyResult
-from metacognition.confidence_calibrator import ConfidenceCalibrator
 from metacognition.internal_simulator import InternalSimulator
-from metacognition.identity_module import IdentityModule, AgentProfile, DecisionRecord
 from metacognition.layer import MetacognitionLayer, ReflectionResult
+from metacognition.self_critic import SelfCritic
 
 __all__ = [
     # interfaces
     "AbstractCritic",
     "AbstractSimulator",
+    "AgentProfile",
+    "ConfidenceCalibrator",
     "ConfidenceScore",
-    "CritiqueResult",
-    # components
-    "SelfCritic",
     "ConsistencyChecker",
     "ConsistencyResult",
-    "ConfidenceCalibrator",
-    "InternalSimulator",
-    "IdentityModule",
-    "AgentProfile",
+    "CritiqueResult",
     "DecisionRecord",
+    "IdentityModule",
+    "InternalSimulator",
     # facade
     "MetacognitionLayer",
     "ReflectionResult",
+    # components
+    "SelfCritic",
 ]

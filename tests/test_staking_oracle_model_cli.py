@@ -6,12 +6,9 @@ Covers the highest-remaining missed-line targets in each module.
 """
 
 import asyncio
-import hashlib
 import os
 import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
-from typing import Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -273,7 +270,7 @@ class TestStakingConnectorClaimAndQuery:
             "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
         ]
         stakes = [500, 750]
-        for pid, stake in zip(pids, stakes):
+        for pid, stake in zip(pids, stakes, strict=False):
             _run(conn.enroll_participant(pid, stake_amount=stake))
         total = _run(conn.get_total_staked())
         assert total == sum(stakes)
@@ -315,20 +312,21 @@ class TestIoTDeviceInfo:
     """Tests for IoTDeviceInfo dataclass."""
 
     def _make_device_info(self, **kwargs):
-        from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
         from nawal.client.domain_models import ModelDomain
 
-        defaults = dict(
-            device_id=b"\x01\x02\x03",
-            device_type=DeviceType.SENSOR,
-            domain=ModelDomain.AGRITECH,
-            operator="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-            location=None,
-            reputation_score=100,
-            total_submissions=0,
-            is_verified=True,
-            registration_block=0,
-        )
+        from integration.oracle_pipeline import DeviceType, IoTDeviceInfo
+
+        defaults = {
+            "device_id": b"\x01\x02\x03",
+            "device_type": DeviceType.SENSOR,
+            "domain": ModelDomain.AGRITECH,
+            "operator": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "location": None,
+            "reputation_score": 100,
+            "total_submissions": 0,
+            "is_verified": True,
+            "registration_block": 0,
+        }
         defaults.update(kwargs)
         return IoTDeviceInfo(**defaults)
 
@@ -361,15 +359,15 @@ class TestIoTDataSubmission:
     def _make_submission(self, **kwargs):
         from integration.oracle_pipeline import IoTDataSubmission
 
-        defaults = dict(
-            device_id=b"\x01\x02\x03",
-            data=b"\xde\xad\xbe\xef",
-            feed_type="sensor_reading",
-            location=None,
-            timestamp=1700000000,
-            quality_metrics={"accuracy": 0.9},
-            metadata=None,
-        )
+        defaults = {
+            "device_id": b"\x01\x02\x03",
+            "data": b"\xde\xad\xbe\xef",
+            "feed_type": "sensor_reading",
+            "location": None,
+            "timestamp": 1700000000,
+            "quality_metrics": {"accuracy": 0.9},
+            "metadata": None,
+        }
         defaults.update(kwargs)
         return IoTDataSubmission(**defaults)
 
@@ -409,7 +407,7 @@ class TestDataPreprocessor:
     """Tests for DataPreprocessor (pure data routing, no substrate)."""
 
     def _make_device_info(self, domain):
-        from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
+        from integration.oracle_pipeline import DeviceType, IoTDeviceInfo
 
         return IoTDeviceInfo(
             device_id=b"\x01\x02\x03",
@@ -485,7 +483,7 @@ class TestDataPreprocessor:
         domain = self._nawal_domain("AGRITECH")
         device_info = self._make_device_info(domain)
         sub = self._make_submission(feed_type="sensor_reading")
-        tensor, model = preprocessor.preprocess(sub, device_info)
+        tensor, _model = preprocessor.preprocess(sub, device_info)
         assert isinstance(tensor, torch.Tensor)
 
     def test_preprocess_marine_sensor(self):
@@ -495,7 +493,7 @@ class TestDataPreprocessor:
         domain = self._nawal_domain("MARINE")
         device_info = self._make_device_info(domain)
         sub = self._make_submission(feed_type="sensor_reading")
-        tensor, model = preprocessor.preprocess(sub, device_info)
+        tensor, _model = preprocessor.preprocess(sub, device_info)
         assert isinstance(tensor, torch.Tensor)
 
     def test_preprocess_tech_sensor(self):
@@ -505,7 +503,7 @@ class TestDataPreprocessor:
         domain = self._nawal_domain("TECH")
         device_info = self._make_device_info(domain)
         sub = self._make_submission(feed_type="sensor_reading")
-        tensor, model = preprocessor.preprocess(sub, device_info)
+        tensor, _model = preprocessor.preprocess(sub, device_info)
         assert isinstance(tensor, torch.Tensor)
 
 
@@ -527,8 +525,9 @@ class TestModelInferenceRunner:
         assert stats["total_inferences"] == 0
 
     def test_run_inference_increments_counter(self):
-        from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from nawal.client.domain_models import ModelDomain
+
+        from integration.oracle_pipeline import DataPreprocessor, ModelInferenceRunner
 
         runner = ModelInferenceRunner()
         preprocessor = DataPreprocessor(device="cpu")
@@ -541,8 +540,9 @@ class TestModelInferenceRunner:
         assert stats["total_inferences"] == 1
 
     def test_run_inference_calculates_average_time(self):
-        from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from nawal.client.domain_models import ModelDomain
+
+        from integration.oracle_pipeline import DataPreprocessor, ModelInferenceRunner
 
         runner = ModelInferenceRunner()
         preprocessor = DataPreprocessor(device="cpu")
@@ -556,8 +556,9 @@ class TestModelInferenceRunner:
         assert stats["total_inferences"] == 2
 
     def test_run_inference_domain_breakdown(self):
-        from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from nawal.client.domain_models import ModelDomain
+
+        from integration.oracle_pipeline import DataPreprocessor, ModelInferenceRunner
 
         runner = ModelInferenceRunner()
         preprocessor = DataPreprocessor(device="cpu")
@@ -570,11 +571,11 @@ class TestModelInferenceRunner:
         assert stats["domain_breakdown"]["TECH"]["count"] == 1
 
     def test_run_inference_bad_input_returns_dummy(self):
-        from integration.oracle_pipeline import ModelInferenceRunner, DataPreprocessor
         from client.domain_models import ModelDomain
+        from integration.oracle_pipeline import DataPreprocessor, ModelInferenceRunner
 
         runner = ModelInferenceRunner()
-        preprocessor = DataPreprocessor(device="cpu")
+        DataPreprocessor(device="cpu")
 
         # Use a mock model that raises an exception
         bad_model = MagicMock()
@@ -763,7 +764,7 @@ class TestLoadVersionedCheckpoint:
     """Tests for load_versioned_checkpoint utility."""
 
     def test_load_round_trips_weights(self):
-        from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+        from client.model import load_versioned_checkpoint, save_versioned_checkpoint
 
         model = nn.Linear(8, 4)
         nn.init.constant_(model.weight, 2.0)
@@ -776,7 +777,7 @@ class TestLoadVersionedCheckpoint:
             assert torch.allclose(model.weight, model2.weight)
 
     def test_load_returns_metadata(self):
-        from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+        from client.model import load_versioned_checkpoint, save_versioned_checkpoint
 
         model = nn.Linear(8, 4)
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -798,6 +799,7 @@ class TestCLIHelp:
     def setup_method(self):
         try:
             from click.testing import CliRunner
+
             from cli.commands import cli
 
             self.runner = CliRunner()
@@ -853,6 +855,7 @@ class TestCLITrainCommand:
     def setup_method(self):
         try:
             from click.testing import CliRunner
+
             from cli.commands import cli
 
             self.runner = CliRunner()
@@ -894,6 +897,7 @@ class TestCLIVerboseFlag:
     def setup_method(self):
         try:
             from click.testing import CliRunner
+
             from cli.commands import cli
 
             self.runner = CliRunner()

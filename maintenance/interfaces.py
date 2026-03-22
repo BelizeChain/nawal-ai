@@ -8,15 +8,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 # --------------------------------------------------------------------------- #
 # Enumerations                                                                  #
 # --------------------------------------------------------------------------- #
 
 
-class RiskLevel(str, Enum):
+class RiskLevel(StrEnum):
     NONE = "none"
     LOW = "low"
     MEDIUM = "medium"
@@ -24,7 +24,7 @@ class RiskLevel(str, Enum):
     BLOCKED = "blocked"
 
 
-class RepairStrategy(str, Enum):
+class RepairStrategy(StrEnum):
     ROLLBACK = "rollback"  # Restore last known-good checkpoint
     ALERT = "alert"  # Notify operators, no auto-change
     ISOLATE = "isolate"  # Quarantine the offending node/model
@@ -42,9 +42,9 @@ class ScreeningResult:
 
     is_safe: bool
     risk_level: RiskLevel = RiskLevel.NONE
-    flags: List[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
     sanitized: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -53,9 +53,9 @@ class FilterResult:
 
     is_safe: bool
     risk_level: RiskLevel = RiskLevel.NONE
-    flags: List[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
     filtered: str = ""  # Possibly redacted output
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -64,9 +64,9 @@ class DriftReport:
 
     is_drifted: bool
     drift_score: float = 0.0  # 0.0 = stable, 1.0 = fully drifted
-    alerts: List[str] = field(default_factory=list)
-    metrics: Dict[str, float] = field(default_factory=dict)
-    checkpoint_id: Optional[str] = None
+    alerts: list[str] = field(default_factory=list)
+    metrics: dict[str, float] = field(default_factory=dict)
+    checkpoint_id: str | None = None
 
 
 @dataclass
@@ -75,9 +75,9 @@ class RepairResult:
 
     success: bool
     strategy: RepairStrategy = RepairStrategy.ALERT
-    checkpoint_restored: Optional[str] = None
+    checkpoint_restored: str | None = None
     message: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #
@@ -89,9 +89,7 @@ class AbstractInputScreener(ABC):
     """Screens incoming prompts before they reach the model."""
 
     @abstractmethod
-    def screen(
-        self, prompt: str, context: Optional[Dict[str, Any]] = None
-    ) -> ScreeningResult:
+    def screen(self, prompt: str, context: dict[str, Any] | None = None) -> ScreeningResult:
         """
         Analyse *prompt* for safety violations.
 
@@ -125,11 +123,11 @@ class AbstractDriftDetector(ABC):
     """Monitors model behaviour over time for deviation from a baseline."""
 
     @abstractmethod
-    def record_baseline(self, checkpoint_id: str, metrics: Dict[str, float]) -> None:
+    def record_baseline(self, checkpoint_id: str, metrics: dict[str, float]) -> None:
         """Establish a reference point."""
 
     @abstractmethod
-    def record_observation(self, metrics: Dict[str, float]) -> None:
+    def record_observation(self, metrics: dict[str, float]) -> None:
         """Record a new operational observation."""
 
     @abstractmethod
@@ -148,7 +146,7 @@ class AbstractSelfRepair(ABC):
     def repair(
         self,
         strategy: RepairStrategy = RepairStrategy.ROLLBACK,
-        drift_report: Optional[DriftReport] = None,
+        drift_report: DriftReport | None = None,
     ) -> RepairResult:
         """Execute the repair strategy."""
 

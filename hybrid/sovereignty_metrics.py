@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import time
 from collections import deque
-from typing import Deque, Dict, List, Optional, Tuple
 
 __all__ = ["SovereigntyMetrics"]
 
@@ -38,7 +37,7 @@ _DEFAULT_WINDOW_MINUTES = 30
 
 # Roadmap: month → minimum sovereignty fraction to be "on track".
 # Values are inclusive lower bounds.
-_ROADMAP_TARGETS: Dict[int, float] = {
+_ROADMAP_TARGETS: dict[int, float] = {
     1: 0.50,
     3: 0.70,
     6: 0.95,
@@ -60,7 +59,7 @@ class SovereigntyMetrics:
     def __init__(self, window_minutes: int = _DEFAULT_WINDOW_MINUTES) -> None:
         self._default_window_minutes = window_minutes
         # Each item is (unix_timestamp_seconds, model_name)
-        self._events: Deque[Tuple[float, str]] = deque()
+        self._events: deque[tuple[float, str]] = deque()
         self._total_nawal = 0
         self._total_deepseek = 0
 
@@ -84,9 +83,7 @@ class SovereigntyMetrics:
         """
         model = model_used.lower().strip()
         if model not in ("nawal", "deepseek"):
-            raise ValueError(
-                f"model_used must be 'nawal' or 'deepseek', got {model_used!r}"
-            )
+            raise ValueError(f"model_used must be 'nawal' or 'deepseek', got {model_used!r}")
         now = time.monotonic()
         self._events.append((now, model))
         if model == "nawal":
@@ -94,7 +91,7 @@ class SovereigntyMetrics:
         else:
             self._total_deepseek += 1
 
-    def sovereignty_rate(self, window_minutes: Optional[int] = None) -> float:
+    def sovereignty_rate(self, window_minutes: int | None = None) -> float:
         """
         Fraction of queries handled by Nawal within the last *window_minutes*.
 
@@ -110,11 +107,7 @@ class SovereigntyMetrics:
             A value in ``[0.0, 1.0]``.  Returns ``0.0`` if no events fall
             within the window.
         """
-        window = (
-            window_minutes
-            if window_minutes is not None
-            else self._default_window_minutes
-        )
+        window = window_minutes if window_minutes is not None else self._default_window_minutes
         cutoff = time.monotonic() - window * 60.0
         events_in_window = [e for e in self._events if e[0] >= cutoff]
         if not events_in_window:
@@ -160,7 +153,7 @@ class SovereigntyMetrics:
         """Public accessor for the roadmap target at a given month."""
         return self._target_for_month(month)
 
-    def snapshot(self, window_minutes: Optional[int] = None) -> Dict[str, object]:
+    def snapshot(self, window_minutes: int | None = None) -> dict[str, object]:
         """
         Return a JSON-serialisable snapshot of current metrics.
 
@@ -171,11 +164,7 @@ class SovereigntyMetrics:
             ``total_sovereignty_rate``, ``total_nawal``, ``total_deepseek``,
             ``total_queries``.
         """
-        w = (
-            window_minutes
-            if window_minutes is not None
-            else self._default_window_minutes
-        )
+        w = window_minutes if window_minutes is not None else self._default_window_minutes
         return {
             "window_minutes": w,
             "window_sovereignty_rate": self.sovereignty_rate(w),
@@ -225,7 +214,5 @@ class SovereigntyMetrics:
         total = self._total_nawal + self._total_deepseek
         rate = self.total_sovereignty_rate()
         return (
-            f"SovereigntyMetrics("
-            f"total={total}, nawal={self._total_nawal}, "
-            f"rate={rate:.1%})"
+            f"SovereigntyMetrics(" f"total={total}, nawal={self._total_nawal}, " f"rate={rate:.1%})"
         )

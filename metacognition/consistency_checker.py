@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from loguru import logger
 
@@ -71,9 +71,9 @@ class ConsistencyResult:
     """
 
     score: float
-    contradictions: List[ContradictionPair] = field(default_factory=list)
-    claim_map: List[List[str]] = field(default_factory=list)
-    most_supported: Optional[int] = None
+    contradictions: list[ContradictionPair] = field(default_factory=list)
+    claim_map: list[list[str]] = field(default_factory=list)
+    most_supported: int | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -108,8 +108,8 @@ class ConsistencyChecker:
 
     def check(
         self,
-        candidates: List[str],
-        context: Optional[Dict[str, Any]] = None,
+        candidates: list[str],
+        context: dict[str, Any] | None = None,
     ) -> ConsistencyResult:
         """
         Compare *candidates* for mutual consistency.
@@ -123,7 +123,6 @@ class ConsistencyChecker:
             ConsistencyResult with score, contradiction list, claim map,
             and the index of the most-supported candidate.
         """
-        ctx = context or {}
         if len(candidates) < 2:
             return ConsistencyResult(
                 score=1.0,
@@ -136,15 +135,13 @@ class ConsistencyChecker:
         claim_map = [self._extract_claims(c) for c in candidates]
 
         # Step 2: Pairwise contradiction detection
-        contradictions: List[ContradictionPair] = []
+        contradictions: list[ContradictionPair] = []
         n = len(candidates)
         for i in range(n):
             for j in range(i + 1, n):
                 for ci in claim_map[i]:
                     for cj in claim_map[j]:
-                        if self._claims_overlap(ci, cj) and self._claims_contradict(
-                            ci, cj
-                        ):
+                        if self._claims_overlap(ci, cj) and self._claims_contradict(ci, cj):
                             contradictions.append(
                                 ContradictionPair(
                                     idx_a=i,
@@ -181,9 +178,9 @@ class ConsistencyChecker:
 
     def most_consistent(
         self,
-        candidates: List[str],
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        candidates: list[str],
+        context: dict[str, Any] | None = None,
+    ) -> str | None:
         """
         Return the single most-consistent candidate, or None if empty.
         """
@@ -198,7 +195,7 @@ class ConsistencyChecker:
     # Claim extraction (Phase 3: rule-based)                              #
     # ------------------------------------------------------------------ #
 
-    def _extract_claims(self, text: str) -> List[str]:
+    def _extract_claims(self, text: str) -> list[str]:
         """
         Extract atomic fact-like sub-strings from *text*.
 
@@ -207,7 +204,7 @@ class ConsistencyChecker:
           - Sentences with named entities (Title-Cased words ≥ 4 chars).
           - Negation patterns.
         """
-        claims: List[str] = []
+        claims: list[str] = []
         sentences = re.split(r"(?<=[.!?])\s+", text.strip())
 
         for sent in sentences:
@@ -217,9 +214,7 @@ class ConsistencyChecker:
             # Keep sentences with numbers, proper nouns, or negation
             has_number = bool(re.search(r"\b\d[\d,\.]*\b", sent))
             has_np = bool(re.search(r"\b[A-Z][a-z]{3,}\b", sent))
-            has_negation = bool(
-                re.search(r"\b(not|never|no|neither|nor|none)\b", sent, re.I)
-            )
+            has_negation = bool(re.search(r"\b(not|never|no|neither|nor|none)\b", sent, re.I))
             if has_number or has_np or has_negation:
                 claims.append(sent)
 
@@ -261,12 +256,8 @@ class ConsistencyChecker:
         neg_b = bool(re.search(r"\b(not|never|no)\b", b, re.I))
         if neg_a != neg_b:
             # One negates something the other affirms; rough test
-            core_a = re.sub(
-                r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", a.lower()
-            )
-            core_b = re.sub(
-                r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", b.lower()
-            )
+            core_a = re.sub(r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", a.lower())
+            core_b = re.sub(r"\b(not|never|no|is|are|was|were|the|a|an)\b", "", b.lower())
             tok_a = set(core_a.split())
             tok_b = set(core_b.split())
             shared = len(tok_a & tok_b)

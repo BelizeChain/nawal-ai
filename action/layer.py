@@ -19,16 +19,16 @@ Usage::
 
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any
 
 from loguru import logger
 
+from action.executor import ActionExecutor
 from action.interfaces import AbstractActionLayer, ToolResult, ToolSpec
 from action.tool_registry import ToolRegistry
-from action.executor import ActionExecutor
-from action.tools.web_search import WebSearchTool
 from action.tools.code_sandbox import CodeSandbox
 from action.tools.memory_tool import MemoryReadTool, MemoryWriteTool
+from action.tools.web_search import WebSearchTool
 
 
 class ActionLayer(AbstractActionLayer):
@@ -52,9 +52,9 @@ class ActionLayer(AbstractActionLayer):
 
     def __init__(
         self,
-        memory_manager: Optional[Any] = None,
-        safety_screener: Optional[Any] = None,
-        extra_tools: Optional[list] = None,
+        memory_manager: Any | None = None,
+        safety_screener: Any | None = None,
+        extra_tools: list | None = None,
         stub_network_tools: bool = False,
     ) -> None:
         self._registry = ToolRegistry(safety_screener=safety_screener)
@@ -83,7 +83,7 @@ class ActionLayer(AbstractActionLayer):
         """Execute a named tool action."""
         return self._executor.execute(tool_name, **kwargs)
 
-    def available_tools(self) -> List[ToolSpec]:
+    def available_tools(self) -> list[ToolSpec]:
         """Return specs of all registered tools."""
         return self._registry.list_tools()
 

@@ -13,11 +13,7 @@ Professional test suite covering:
 
 from __future__ import annotations
 
-import io
-import math
 import struct
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -37,7 +33,7 @@ def _float32_bytes(*values: float) -> bytes:
 
 def _make_trainer(with_current_model: bool = True):
     """Return a ready-to-use GenomeTrainer with a simple linear model attached."""
-    from client.genome_trainer import TrainingConfig, GenomeTrainer
+    from client.genome_trainer import GenomeTrainer, TrainingConfig
 
     cfg = TrainingConfig(
         participant_id="test_p1",
@@ -123,7 +119,7 @@ class TestTrainingConfig:
 
 class TestGenomeTrainerInit:
     def test_init_cpu(self):
-        from client.genome_trainer import TrainingConfig, GenomeTrainer
+        from client.genome_trainer import GenomeTrainer, TrainingConfig
 
         cfg = TrainingConfig(
             participant_id="init_test",
@@ -138,7 +134,7 @@ class TestGenomeTrainerInit:
         assert trainer.historical_updates == []
 
     def test_init_auto_device(self):
-        from client.genome_trainer import TrainingConfig, GenomeTrainer
+        from client.genome_trainer import GenomeTrainer, TrainingConfig
 
         cfg = TrainingConfig(
             participant_id="dev_test",
@@ -151,7 +147,7 @@ class TestGenomeTrainerInit:
         assert trainer.device.type in ("cuda", "cpu")
 
     def test_init_custom_model_builder(self):
-        from client.genome_trainer import TrainingConfig, GenomeTrainer
+        from client.genome_trainer import GenomeTrainer, TrainingConfig
         from genome.model_builder import ModelBuilder
 
         mb = ModelBuilder(vocab_size=100, max_seq_length=64)
@@ -591,8 +587,8 @@ class TestCheckpointSaveLoad:
 
 class TestSetGenomeInitialWeights:
     def test_set_genome_rejects_nan_weights(self):
-        from genome.dna import Genome, ArchitectureLayer, LayerType
-        from client.genome_trainer import TrainingConfig, GenomeTrainer
+        from client.genome_trainer import GenomeTrainer, TrainingConfig
+        from genome.dna import ArchitectureLayer, Genome, LayerType
 
         trainer = GenomeTrainer(
             TrainingConfig(
@@ -735,7 +731,7 @@ class TestDomainModelFactory:
         assert m.domain == ModelDomain.TECH
 
     def test_create_general_falls_back_to_agritech(self):
-        from client.domain_models import DomainModelFactory, ModelDomain, AgriTechModel
+        from client.domain_models import AgriTechModel, DomainModelFactory, ModelDomain
 
         m = DomainModelFactory.create_model(ModelDomain.GENERAL, device="cpu")
         assert isinstance(m, AgriTechModel)

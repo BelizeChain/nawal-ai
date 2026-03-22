@@ -13,10 +13,10 @@ Kinich Quantum Connector  [DEPRECATED LOCATION — Phase 0]
 """
 
 # Re-export everything from the canonical module to avoid code duplication.
-from quantum.kinich_connector import (  # noqa: F401
+from quantum.kinich_connector import (
+    TORCH_AVAILABLE,
     KinichQuantumConnector,
     QuantumEnhancedLayer,
-    TORCH_AVAILABLE,
 )
 
-__all__ = ["KinichQuantumConnector", "QuantumEnhancedLayer", "TORCH_AVAILABLE"]
+__all__ = ["TORCH_AVAILABLE", "KinichQuantumConnector", "QuantumEnhancedLayer"]

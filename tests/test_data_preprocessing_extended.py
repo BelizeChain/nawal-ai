@@ -9,12 +9,11 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
 import time
-import os
+from datetime import UTC
 from pathlib import Path
-from typing import Any, Dict, List
-from unittest.mock import MagicMock, patch, AsyncMock
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
@@ -121,7 +120,7 @@ class TestTextCleaner:
 
 class TestDataValidator:
     def _make(self, **kw):
-        from data.preprocessing import PreprocessingConfig, DataValidator
+        from data.preprocessing import DataValidator, PreprocessingConfig
 
         return DataValidator(PreprocessingConfig(**kw))
 
@@ -331,7 +330,7 @@ class TestTokenizerConfig:
 
 class TestCharacterTokenizer:
     def _make(self):
-        from data.tokenizers import TokenizerConfig, TokenizerType, CharacterTokenizer
+        from data.tokenizers import CharacterTokenizer, TokenizerConfig, TokenizerType
 
         cfg = TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER, max_length=20)
         return CharacterTokenizer(cfg)
@@ -407,7 +406,7 @@ class TestTextTokenizerCharacter:
     """Test TextTokenizer wrapping CharacterTokenizer."""
 
     def _make(self):
-        from data.tokenizers import TokenizerConfig, TokenizerType, TextTokenizer
+        from data.tokenizers import TextTokenizer, TokenizerConfig, TokenizerType
 
         cfg = TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER, max_length=30)
         return TextTokenizer(cfg)
@@ -467,7 +466,7 @@ class TestTextTokenizerWord:
     """Test TextTokenizer wrapping WordTokenizer."""
 
     def _make(self):
-        from data.tokenizers import TokenizerConfig, TokenizerType, TextTokenizer
+        from data.tokenizers import TextTokenizer, TokenizerConfig, TokenizerType
 
         cfg = TokenizerConfig(tokenizer_type=TokenizerType.WORD, max_length=20)
         return TextTokenizer(cfg)
@@ -491,10 +490,10 @@ class TestCreateTokenizer:
         assert t is not None
 
     def test_unsupported_type(self):
-        from data.tokenizers import TokenizerConfig, TokenizerType, TextTokenizer
+        from data.tokenizers import TokenizerConfig, TokenizerType
 
         # Create a config with an invalid type by monkey-patching
-        cfg = TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER, max_length=10)
+        TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER, max_length=10)
         # If we set the type to something not in _get_hf_tokenizers, not CHARACTER, not WORD
         # we can't easily do that without modifying the enum. Skip this edge case.
 
@@ -637,7 +636,6 @@ class TestDataManager:
             DatasetConfig,
             DatasetType,
             SplitConfig,
-            ListDataset,
         )
 
         data = list(range(100))
@@ -703,7 +701,7 @@ class TestDataManager:
             custom_path=json_path,
         )
         dm = DataManager(cfg)
-        train_dl, val_dl, test_dl = dm.get_dataloaders()
+        train_dl, _val_dl, _test_dl = dm.get_dataloaders()
         assert len(train_dl) > 0
 
     def test_partition_federated_iid(self, tmp_path):
@@ -1025,7 +1023,7 @@ class TestEpisodicMemoryHelpers:
 
 class TestParticipant:
     def _make(self, **kw: Any):
-        from server.participant_manager import Participant, ParticipantStatus
+        from server.participant_manager import Participant
 
         return Participant(
             participant_id=kw.get("participant_id", "p1"),
@@ -1180,7 +1178,6 @@ class TestParticipantManager:
         )
 
     def test_record_contribution(self):
-        from server.participant_manager import ParticipantStatus
 
         pm = self._make()
         pm.enroll_participant("p1", "addr1", "stake1")
@@ -1779,7 +1776,7 @@ class TestStakingConnectorExtra:
         sc = self._make()
         _run(sc.connect())
         _run(sc.enroll_participant("acc1", 1000))
-        success, amount = _run(sc.claim_rewards("acc1"))
+        success, _amount = _run(sc.claim_rewards("acc1"))
         assert isinstance(success, bool)
 
     def test_submit_training_proof(self):
@@ -1940,7 +1937,7 @@ class TestCommunityConnectorExtra:
     def test_record_federated_learning(self):
         cc = self._make()
         _run(cc.connect())
-        ok, msg = _run(
+        ok, _msg = _run(
             cc.record_federated_learning_contribution(
                 "acc1",
                 round_number=1,
@@ -1954,13 +1951,13 @@ class TestCommunityConnectorExtra:
     def test_record_education(self):
         cc = self._make()
         _run(cc.connect())
-        ok, msg = _run(cc.record_education_completion("acc1", 1, 95.0))
+        ok, _msg = _run(cc.record_education_completion("acc1", 1, 95.0))
         assert isinstance(ok, bool)
 
     def test_record_green_project(self):
         cc = self._make()
         _run(cc.connect())
-        ok, msg = _run(cc.record_green_project_contribution("acc1", 1, 1000))
+        ok, _msg = _run(cc.record_green_project_contribution("acc1", 1, 1000))
         assert isinstance(ok, bool)
 
     def test_disconnect(self):
@@ -2087,12 +2084,13 @@ class TestStakingInterfaceExtra:
         return client
 
     def test_calculate_fitness_score(self):
+        from datetime import datetime, timedelta
+
         from blockchain.staking_interface import StakingInterface
-        from datetime import datetime, timezone, timedelta
 
         client = self._mock_client()
         si = StakingInterface(client)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         score = si.calculate_fitness_score(
             initial_loss=2.0,
             final_loss=0.5,
@@ -2257,8 +2255,9 @@ class TestFederatedAggregator:
 
 class TestBelizeChainLLM:
     def test_forward_classification(self):
-        from client.model import BelizeChainLLM
         from types import SimpleNamespace
+
+        from client.model import BelizeChainLLM
 
         with (
             patch("transformers.AutoModel.from_pretrained") as mock_model,
@@ -2307,7 +2306,7 @@ class TestModelVersioning:
 
 class TestSaveLoadCheckpoint:
     def test_save_and_load(self, tmp_path):
-        from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+        from client.model import load_versioned_checkpoint, save_versioned_checkpoint
 
         model = torch.nn.Linear(10, 5)
         path = str(tmp_path / "ckpt.pt")
@@ -2462,8 +2461,8 @@ class TestPopulationExtra:
 
 class TestGeneticOperatorsExtra:
     def test_evolve_mutation_only(self):
-        from genome.operators import EvolutionStrategy, EvolutionConfig
-        from genome.encoding import Genome, ArchitectureLayer, LayerType
+        from genome.encoding import ArchitectureLayer, Genome, LayerType
+        from genome.operators import EvolutionConfig, EvolutionStrategy
 
         cfg = EvolutionConfig(mutation_rate=1.0, crossover_rate=0.0)
         strategy = EvolutionStrategy(cfg)
@@ -2492,7 +2491,7 @@ class TestGeneticOperatorsExtra:
 
 class TestGenomeHistoryExtra:
     def _make_genome(self, fitness=50.0):
-        from genome.encoding import Genome, ArchitectureLayer, LayerType
+        from genome.encoding import ArchitectureLayer, Genome, LayerType
 
         return Genome(
             encoder_layers=[
@@ -2588,8 +2587,9 @@ class TestDeepSeekTeacherExtra:
         assert t is not None
 
     def test_generate(self):
-        from hybrid.teacher import DeepSeekTeacher
         from types import SimpleNamespace
+
+        from hybrid.teacher import DeepSeekTeacher
 
         t = DeepSeekTeacher()
         # Mock tokenizer

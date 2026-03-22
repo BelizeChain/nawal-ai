@@ -11,16 +11,16 @@ New canonical path (Phase 1+):
 """
 
 # Re-export everything from the underlying architecture package
-from architecture.transformer import NawalTransformer
-from architecture.config import NawalModelConfig
 from architecture.attention import MultiHeadAttention
-from architecture.feedforward import FeedForward
+from architecture.config import NawalModelConfig
 from architecture.embeddings import NawalEmbeddings
+from architecture.feedforward import FeedForward
+from architecture.transformer import NawalTransformer
 
 __all__ = [
-    "NawalTransformer",
-    "NawalModelConfig",
-    "MultiHeadAttention",
     "FeedForward",
+    "MultiHeadAttention",
     "NawalEmbeddings",
+    "NawalModelConfig",
+    "NawalTransformer",
 ]

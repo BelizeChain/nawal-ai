@@ -19,12 +19,10 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
 
 import torch
-import torch.nn as nn
 import torch.nn as nn
 from loguru import logger
 
@@ -60,7 +58,7 @@ class PrivacyBudget:
         """Get remaining privacy budget."""
         return max(0.0, self.epsilon - self.spent_epsilon)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "epsilon": self.epsilon,
@@ -102,8 +100,8 @@ class DifferentialPrivacy:
         epsilon: float = 1.0,
         delta: float = 1e-5,
         clip_norm: float = 1.0,
-        noise_multiplier: Optional[float] = None,
-        target_steps: Optional[int] = None,
+        noise_multiplier: float | None = None,
+        target_steps: int | None = None,
         sampling_rate: float = 0.01,
     ):
         """
@@ -181,9 +179,7 @@ class DifferentialPrivacy:
             Global gradient norm before clipping
         """
         # Collect all gradient tensors
-        grads = [
-            param.grad.data for param in model.parameters() if param.grad is not None
-        ]
+        grads = [param.grad.data for param in model.parameters() if param.grad is not None]
 
         if not grads:
             return 0.0
@@ -252,14 +248,12 @@ class DifferentialPrivacy:
 
         # Conservative estimate
         epsilon_per_step = (
-            self.sampling_rate
-            * self.budget.epsilon
-            / math.sqrt(max(self.budget.steps, 1))
+            self.sampling_rate * self.budget.epsilon / math.sqrt(max(self.budget.steps, 1))
         )
 
         return epsilon_per_step
 
-    def get_privacy_spent(self) -> Tuple[float, float]:
+    def get_privacy_spent(self) -> tuple[float, float]:
         """
         Get privacy spent (ε, δ).
 
@@ -276,7 +270,7 @@ class DifferentialPrivacy:
         """Check if training can continue under privacy budget."""
         return not self.budget.is_exhausted()
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "budget": self.budget.to_dict(),
@@ -304,7 +298,7 @@ class PrivacyAccountant:
         epsilon: float,
         delta: float,
         sampling_rate: float,
-        orders: Optional[List[float]] = None,
+        orders: list[float] | None = None,
     ):
         """
         Initialize PrivacyAccountant.
@@ -325,7 +319,7 @@ class PrivacyAccountant:
             self.orders = orders
 
         # RDP values for each order
-        self.rdp = {order: 0.0 for order in self.orders}
+        self.rdp = dict.fromkeys(self.orders, 0.0)
 
     def accumulate_privacy_spending(
         self,
@@ -344,7 +338,7 @@ class PrivacyAccountant:
             rdp_step = self.sampling_rate**2 * order / (2 * noise_multiplier**2)
             self.rdp[order] += rdp_step * steps
 
-    def get_privacy_spent(self) -> Tuple[float, float]:
+    def get_privacy_spent(self) -> tuple[float, float]:
         """
         Convert RDP to (ε, δ) using optimal order.
 
@@ -360,7 +354,7 @@ class PrivacyAccountant:
 
         return (min_epsilon, self.delta)
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         epsilon_spent, _ = self.get_privacy_spent()
         return {
@@ -402,7 +396,7 @@ class DPOptimizer:
         self.dp.update_privacy_budget()
 
     @property
-    def privacy_spent(self) -> Dict:
+    def privacy_spent(self) -> dict:
         """Return current privacy expenditure."""
         return self.dp.get_privacy_spent()
 
@@ -414,7 +408,7 @@ def create_dp_optimizer(
     epsilon: float = 1.0,
     delta: float = 1e-5,
     clip_norm: float = 1.0,
-    noise_multiplier: Optional[float] = None,
+    noise_multiplier: float | None = None,
 ) -> DPOptimizer:
     """
     Create DP-enabled optimizer (simplified wrapper).
@@ -445,8 +439,6 @@ def create_dp_optimizer(
         noise_multiplier=noise_multiplier,
     )
 
-    logger.info(
-        "Created DPOptimizer (simplified). Consider using Opacus for production."
-    )
+    logger.info("Created DPOptimizer (simplified). Consider using Opacus for production.")
 
     return DPOptimizer(optimizer, dp)

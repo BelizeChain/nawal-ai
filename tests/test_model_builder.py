@@ -15,9 +15,8 @@ License: MIT
 import pytest
 import torch
 import torch.nn as nn
-
-from nawal.model_builder import ModelBuilder
 from nawal.genome.dna import DNA, LayerGene
+from nawal.model_builder import ModelBuilder
 
 # ============================================================================
 # Model Builder Tests
@@ -225,7 +224,7 @@ class TestModelBuilder:
             ),
         ]
 
-        for trans_name, params, trans_class in transformers:
+        for trans_name, params, _trans_class in transformers:
             gene = LayerGene(
                 innovation_id=1,
                 layer_type=trans_name,
@@ -268,11 +267,11 @@ class TestModelBuilder:
 
         # Training mode
         model.train()
-        assert model.training == True
+        assert model.training
 
         # Eval mode
         model.eval()
-        assert model.training == False
+        assert not model.training
 
     def test_model_to_device(self, sample_dna):
         """Test model can be moved to device."""

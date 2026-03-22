@@ -16,9 +16,9 @@ import numpy as np
 import pytest
 
 from quantum.kinich_connector import (
+    TORCH_AVAILABLE,
     KinichQuantumConnector,
     QuantumEnhancedLayer,
-    TORCH_AVAILABLE,
 )
 
 # ── Helper ────────────────────────────────────────────────────────────────────
@@ -134,9 +134,8 @@ class TestC12_2_ResponseHandling:
         resp_json = {"wrong_key": [[0.0] * 8, [0.0] * 8]}
         with patch(
             "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
-        ):
-            with pytest.raises(RuntimeError, match="quantum_enhanced_features"):
-                asyncio.run(conn._quantum_forward(features, "vqc"))
+        ), pytest.raises(RuntimeError, match="quantum_enhanced_features"):
+            asyncio.run(conn._quantum_forward(features, "vqc"))
 
     # ── shape mismatch ────────────────────────────────────────────────────
 
@@ -147,9 +146,8 @@ class TestC12_2_ResponseHandling:
         resp_json = {"quantum_enhanced_features": [[0.0] * 8] * 3}
         with patch(
             "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
-        ):
-            with pytest.raises(RuntimeError, match="shape"):
-                asyncio.run(conn._quantum_forward(features, "vqc"))
+        ), pytest.raises(RuntimeError, match="shape"):
+            asyncio.run(conn._quantum_forward(features, "vqc"))
 
     def test_correct_response_returns_ndarray(self):
         conn = _quantum_connector(classical_dim=8)
@@ -181,9 +179,13 @@ class TestC12_2_ResponseHandling:
     def test_integration_shim_exports_match_canonical(self):
         """integration.kinich_connector re-exports are the exact same objects."""
         from integration.kinich_connector import (
-            KinichQuantumConnector as IntConn,
-            QuantumEnhancedLayer as IntLayer,
             TORCH_AVAILABLE as IntTorch,
+        )
+        from integration.kinich_connector import (
+            KinichQuantumConnector as IntConn,
+        )
+        from integration.kinich_connector import (
+            QuantumEnhancedLayer as IntLayer,
         )
 
         assert IntConn is KinichQuantumConnector
@@ -227,9 +229,8 @@ class TestC12_3_TimeoutAndCircuitBreaker:
 
         with patch(
             "aiohttp.ClientSession", return_value=_mock_kinich_session(resp_json)
-        ):
-            with patch("aiohttp.ClientTimeout", side_effect=capture_timeout):
-                asyncio.run(conn._quantum_forward(features, "vqc"))
+        ), patch("aiohttp.ClientTimeout", side_effect=capture_timeout):
+            asyncio.run(conn._quantum_forward(features, "vqc"))
 
         assert captured_timeout == 7.5
 
@@ -260,7 +261,7 @@ class TestC12_3_TimeoutAndCircuitBreaker:
         mock_session.post = MagicMock(side_effect=RuntimeError("timeout"))
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            for i in range(3):
+            for _i in range(3):
                 features = rng.standard_normal((2, 8))
                 asyncio.run(conn.quantum_process(features))
 

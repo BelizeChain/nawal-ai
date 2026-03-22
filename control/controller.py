@@ -32,14 +32,15 @@ from __future__ import annotations
 import threading
 import time
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from loguru import logger
 
+from control.executor import ToolExecutor
 from control.goal_stack import GoalStack
 from control.interfaces import Goal, GoalStatus, Plan
 from control.planner import ClassicalPlanner
-from control.executor import ToolExecutor
 
 # --------------------------------------------------------------------------- #
 # Default available tool set                                                   #
@@ -78,8 +79,8 @@ class ExecutiveController:
 
     def __init__(
         self,
-        memory: Optional[Any] = None,
-        available_tools: Optional[List[str]] = None,
+        memory: Any | None = None,
+        available_tools: list[str] | None = None,
         planner_confidence: float = 0.7,
         executor_timeout: float = 30.0,
         max_plans: int = 3,
@@ -101,7 +102,7 @@ class ExecutiveController:
         )
 
         # Execution history
-        self._history: List[Dict[str, Any]] = []
+        self._history: list[dict[str, Any]] = []
 
     # ------------------------------------------------------------------ #
     # Public API                                                           #
@@ -111,8 +112,8 @@ class ExecutiveController:
         self,
         description: str,
         priority: float = 1.0,
-        context: Optional[Dict[str, Any]] = None,
-        sub_goals: Optional[List["Goal"]] = None,
+        context: dict[str, Any] | None = None,
+        sub_goals: list[Goal] | None = None,
     ) -> Goal:
         """
         Push a new goal onto the stack.
@@ -155,9 +156,9 @@ class ExecutiveController:
 
     def tick(
         self,
-        world_state: Optional[Dict[str, Any]] = None,
-        plan_constraints: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        world_state: dict[str, Any] | None = None,
+        plan_constraints: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
         """
         Single control-loop iteration.
 
@@ -189,15 +190,10 @@ class ExecutiveController:
         if goal.status != GoalStatus.ACTIVE:
             activated = self._goal_stack.activate(goal.goal_id)
             if not activated:
-                logger.warning(
-                    f"Could not activate goal {goal.goal_id!r}; skipping tick."
-                )
+                logger.warning(f"Could not activate goal {goal.goal_id!r}; skipping tick.")
                 return None
 
-        logger.info(
-            f"ExecutiveController tick: goal={goal.description!r} "
-            f"(id={goal.goal_id})"
-        )
+        logger.info(f"ExecutiveController tick: goal={goal.description!r} " f"(id={goal.goal_id})")
         t0 = time.monotonic()
 
         # ---- Generate candidate plans -------------------------------- #
@@ -215,16 +211,13 @@ class ExecutiveController:
         if not plans:
             logger.warning("Planner returned no plans; failing goal.")
             self._goal_stack.fail(goal.goal_id)
-            return self._build_summary(
-                goal, None, "failed", [], 0.0, "no plans generated"
-            )
+            return self._build_summary(goal, None, "failed", [], 0.0, "no plans generated")
 
         # ---- Select best plan ---------------------------------------- #
         plan = self._planner.select_plan(plans, constraints=constraints)
 
         logger.info(
-            f"Selected plan_id={plan.plan_id!r} "
-            f"score={plan.score:.3f} steps={len(plan.steps)}"
+            f"Selected plan_id={plan.plan_id!r} " f"score={plan.score:.3f} steps={len(plan.steps)}"
         )
 
         # ---- Execute plan -------------------------------------------- #
@@ -249,9 +242,7 @@ class ExecutiveController:
         # ---- Persist result to memory -------------------------------- #
         self._store_result_in_memory(goal, plan, exec_result, elapsed)
 
-        summary = self._build_summary(
-            goal, plan, exec_status, exec_result["outputs"], elapsed
-        )
+        summary = self._build_summary(goal, plan, exec_status, exec_result["outputs"], elapsed)
         self._history.append(summary)
         return summary
 
@@ -259,7 +250,7 @@ class ExecutiveController:
     # Introspection                                                        #
     # ------------------------------------------------------------------ #
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return a snapshot of the controller's state."""
         live = self._goal_stack.all_live()
         hist = self._goal_stack.history()
@@ -292,12 +283,12 @@ class ExecutiveController:
     def _build_summary(
         self,
         goal: Goal,
-        plan: Optional[Plan],
+        plan: Plan | None,
         status: str,
         outputs: list,
         elapsed: float,
-        error: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        error: str | None = None,
+    ) -> dict[str, Any]:
         return {
             "goal_id": goal.goal_id,
             "description": goal.description,
@@ -313,7 +304,7 @@ class ExecutiveController:
         self,
         goal: Goal,
         plan: Plan,
-        exec_result: Dict[str, Any],
+        exec_result: dict[str, Any],
         elapsed: float,
     ) -> None:
         if self._memory is None:

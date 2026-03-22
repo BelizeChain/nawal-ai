@@ -15,7 +15,6 @@ NOTE: Paillier tests use 512-bit keys for speed. Production uses 2048-bit.
 
 from __future__ import annotations
 
-from typing import Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -54,7 +53,7 @@ def enc_key(small_keypair):
 # ---------------------------------------------------------------------------
 
 
-def _make_update(seed: int = 0) -> Dict[str, torch.Tensor]:
+def _make_update(seed: int = 0) -> dict[str, torch.Tensor]:
     torch.manual_seed(seed)
     return {"w": torch.randn(3, 3), "b": torch.randn(3)}
 
@@ -213,7 +212,7 @@ class TestGenerateClientKeys:
     def test_generates_one_secret_per_client(self):
         ag = SecureAggregator(num_clients=4)
         with patch("security.secure_aggregation.EncryptionKey", MagicMock):
-            keys = ag.generate_client_keys()
+            ag.generate_client_keys()
         assert len(ag.client_secrets) == 4
 
     def test_returns_dict_keyed_by_client_id(self):

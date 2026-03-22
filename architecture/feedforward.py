@@ -7,7 +7,6 @@ Two-layer MLP with GELU activation applied to each position independently.
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from .config import NawalModelConfig
 
@@ -101,17 +100,11 @@ class GatedFeedForward(nn.Module):
         self.config = config
 
         # Gate and value projections
-        self.gate_proj = nn.Linear(
-            config.hidden_size, config.intermediate_size, bias=False
-        )
-        self.value_proj = nn.Linear(
-            config.hidden_size, config.intermediate_size, bias=False
-        )
+        self.gate_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
+        self.value_proj = nn.Linear(config.hidden_size, config.intermediate_size, bias=False)
 
         # Down projection
-        self.down_proj = nn.Linear(
-            config.intermediate_size, config.hidden_size, bias=False
-        )
+        self.down_proj = nn.Linear(config.intermediate_size, config.hidden_size, bias=False)
 
         # Activation
         if config.activation == "gelu":

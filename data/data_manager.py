@@ -19,18 +19,18 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Optional, Tuple, Any, Union
-from enum import Enum
-from dataclasses import dataclass, field
-from pathlib import Path
+import hashlib
 import json
 import pickle
-import hashlib
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
-import torch
-from torch.utils.data import Dataset, DataLoader, random_split, Subset
 import numpy as np
+import torch
 from loguru import logger
+from torch.utils.data import DataLoader, Dataset, Subset, random_split
 
 # Optional HuggingFace datasets (not required)
 try:
@@ -106,15 +106,15 @@ class DatasetConfig:
     dataset_type: DatasetType
     cache_dir: Path = Path("./data_cache")
     split_config: SplitConfig = field(default_factory=SplitConfig)
-    max_samples: Optional[int] = None
+    max_samples: int | None = None
     num_workers: int = 4
     batch_size: int = 32
-    preprocessing: Optional[Any] = None
+    preprocessing: Any | None = None
 
     # Dataset-specific parameters
-    subset: Optional[str] = None  # For multi-subset datasets
-    language: Optional[str] = None  # For multilingual datasets
-    custom_path: Optional[Path] = None  # For custom datasets
+    subset: str | None = None  # For multi-subset datasets
+    language: str | None = None  # For multilingual datasets
+    custom_path: Path | None = None  # For custom datasets
 
 
 class DataManager:
@@ -152,10 +152,10 @@ class DataManager:
             config: Dataset configuration
         """
         self.config = config
-        self.dataset: Optional[Dataset] = None
-        self.train_dataset: Optional[Dataset] = None
-        self.val_dataset: Optional[Dataset] = None
-        self.test_dataset: Optional[Dataset] = None
+        self.dataset: Dataset | None = None
+        self.train_dataset: Dataset | None = None
+        self.val_dataset: Dataset | None = None
+        self.test_dataset: Dataset | None = None
 
         # Create cache directory
         self.config.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -207,7 +207,7 @@ class DataManager:
         except Exception as e:
             logger.warning(f"Cache save failed: {e}")
 
-    def split_dataset(self) -> Tuple[Dataset, Dataset, Dataset]:
+    def split_dataset(self) -> tuple[Dataset, Dataset, Dataset]:
         """
         Split dataset into train/val/test.
 
@@ -236,9 +236,7 @@ class DataManager:
         else:
             indices = list(range(dataset_size))
             self.train_dataset = Subset(self.dataset, indices[:train_size])
-            self.val_dataset = Subset(
-                self.dataset, indices[train_size : train_size + val_size]
-            )
+            self.val_dataset = Subset(self.dataset, indices[train_size : train_size + val_size])
             self.test_dataset = Subset(self.dataset, indices[train_size + val_size :])
 
         logger.info(
@@ -251,7 +249,7 @@ class DataManager:
     def get_dataloaders(
         self,
         shuffle_train: bool = True,
-    ) -> Tuple[DataLoader, DataLoader, DataLoader]:
+    ) -> tuple[DataLoader, DataLoader, DataLoader]:
         """
         Get DataLoaders for train/val/test.
 
@@ -300,7 +298,7 @@ class DataManager:
         num_clients: int,
         iid: bool = True,
         alpha: float = 0.5,
-    ) -> List[DataLoader]:
+    ) -> list[DataLoader]:
         """
         Partition data for federated learning.
 
@@ -324,9 +322,7 @@ class DataManager:
             client_indices = np.array_split(indices, num_clients)
         else:
             # Non-IID partitioning: Dirichlet distribution
-            logger.info(
-                f"Non-IID partitioning (alpha={alpha}) for {num_clients} clients"
-            )
+            logger.info(f"Non-IID partitioning (alpha={alpha}) for {num_clients} clients")
 
             # Get labels (assume dataset has 'label' or 'target' attribute)
             try:
@@ -335,17 +331,13 @@ class DataManager:
                         self.train_dataset.indices
                     ]
                 elif hasattr(self.train_dataset.dataset, "labels"):
-                    labels = np.array(self.train_dataset.dataset.labels)[
-                        self.train_dataset.indices
-                    ]
+                    labels = np.array(self.train_dataset.dataset.labels)[self.train_dataset.indices]
                 else:
                     logger.warning("No labels found, falling back to IID")
                     return self.partition_federated(num_clients, iid=True)
 
                 num_classes = len(np.unique(labels))
-                client_indices = self._dirichlet_partition(
-                    labels, num_clients, num_classes, alpha
-                )
+                client_indices = self._dirichlet_partition(labels, num_clients, num_classes, alpha)
             except Exception as e:
                 logger.warning(f"Non-IID partitioning failed: {e}, falling back to IID")
                 return self.partition_federated(num_clients, iid=True)
@@ -362,9 +354,7 @@ class DataManager:
                 pin_memory=True,
             )
             client_loaders.append(client_loader)
-            logger.debug(
-                f"Client {i}: {len(client_dataset)} samples, {len(client_loader)} batches"
-            )
+            logger.debug(f"Client {i}: {len(client_dataset)} samples, {len(client_loader)} batches")
 
         logger.success(f"Federated partitioning complete: {num_clients} clients")
         return client_loaders
@@ -375,7 +365,7 @@ class DataManager:
         num_clients: int,
         num_classes: int,
         alpha: float,
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """
         Partition data using Dirichlet distribution (non-IID).
 
@@ -432,10 +422,7 @@ class DataManager:
             hf_dataset = load_dataset(dataset_name)
 
         # Use train split by default
-        if "train" in hf_dataset:
-            dataset = hf_dataset["train"]
-        else:
-            dataset = list(hf_dataset.values())[0]
+        dataset = hf_dataset["train"] if "train" in hf_dataset else next(iter(hf_dataset.values()))
 
         logger.success(f"Loaded {len(dataset)} samples from HuggingFace")
         return dataset
@@ -458,7 +445,7 @@ class DataManager:
 
     def _load_json_dataset(self, path: Path) -> Dataset:
         """Load dataset from JSON file."""
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
 
         logger.success(f"Loaded {len(data)} samples from JSON")
@@ -486,21 +473,21 @@ class DataManager:
             logger.success(f"Loaded {len(data)} samples from Parquet")
             return ListDataset(data)
         except ImportError:
-            raise RuntimeError(
-                "pandas required for Parquet loading: pip install pandas"
-            )
+            raise RuntimeError("pandas required for Parquet loading: pip install pandas")
 
     def _get_cache_path(self) -> Path:
         """Get cache file path for current configuration."""
         # Create hash of configuration
-        config_str = f"{self.config.dataset_type.value}_{self.config.subset}_{self.config.max_samples}"
+        config_str = (
+            f"{self.config.dataset_type.value}_{self.config.subset}_{self.config.max_samples}"
+        )
         config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
 
         cache_file = f"{self.config.dataset_type.value}_{config_hash}.pkl"
         return self.config.cache_dir / cache_file
 
     @staticmethod
-    def _get_hf_datasets() -> List[DatasetType]:
+    def _get_hf_datasets() -> list[DatasetType]:
         """Get list of HuggingFace datasets."""
         return [
             DatasetType.WIKITEXT2,
@@ -514,7 +501,7 @@ class DataManager:
         ]
 
     @staticmethod
-    def _get_custom_datasets() -> List[DatasetType]:
+    def _get_custom_datasets() -> list[DatasetType]:
         """Get list of custom dataset types."""
         return [
             DatasetType.CUSTOM_JSON,
@@ -522,7 +509,7 @@ class DataManager:
             DatasetType.CUSTOM_PARQUET,
         ]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get dataset statistics."""
         if self.dataset is None:
             self.load_dataset()
@@ -546,7 +533,7 @@ class ListDataset(Dataset):
     Used for custom datasets loaded from JSON/CSV/Parquet.
     """
 
-    def __init__(self, data: List[Any]):
+    def __init__(self, data: list[Any]):
         self.data = data
 
     def __len__(self) -> int:

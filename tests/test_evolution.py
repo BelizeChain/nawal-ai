@@ -12,12 +12,9 @@ Author: BelizeChain Team
 License: MIT
 """
 
-import pytest
-import torch
-from pathlib import Path
 
+import pytest
 from nawal.orchestrator import EvolutionOrchestrator
-from nawal.genome.population import Population
 
 # ============================================================================
 # Evolution Orchestrator Tests
@@ -221,7 +218,7 @@ class TestEvolutionCheckpoints:
         )
         await orchestrator1._run_generation(generation=0)
 
-        checkpoint_path = checkpoint_dir / "evolution.pt"
+        checkpoint_dir / "evolution.pt"
         await orchestrator1._save_checkpoint(generation=0)
 
         # Load in new orchestrator would require checkpoint to exist

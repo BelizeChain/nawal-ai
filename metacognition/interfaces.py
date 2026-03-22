@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -31,8 +31,8 @@ class ConfidenceScore:
 
     value: float
     method: str = "unknown"
-    explanation: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    explanation: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -48,9 +48,9 @@ class CritiqueResult:
     """
 
     approved: bool
-    issues: List[str] = field(default_factory=list)
-    revised_response: Optional[str] = None
-    confidence: Optional[ConfidenceScore] = None
+    issues: list[str] = field(default_factory=list)
+    revised_response: str | None = None
+    confidence: ConfidenceScore | None = None
 
 
 class AbstractCritic(ABC):
@@ -65,7 +65,7 @@ class AbstractCritic(ABC):
     def critique(
         self,
         response: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> CritiqueResult:
         """
         Evaluate *response* and either approve or flag issues.
@@ -82,7 +82,7 @@ class AbstractCritic(ABC):
     def estimate_confidence(
         self,
         response: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> ConfidenceScore:
         """
         Return a confidence estimate for *response*.
@@ -103,11 +103,11 @@ class AbstractSimulator(ABC):
     @abstractmethod
     def simulate(
         self,
-        current_state: Dict[str, Any],
-        possible_actions: List[Dict[str, Any]],
+        current_state: dict[str, Any],
+        possible_actions: list[dict[str, Any]],
         horizon: int = 3,
         n_samples: int = 4,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Generate imagined future scenarios.
 
@@ -127,8 +127,8 @@ class AbstractSimulator(ABC):
     @abstractmethod
     def best_action(
         self,
-        simulations: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        simulations: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """
         Select the highest-value action from completed simulations.
 

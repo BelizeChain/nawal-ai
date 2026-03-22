@@ -42,9 +42,7 @@ from __future__ import annotations
 
 import copy
 import random
-import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -56,9 +54,9 @@ from metacognition.interfaces import AbstractSimulator
 
 
 def _apply_action(
-    state: Dict[str, Any],
-    action: Dict[str, Any],
-) -> Dict[str, Any]:
+    state: dict[str, Any],
+    action: dict[str, Any],
+) -> dict[str, Any]:
     """
     Produce a new world-state by applying *action* to *state*.
 
@@ -71,8 +69,7 @@ def _apply_action(
     if action_type in ("retrieve", "memory_read", "search"):
         # Retrieval enriches context
         new_state["context"] = (
-            str(new_state.get("context", ""))
-            + f" [retrieved: {action.get('query', '')}]"
+            str(new_state.get("context", "")) + f" [retrieved: {action.get('query', '')}]"
         )
         new_state["memory_hits"] = new_state.get("memory_hits", 0) + 1
 
@@ -95,8 +92,8 @@ def _apply_action(
 
 
 def _estimate_state_value(
-    state: Dict[str, Any],
-    valuation_layer: Optional[Any],
+    state: dict[str, Any],
+    valuation_layer: Any | None,
 ) -> float:
     """
     Scalar value of reaching *state*.
@@ -145,12 +142,12 @@ class InternalSimulator(AbstractSimulator):
 
     def __init__(
         self,
-        valuation_layer: Optional[Any] = None,
+        valuation_layer: Any | None = None,
         discount: float = 0.9,
         horizon: int = 3,
         n_samples: int = 4,
         noise_scale: float = 0.05,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ) -> None:
         self._vl = valuation_layer
         self.discount = discount
@@ -165,11 +162,11 @@ class InternalSimulator(AbstractSimulator):
 
     def simulate(
         self,
-        current_state: Dict[str, Any],
-        possible_actions: List[Dict[str, Any]],
-        horizon: Optional[int] = None,
-        n_samples: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        current_state: dict[str, Any],
+        possible_actions: list[dict[str, Any]],
+        horizon: int | None = None,
+        n_samples: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Generate imagined future scenarios for each action.
 
@@ -191,8 +188,8 @@ class InternalSimulator(AbstractSimulator):
 
         scenarios = []
         for action in possible_actions:
-            cumulative_values: List[float] = []
-            sample_trajectory: List[Dict[str, Any]] = []
+            cumulative_values: list[float] = []
+            sample_trajectory: list[dict[str, Any]] = []
 
             for sample_idx in range(s):
                 value, traj = self._rollout(current_state, action, h)
@@ -219,8 +216,8 @@ class InternalSimulator(AbstractSimulator):
 
     def best_action(
         self,
-        simulations: List[Dict[str, Any]],
-    ) -> Dict[str, Any]:
+        simulations: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         """
         Return the action with the highest estimated value.
 
@@ -230,8 +227,7 @@ class InternalSimulator(AbstractSimulator):
             return {"type": "noop"}
         best = max(simulations, key=lambda s: s.get("value", 0.0))
         logger.info(
-            f"InternalSimulator best_action: "
-            f"value={best['value']:.4f} action={best['action']}"
+            f"InternalSimulator best_action: " f"value={best['value']:.4f} action={best['action']}"
         )
         return best["action"]
 
@@ -241,10 +237,10 @@ class InternalSimulator(AbstractSimulator):
 
     def _rollout(
         self,
-        initial_state: Dict[str, Any],
-        first_action: Dict[str, Any],
+        initial_state: dict[str, Any],
+        first_action: dict[str, Any],
         horizon: int,
-    ) -> tuple[float, List[Dict[str, Any]]]:
+    ) -> tuple[float, list[dict[str, Any]]]:
         """
         Single stochastic rollout from *initial_state* taking *first_action*
         then following a simple continuation policy for *horizon-1* steps.
@@ -252,7 +248,7 @@ class InternalSimulator(AbstractSimulator):
         Returns (discounted_cumulative_value, trajectory).
         """
         state = copy.deepcopy(initial_state)
-        trajectory: List[Dict[str, Any]] = []
+        trajectory: list[dict[str, Any]] = []
         total_value = 0.0
         gamma = 1.0  # will be multiplied by discount on each step
 
@@ -271,7 +267,7 @@ class InternalSimulator(AbstractSimulator):
 
         return total_value, trajectory
 
-    def _continuation_policy(self, state: Dict[str, Any]) -> Dict[str, Any]:
+    def _continuation_policy(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Minimal heuristic continuation policy:
         - If not yet responded → generate response

@@ -48,7 +48,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from loguru import logger
@@ -72,12 +72,12 @@ class SimulatedState:
         metadata    : Arbitrary extra data from the rollout.
     """
 
-    action: Dict[str, Any]
-    trajectory: List[Dict[str, Any]] = field(default_factory=list)
+    action: dict[str, Any]
+    trajectory: list[dict[str, Any]] = field(default_factory=list)
     value: float = 0.0
     uncertainty: float = 0.0
     n_samples: int = 1
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #
@@ -108,8 +108,8 @@ class QuantumImagination:
 
     def __init__(
         self,
-        internal_simulator: Optional[Any] = None,
-        connector: Optional[Any] = None,
+        internal_simulator: Any | None = None,
+        connector: Any | None = None,
         fallback_to_classical: bool = True,
         simulation_mode: bool = False,
         n_qubits: int = 8,
@@ -126,7 +126,7 @@ class QuantumImagination:
         self.noise_scale = noise_scale
         self._rng = np.random.default_rng(random_state)
 
-        self.stats: Dict[str, int] = {
+        self.stats: dict[str, int] = {
             "quantum_calls": 0,
             "simulated_calls": 0,
             "classical_calls": 0,
@@ -144,10 +144,10 @@ class QuantumImagination:
 
     def sample_futures(
         self,
-        current_state: Dict[str, Any],
-        possible_actions: List[Dict[str, Any]],
-        n_samples: Optional[int] = None,
-    ) -> List[SimulatedState]:
+        current_state: dict[str, Any],
+        possible_actions: list[dict[str, Any]],
+        n_samples: int | None = None,
+    ) -> list[SimulatedState]:
         """
         Generate imagined future trajectories for each possible action.
 
@@ -189,7 +189,7 @@ class QuantumImagination:
         )
         return futures
 
-    def best_action(self, futures: List[SimulatedState]) -> Optional[Dict[str, Any]]:
+    def best_action(self, futures: list[SimulatedState]) -> dict[str, Any] | None:
         """
         Return the action with the highest average value across futures.
 
@@ -203,8 +203,8 @@ class QuantumImagination:
             return None
 
         # Aggregate by action identity
-        action_scores: Dict[str, List[float]] = {}
-        action_map: Dict[str, Dict[str, Any]] = {}
+        action_scores: dict[str, list[float]] = {}
+        action_map: dict[str, dict[str, Any]] = {}
 
         for state in futures:
             key = str(state.action)
@@ -221,15 +221,15 @@ class QuantumImagination:
     # ·· Classical ·······················································
     def _classical_sample(
         self,
-        state: Dict[str, Any],
-        actions: List[Dict[str, Any]],
+        state: dict[str, Any],
+        actions: list[dict[str, Any]],
         n: int,
-    ) -> List[SimulatedState]:
+    ) -> list[SimulatedState]:
         """
         Classical deterministic simulation.
         Wraps InternalSimulator if available, else uses heuristics.
         """
-        results: List[SimulatedState] = []
+        results: list[SimulatedState] = []
         for action in actions:
             for _ in range(n):
                 traj, value = self._simulate_one(state, action, jitter=False)
@@ -247,10 +247,10 @@ class QuantumImagination:
     # ·· Simulated quantum ···············································
     def _simulated_sample(
         self,
-        state: Dict[str, Any],
-        actions: List[Dict[str, Any]],
+        state: dict[str, Any],
+        actions: list[dict[str, Any]],
         n: int,
-    ) -> List[SimulatedState]:
+    ) -> list[SimulatedState]:
         """
         Stochastic perturbation simulation that approximates quantum
         superposition diversity.
@@ -259,10 +259,10 @@ class QuantumImagination:
         evaluation, producing a spread of outcomes analogous to quantum
         measurement outcomes.
         """
-        results: List[SimulatedState] = []
+        results: list[SimulatedState] = []
         for action in actions:
-            sample_values: List[float] = []
-            traj_0, base_value = self._simulate_one(state, action, jitter=False)
+            sample_values: list[float] = []
+            traj_0, _base_value = self._simulate_one(state, action, jitter=False)
 
             for _ in range(n):
                 _, val = self._simulate_one(state, action, jitter=True)
@@ -286,19 +286,17 @@ class QuantumImagination:
     # ·· Quantum (Kinich) ················································
     def _quantum_sample(
         self,
-        state: Dict[str, Any],
-        actions: List[Dict[str, Any]],
+        state: dict[str, Any],
+        actions: list[dict[str, Any]],
         n: int,
-    ) -> List[SimulatedState]:
+    ) -> list[SimulatedState]:
         """
         Quantum trajectory sampling via Kinich connector.
 
         PhaseHook — Phase 5: replace with Kinich superposition circuit.
         Falls back to stochastic simulation.
         """
-        logger.debug(
-            "QuantumImagination: Kinich live — using stochastic proxy (Phase 5 TBD)"
-        )
+        logger.debug("QuantumImagination: Kinich live — using stochastic proxy (Phase 5 TBD)")
         return self._simulated_sample(state, actions, n)
 
     # ------------------------------------------------------------------ #
@@ -307,10 +305,10 @@ class QuantumImagination:
 
     def _simulate_one(
         self,
-        state: Dict[str, Any],
-        action: Dict[str, Any],
+        state: dict[str, Any],
+        action: dict[str, Any],
         jitter: bool = False,
-    ) -> tuple[List[Dict[str, Any]], float]:
+    ) -> tuple[list[dict[str, Any]], float]:
         """
         Simulate one trajectory step (classical heuristic).
 
@@ -322,9 +320,7 @@ class QuantumImagination:
         if self._simulator is not None:
             try:
                 result = self._simulator.simulate(state=state, action=action)
-                traj = getattr(
-                    result, "trajectory", [{"state": state, "action": action}]
-                )
+                traj = getattr(result, "trajectory", [{"state": state, "action": action}])
                 value = float(getattr(result, "value", 0.5))
                 if jitter:
                     value += float(self._rng.normal(0, self.noise_scale))
@@ -335,9 +331,9 @@ class QuantumImagination:
 
         # Built-in heuristic: score by how many "positive" keys the action has
         positive_keys = {"speed", "accuracy", "safety", "quality", "efficiency"}
-        raw_score = sum(
-            1.0 for k, v in action.items() if k in positive_keys and v
-        ) / max(len(positive_keys), 1)
+        raw_score = sum(1.0 for k, v in action.items() if k in positive_keys and v) / max(
+            len(positive_keys), 1
+        )
 
         if jitter:
             raw_score += float(self._rng.normal(0, self.noise_scale))
@@ -359,12 +355,10 @@ class QuantumImagination:
     # Stats                                                                #
     # ------------------------------------------------------------------ #
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         total = sum(self.stats.values())
         return {
             **self.stats,
             "total_calls": total,
-            "quantum_ratio": (
-                self.stats["quantum_calls"] / total if total > 0 else 0.0
-            ),
+            "quantum_ratio": (self.stats["quantum_calls"] / total if total > 0 else 0.0),
         }

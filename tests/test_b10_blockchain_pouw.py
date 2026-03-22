@@ -17,35 +17,29 @@ Covers fixes:
 
 from __future__ import annotations
 
-import asyncio
 from collections import deque
-from dataclasses import dataclass
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from blockchain.rewards import (
-    FitnessScores,
-    RewardCalculation,
-    RewardCalculator,
-    RewardDistributor,
-    dalla_to_planck,
-    planck_to_dalla,
-    format_dalla,
-    BASE_REWARD_DALLA,
+    HONESTY_WEIGHT,
     PLANCK_PER_DALLA,
     QUALITY_WEIGHT,
     TIMELINESS_WEIGHT,
-    HONESTY_WEIGHT,
+    FitnessScores,
+    RewardCalculator,
+    dalla_to_planck,
+    format_dalla,
+    planck_to_dalla,
 )
 from blockchain.staking_connector import (
     ParticipantInfo,
-    TrainingSubmission,
     StakingConnector,
+    TrainingSubmission,
 )
 from blockchain.staking_interface import (
     FitnessScore,
-    StakingInterface,
 )
 from blockchain.substrate_client import SubstrateClient
 
@@ -62,25 +56,25 @@ def _make_submission(
 ) -> TrainingSubmission:
     """Create a valid TrainingSubmission for testing."""
     fitness = quality * 0.4 + timeliness * 0.3 + honesty * 0.3
-    defaults = dict(
-        participant_id=participant_id,
-        round_number=round_number,
-        genome_id="genome_001",
-        samples_trained=1000,
-        training_time=120.0,
-        quality_score=quality,
-        timeliness_score=timeliness,
-        honesty_score=honesty,
-        fitness_score=fitness,
-        model_hash="abc123def456",
-    )
+    defaults = {
+        "participant_id": participant_id,
+        "round_number": round_number,
+        "genome_id": "genome_001",
+        "samples_trained": 1000,
+        "training_time": 120.0,
+        "quality_score": quality,
+        "timeliness_score": timeliness,
+        "honesty_score": honesty,
+        "fitness_score": fitness,
+        "model_hash": "abc123def456",
+    }
     defaults.update(overrides)
     return TrainingSubmission(**defaults)
 
 
 def _make_connector(**kwargs) -> StakingConnector:
     """Create a mock-mode StakingConnector."""
-    defaults = dict(mock_mode=True, enable_community_tracking=False)
+    defaults = {"mock_mode": True, "enable_community_tracking": False}
     defaults.update(kwargs)
     return StakingConnector(**defaults)
 
@@ -601,4 +595,4 @@ class TestC104MockPath:
         """format_dalla produces readable string."""
         # 10 DALLA
         result = format_dalla(10 * PLANCK_PER_DALLA)
-        assert "10.00 DALLA" == result
+        assert result == "10.00 DALLA"

@@ -14,30 +14,26 @@ Date: 2025
 """
 
 import math
-import asyncio
-from collections import Counter
-from copy import deepcopy
-from unittest.mock import patch, MagicMock
 
 import pytest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from nawal.server.aggregator import (
+    FedAvgStrategy,
+    FederatedAggregator,
+    ModelUpdate,
+)
 
 from security.byzantine_detection import (
-    ByzantineDetector,
     AggregationMethod,
+    ByzantineDetector,
 )
 from security.differential_privacy import (
     DifferentialPrivacy,
     DPOptimizer,
     PrivacyBudget,
     create_dp_optimizer,
-)
-from nawal.server.aggregator import (
-    FederatedAggregator,
-    FedAvgStrategy,
-    ModelUpdate,
 )
 from training.distillation import KnowledgeDistillationLoss
 
@@ -200,7 +196,7 @@ class TestC73DPSGDIntegration:
         dp = DifferentialPrivacy(
             epsilon=100.0, clip_norm=clip_norm, noise_multiplier=0.0
         )
-        dp_opt = DPOptimizer(optimizer, dp)
+        DPOptimizer(optimizer, dp)
 
         # Create large gradient
         x = torch.randn(4, 10) * 100
@@ -245,7 +241,7 @@ class TestC73DPSGDIntegration:
 
     def test_privacy_budget_tracking(self):
         """Privacy budget should be consumed after each step."""
-        budget = PrivacyBudget(epsilon=1.0, delta=1e-5)
+        PrivacyBudget(epsilon=1.0, delta=1e-5)
         dp = DifferentialPrivacy(epsilon=1.0, delta=1e-5, clip_norm=1.0)
 
         model = _simple_model()
@@ -263,7 +259,6 @@ class TestC73DPSGDIntegration:
     def test_genome_trainer_creates_dp_optimizer_when_epsilon_set(self):
         """GenomeTrainer.train_genome() must use DPOptimizer when privacy_epsilon is set."""
         from nawal.client.genome_trainer import GenomeTrainer, TrainingConfig
-        from nawal.genome import Genome, ArchitectureLayer, LayerType
 
         config = TrainingConfig(
             participant_id="test_validator",
@@ -274,7 +269,7 @@ class TestC73DPSGDIntegration:
             local_epochs=1,
             mixed_precision=False,
         )
-        trainer = GenomeTrainer(config)
+        GenomeTrainer(config)
 
         # Verify the import is present
         from client.genome_trainer import create_dp_optimizer as imported_fn
@@ -292,7 +287,7 @@ class TestC73DPSGDIntegration:
             privacy_epsilon=None,  # DP disabled
             device="cpu",
         )
-        trainer = GenomeTrainer(config)
+        GenomeTrainer(config)
         assert config.privacy_epsilon is None
 
     def test_create_dp_optimizer_returns_dp_optimizer(self):
@@ -377,7 +372,7 @@ class TestC74Serialisation:
     def test_nan_weights_rejected_by_genome_trainer(self):
         """GenomeTrainer.set_genome must reject NaN initial weights."""
         from nawal.client.genome_trainer import GenomeTrainer, TrainingConfig
-        from nawal.genome import Genome, ArchitectureLayer, LayerType
+        from nawal.genome import ArchitectureLayer, Genome, LayerType
 
         config = TrainingConfig(
             participant_id="v1",
@@ -417,7 +412,7 @@ class TestC74Serialisation:
     def test_inf_weights_rejected_by_genome_trainer(self):
         """GenomeTrainer.set_genome must reject Inf initial weights."""
         from nawal.client.genome_trainer import GenomeTrainer, TrainingConfig
-        from nawal.genome import Genome, ArchitectureLayer, LayerType
+        from nawal.genome import ArchitectureLayer, Genome, LayerType
 
         config = TrainingConfig(
             participant_id="v1",

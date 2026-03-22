@@ -11,10 +11,8 @@ the model to behave incorrectly. This module tests detection of:
 
 import pytest
 import torch
-import torch.nn as nn
-
 from nawal.client.genome_trainer import GenomeTrainer, TrainingConfig
-from nawal.genome import Genome, ArchitectureLayer, LayerType
+from nawal.genome import ArchitectureLayer, Genome, LayerType
 
 
 @pytest.fixture

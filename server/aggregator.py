@@ -17,17 +17,20 @@ Python: 3.13+
 from __future__ import annotations
 
 import asyncio
-from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Protocol
-from loguru import logger
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Protocol
+
 import torch
-import torch.nn as nn
+from loguru import logger
 
 from genome import Genome
 from storage.metrics_db import MetricsStore
+
+if TYPE_CHECKING:
+    from config import FederatedConfig
+    from server.participant_manager import ParticipantManager
 
 # =============================================================================
 # Model Update Types
@@ -64,9 +67,7 @@ class ModelUpdate:
     fitness_score: float | None = None
 
     # Metadata
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def calculate_weight(self, strategy: str = "samples") -> float:
         """
@@ -190,19 +191,17 @@ class FedAvgStrategy:
         # Aggregate weights
         aggregated = {}
 
-        for key in current_weights.keys():
+        for key in current_weights:
             # Skip if any update is missing this key
             if not all(key in update.weights for update in updates):
-                logger.warning(
-                    f"Key {key} missing in some updates, using current weight"
-                )
+                logger.warning(f"Key {key} missing in some updates, using current weight")
                 aggregated[key] = current_weights[key]
                 continue
 
             # Weighted average
             weighted_sum = sum(
                 update.weights[key] * weight
-                for update, weight in zip(updates, normalized_weights)
+                for update, weight in zip(updates, normalized_weights, strict=False)
             )
 
             aggregated[key] = weighted_sum
@@ -222,7 +221,7 @@ class FedAvgStrategy:
 # =============================================================================
 
 
-from security.byzantine_detection import ByzantineDetector, AggregationMethod
+from security.byzantine_detection import AggregationMethod, ByzantineDetector
 
 
 class ByzantineRobustStrategy:
@@ -254,7 +253,7 @@ class ByzantineRobustStrategy:
         )
         self.trim_ratio = trim_ratio
         logger.info(
-            f"Initialized ByzantineRobustStrategy (delegating to ByzantineDetector)",
+            "Initialized ByzantineRobustStrategy (delegating to ByzantineDetector)",
             method=method.value,
             num_byzantine=num_byzantine,
         )
@@ -339,9 +338,9 @@ class FederatedAggregator:
         strategy: AggregationStrategy | None = None,
         min_participants: int = 3,
         max_wait_time: float = 300.0,  # 5 minutes
-        config: "FederatedConfig | None" = None,  # Backward compatibility
+        config: FederatedConfig | None = None,  # Backward compatibility
         metrics_store: MetricsStore | None = None,  # Metrics persistence
-        participant_manager: "ParticipantManager | None" = None,  # Identity verification
+        participant_manager: ParticipantManager | None = None,  # Identity verification
     ):
         """
         Initialize federated aggregator.
@@ -398,9 +397,7 @@ class FederatedAggregator:
             metrics_enabled=metrics_store is not None,
         )
 
-    def set_genome(
-        self, genome: Genome, initial_weights: dict[str, torch.Tensor]
-    ) -> None:
+    def set_genome(self, genome: Genome, initial_weights: dict[str, torch.Tensor]) -> None:
         """
         Set current genome and initial weights.
 
@@ -436,10 +433,10 @@ class FederatedAggregator:
 
         # Simple FedAvg: average all parameters
         aggregated = {}
-        num_clients = len(client_params)
+        len(client_params)
 
         # Get all parameter keys from first client
-        for key in client_params[0].keys():
+        for key in client_params[0]:
             # Stack all client parameters for this key
             stacked = torch.stack([params[key] for params in client_params])
             # Average across clients
@@ -469,18 +466,16 @@ class FederatedAggregator:
         # Weighted aggregation
         aggregated = {}
 
-        for key in client_params[0].keys():
+        for key in client_params[0]:
             # Weighted sum of all client parameters
             weighted_sum = sum(
-                params[key] * weight for params, weight in zip(client_params, weights)
+                params[key] * weight for params, weight in zip(client_params, weights, strict=False)
             )
             aggregated[key] = weighted_sum
 
         return aggregated
 
-    def select_clients(
-        self, total_clients: int, num_to_select: int | None = None
-    ) -> list[int]:
+    def select_clients(self, total_clients: int, num_to_select: int | None = None) -> list[int]:
         """
         Select clients for federated round with fairness guarantee.
 
@@ -534,9 +529,7 @@ class FederatedAggregator:
             List of selected client indices
         """
         # Get client fraction from config
-        client_fraction = (
-            getattr(self.config, "client_fraction", 1.0) if self.config else 1.0
-        )
+        client_fraction = getattr(self.config, "client_fraction", 1.0) if self.config else 1.0
         num_to_select = max(1, int(total_clients * client_fraction))
 
         return self.select_clients(total_clients, num_to_select)
@@ -553,9 +546,7 @@ class FederatedAggregator:
         """
         # Verify participant identity
         if self.participant_manager is not None:
-            participant = self.participant_manager.get_participant(
-                update.participant_id
-            )
+            participant = self.participant_manager.get_participant(update.participant_id)
             if participant is None:
                 logger.warning(
                     "Update from unknown participant",
@@ -570,9 +561,7 @@ class FederatedAggregator:
                 )
                 return False
         else:
-            logger.warning(
-                "No participant manager set — skipping identity verification"
-            )
+            logger.warning("No participant manager set — skipping identity verification")
 
         # Validate update
         if self.current_genome is None:
@@ -655,14 +644,12 @@ class FederatedAggregator:
 
             record = AggregationRound(
                 round_number=round_number,
-                genome_id=(
-                    self.current_genome.genome_id if self.current_genome else "unknown"
-                ),
+                genome_id=(self.current_genome.genome_id if self.current_genome else "unknown"),
                 num_participants=len(updates),
                 total_samples=total_samples,
                 avg_fitness=avg_fitness,
                 strategy_used=type(self.strategy).__name__,
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 aggregation_time=aggregation_time,
             )
 
@@ -681,9 +668,7 @@ class FederatedAggregator:
                             "strategy": type(self.strategy).__name__,
                         },
                         participating_clients=len(updates),
-                        aggregated_weights_hash=str(
-                            hash(frozenset(aggregated_weights.keys()))
-                        ),
+                        aggregated_weights_hash=str(hash(frozenset(aggregated_weights.keys()))),
                     )
                     logger.debug(f"Metrics persisted for round {round_number}")
                 except Exception as e:
@@ -732,15 +717,11 @@ class FederatedAggregator:
 
         return {
             "total_rounds": len(self.aggregation_history),
-            "total_participants": sum(
-                r.num_participants for r in self.aggregation_history
-            ),
+            "total_participants": sum(r.num_participants for r in self.aggregation_history),
             "total_samples": sum(r.total_samples for r in self.aggregation_history),
             "avg_fitness": sum(r.avg_fitness for r in self.aggregation_history)
             / len(self.aggregation_history),
-            "avg_aggregation_time": sum(
-                r.aggregation_time for r in self.aggregation_history
-            )
+            "avg_aggregation_time": sum(r.aggregation_time for r in self.aggregation_history)
             / len(self.aggregation_history),
             "current_round": self.round_number,
         }
@@ -751,10 +732,10 @@ class FederatedAggregator:
 # =============================================================================
 
 __all__ = [
-    "ModelUpdate",
-    "AggregationStrategy",
-    "FedAvgStrategy",
-    "ByzantineRobustStrategy",
     "AggregationRound",
+    "AggregationStrategy",
+    "ByzantineRobustStrategy",
+    "FedAvgStrategy",
     "FederatedAggregator",
+    "ModelUpdate",
 ]

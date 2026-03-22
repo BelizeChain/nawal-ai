@@ -38,8 +38,7 @@ Usage::
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from loguru import logger
 
@@ -49,7 +48,7 @@ from metacognition.interfaces import ConfidenceScore
 # Default signal weights                                                       #
 # --------------------------------------------------------------------------- #
 
-_DEFAULT_WEIGHTS: Dict[str, float] = {
+_DEFAULT_WEIGHTS: dict[str, float] = {
     "plan_score": 1.5,
     "critic_score": 1.5,
     "consistency": 1.2,
@@ -94,7 +93,7 @@ class ConfidenceCalibrator:
                   Defaults to ``_DEFAULT_WEIGHTS``.
     """
 
-    def __init__(self, weights: Optional[Dict[str, float]] = None) -> None:
+    def __init__(self, weights: dict[str, float] | None = None) -> None:
         self._weights = weights if weights is not None else dict(_DEFAULT_WEIGHTS)
 
     # ------------------------------------------------------------------ #
@@ -103,8 +102,8 @@ class ConfidenceCalibrator:
 
     def calibrate(
         self,
-        signals: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None,
+        signals: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> ConfidenceScore:
         """
         Compute a weighted-average confidence from heterogeneous signals.
@@ -119,7 +118,7 @@ class ConfidenceCalibrator:
 
         Returns ConfidenceScore with method="weighted_aggregate".
         """
-        parts: List[Tuple[str, float, float]] = []  # (name, value, weight)
+        parts: list[tuple[str, float, float]] = []  # (name, value, weight)
 
         for name, weight in self._weights.items():
             val = self._extract_signal(name, signals)
@@ -168,7 +167,7 @@ class ConfidenceCalibrator:
     # Signal extraction                                                    #
     # ------------------------------------------------------------------ #
 
-    def _extract_signal(self, name: str, signals: Dict[str, Any]) -> Optional[float]:
+    def _extract_signal(self, name: str, signals: dict[str, Any]) -> float | None:
         """Find the value for *name* in *signals*, apply type conversion."""
         raw = signals.get(name)
         if raw is None:
@@ -187,9 +186,7 @@ class ConfidenceCalibrator:
         try:
             return float(raw)
         except (TypeError, ValueError):
-            logger.debug(
-                f"ConfidenceCalibrator: cannot convert signal {name!r}={raw!r}"
-            )
+            logger.debug(f"ConfidenceCalibrator: cannot convert signal {name!r}={raw!r}")
             return None
 
     def _verbal_certainty(self, text: str) -> float:

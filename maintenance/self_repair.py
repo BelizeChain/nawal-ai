@@ -37,8 +37,9 @@ Integration hooks
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -70,9 +71,9 @@ class SelfRepair(AbstractSelfRepair):
 
     def __init__(
         self,
-        checkpoint_path: Optional[str] = None,
-        episodic_memory: Optional[Any] = None,
-        alert_callback: Optional[Callable[[DriftReport], None]] = None,
+        checkpoint_path: str | None = None,
+        episodic_memory: Any | None = None,
+        alert_callback: Callable[[DriftReport], None] | None = None,
         auto_repair: bool = True,
         max_retries: int = 5,
     ) -> None:
@@ -82,7 +83,7 @@ class SelfRepair(AbstractSelfRepair):
         self._auto_repair = auto_repair
         self._max_retries = max_retries
         self._consecutive_failures: int = 0
-        self._repair_history: list[Dict[str, Any]] = []
+        self._repair_history: list[dict[str, Any]] = []
 
         logger.info(
             f"SelfRepair ready: auto_repair={auto_repair} "
@@ -97,7 +98,7 @@ class SelfRepair(AbstractSelfRepair):
     def repair(
         self,
         strategy: RepairStrategy = RepairStrategy.ROLLBACK,
-        drift_report: Optional[DriftReport] = None,
+        drift_report: DriftReport | None = None,
     ) -> RepairResult:
         """
         Execute the repair strategy.
@@ -116,10 +117,7 @@ class SelfRepair(AbstractSelfRepair):
             strategy = RepairStrategy.ALERT
 
         # Guard: after max_retries consecutive failures, escalate to ALERT
-        if (
-            self._consecutive_failures >= self._max_retries
-            and strategy != RepairStrategy.ALERT
-        ):
+        if self._consecutive_failures >= self._max_retries and strategy != RepairStrategy.ALERT:
             logger.error(
                 f"SelfRepair: {self._consecutive_failures} consecutive failures — "
                 f"escalating to ALERT-only (operator intervention required)"
@@ -183,9 +181,7 @@ class SelfRepair(AbstractSelfRepair):
             reverse=True,
         )
         if not candidates:
-            logger.warning(
-                f"SelfRepair.rollback: no checkpoint matching {checkpoint_id!r}"
-            )
+            logger.warning(f"SelfRepair.rollback: no checkpoint matching {checkpoint_id!r}")
             return False
 
         target = candidates[0]
@@ -198,7 +194,7 @@ class SelfRepair(AbstractSelfRepair):
     # Strategy implementations                                             #
     # ------------------------------------------------------------------ #
 
-    def _do_rollback(self, report: Optional[DriftReport]) -> RepairResult:
+    def _do_rollback(self, report: DriftReport | None) -> RepairResult:
         """Find and signal the most recent good checkpoint."""
         if self._checkpoint_path is None:
             return RepairResult(
@@ -228,7 +224,7 @@ class SelfRepair(AbstractSelfRepair):
             message=f"Signalled rollback to {target.name}",
         )
 
-    def _do_alert(self, report: Optional[DriftReport]) -> RepairResult:
+    def _do_alert(self, report: DriftReport | None) -> RepairResult:
         alerts = report.alerts if report else ["manual_trigger"]
         msg = f"ALERT: model drift detected — alerts={alerts}"
         logger.warning(msg)
@@ -238,7 +234,7 @@ class SelfRepair(AbstractSelfRepair):
             message=msg,
         )
 
-    def _do_isolate(self, report: Optional[DriftReport]) -> RepairResult:
+    def _do_isolate(self, report: DriftReport | None) -> RepairResult:
         logger.warning("SelfRepair: isolating current model — fallback routing engaged")
         return RepairResult(
             success=True,
@@ -246,7 +242,7 @@ class SelfRepair(AbstractSelfRepair):
             message="Current model isolated; inference routes to fallback",
         )
 
-    def _do_reset(self, report: Optional[DriftReport]) -> RepairResult:
+    def _do_reset(self, report: DriftReport | None) -> RepairResult:
         logger.warning("SelfRepair: full state reset initiated")
         return RepairResult(
             success=True,
@@ -254,7 +250,7 @@ class SelfRepair(AbstractSelfRepair):
             message="State reset completed (model reload required by orchestrator)",
         )
 
-    def _maybe_log(self, result: RepairResult, report: Optional[DriftReport]) -> None:
+    def _maybe_log(self, result: RepairResult, report: DriftReport | None) -> None:
         if self._episodic is None:
             return
         try:

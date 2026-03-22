@@ -37,7 +37,7 @@ that returns per-sample kernel distances.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from loguru import logger
@@ -67,7 +67,7 @@ class QuantumAnomalyDetector:
 
     def __init__(
         self,
-        connector: Optional[Any] = None,
+        connector: Any | None = None,
         fallback_to_classical: bool = True,
         simulation_mode: bool = False,
         contamination: float = 0.05,
@@ -86,18 +86,18 @@ class QuantumAnomalyDetector:
         self._fitted = False
 
         # Fit artefacts (classical path)
-        self._mean_vec: Optional[np.ndarray] = None
-        self._cov_inv: Optional[np.ndarray] = None  # precision matrix
-        self._stds: Optional[np.ndarray] = None  # per-feature stds (fallback)
+        self._mean_vec: np.ndarray | None = None
+        self._cov_inv: np.ndarray | None = None  # precision matrix
+        self._stds: np.ndarray | None = None  # per-feature stds (fallback)
         self._threshold: float = 0.5
 
         # Fit artefacts (RFF path)
-        self._rff_weights: Optional[np.ndarray] = None  # (D, rff_components)
-        self._rff_biases: Optional[np.ndarray] = None  # (rff_components,)
-        self._rff_mean: Optional[np.ndarray] = None  # mean RFF of normal data
+        self._rff_weights: np.ndarray | None = None  # (D, rff_components)
+        self._rff_biases: np.ndarray | None = None  # (rff_components,)
+        self._rff_mean: np.ndarray | None = None  # mean RFF of normal data
         self._rff_gamma: float = 1.0
 
-        self.stats: Dict[str, int] = {
+        self.stats: dict[str, int] = {
             "quantum_calls": 0,
             "simulated_calls": 0,
             "classical_calls": 0,
@@ -112,7 +112,7 @@ class QuantumAnomalyDetector:
     # Fit                                                                  #
     # ------------------------------------------------------------------ #
 
-    def fit(self, normal_telemetry: np.ndarray) -> "QuantumAnomalyDetector":
+    def fit(self, normal_telemetry: np.ndarray) -> QuantumAnomalyDetector:
         """
         Fit the detector on normal (non-anomalous) telemetry.
 
@@ -146,9 +146,7 @@ class QuantumAnomalyDetector:
         # RFF artefacts for simulated quantum kernel
         gamma = 1.0 / d
         self._rff_gamma = gamma
-        self._rff_weights = self._rng.normal(
-            0, np.sqrt(2 * gamma), (d, self.rff_components)
-        )
+        self._rff_weights = self._rng.normal(0, np.sqrt(2 * gamma), (d, self.rff_components))
         self._rff_biases = self._rng.uniform(0, 2 * np.pi, self.rff_components)
         phi_X = self._rff_transform(X)
         self._rff_mean = phi_X.mean(axis=0)
@@ -161,17 +159,14 @@ class QuantumAnomalyDetector:
 
         self._fitted = True
 
-        logger.info(
-            f"QuantumAnomalyDetector.fit: n={n} d={d} "
-            f"threshold={self._threshold:.4f}"
-        )
+        logger.info(f"QuantumAnomalyDetector.fit: n={n} d={d} " f"threshold={self._threshold:.4f}")
         return self
 
     # ------------------------------------------------------------------ #
     # Predict / Score                                                      #
     # ------------------------------------------------------------------ #
 
-    def predict(self, telemetry: np.ndarray) -> List[bool]:
+    def predict(self, telemetry: np.ndarray) -> list[bool]:
         """
         Classify samples as anomalous (True) or normal (False).
 
@@ -218,8 +213,7 @@ class QuantumAnomalyDetector:
 
         elapsed = time.perf_counter() - t0
         logger.debug(
-            f"QuantumAnomalyDetector.score: mode={mode} n={len(X)} "
-            f"elapsed={elapsed*1000:.1f}ms"
+            f"QuantumAnomalyDetector.score: mode={mode} n={len(X)} " f"elapsed={elapsed*1000:.1f}ms"
         )
         return scores
 
@@ -265,9 +259,7 @@ class QuantumAnomalyDetector:
 
         PhaseHook — Phase 5: replace with Kinich HTTP call.
         """
-        logger.debug(
-            "QuantumAnomalyDetector: Kinich live — using RFF proxy (Phase 5 TBD)"
-        )
+        logger.debug("QuantumAnomalyDetector: Kinich live — using RFF proxy (Phase 5 TBD)")
         return self._simulated_kernel_score(X)
 
     # ------------------------------------------------------------------ #
@@ -299,14 +291,12 @@ class QuantumAnomalyDetector:
     # Stats                                                                #
     # ------------------------------------------------------------------ #
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         total = sum(self.stats.values())
         return {
             **self.stats,
             "total_calls": total,
             "threshold": self._threshold,
             "fitted": self._fitted,
-            "quantum_ratio": (
-                self.stats["quantum_calls"] / total if total > 0 else 0.0
-            ),
+            "quantum_ratio": (self.stats["quantum_calls"] / total if total > 0 else 0.0),
         }

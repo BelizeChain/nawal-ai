@@ -12,13 +12,14 @@ Date: October 2025
 """
 
 import asyncio
+
 import torch
-from torch.utils.data import DataLoader, TensorDataset
+from nawal.client import GenomeTrainer, TrainingConfig
 
 # Nawal imports
 from nawal.genome import GenomeEncoder, ModelBuilder
-from nawal.client import GenomeTrainer, TrainingConfig
-from nawal.server import FederatedAggregator, AggregationStrategy
+from nawal.server import AggregationStrategy, FederatedAggregator
+from torch.utils.data import DataLoader, TensorDataset
 
 
 async def main():
@@ -37,7 +38,7 @@ async def main():
     print(f"   Genome ID: {genome.genome_id}")
     print(f"   Hidden Size: {genome.hidden_size}")
     print(f"   Num Layers: {len(genome.encoder_layers)}")
-    print(f"   Architecture: Transformer")
+    print("   Architecture: Transformer")
     print()
 
     # ==========================================================================
@@ -201,7 +202,7 @@ async def main():
     # Submit to server
     await aggregator.receive_update(update)
 
-    print(f"   Update submitted!")
+    print("   Update submitted!")
     print(f"   Participant: {update.participant_id}")
     print(f"   Round: {update.round_number}")
     print(f"   Fitness: {update.fitness_score:.2f}")
@@ -220,8 +221,7 @@ async def main():
         print(f"   Participants: {len(aggregator.current_updates)}")
 
         # Get aggregated weights
-        aggregated_weights = aggregator.global_weights
-        print(f"   Global model updated")
+        print("   Global model updated")
     else:
         print("   ⚠️  Aggregation failed (not enough participants)")
 

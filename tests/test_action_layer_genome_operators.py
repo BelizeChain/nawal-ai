@@ -24,11 +24,9 @@ Covers:
 
 from __future__ import annotations
 
-import math
 import re
 import time
-import uuid
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -37,8 +35,7 @@ import torch
 # ============================================================================
 # action/layer.py — extra_tools parameter (line 78)
 # ============================================================================
-
-from nawal.action import ActionLayer, ToolSpec, ToolStatus, AbstractTool, ToolResult
+from nawal.action import AbstractTool, ActionLayer, ToolResult, ToolSpec, ToolStatus
 
 
 class _DummyExtraTool(AbstractTool):
@@ -126,7 +123,7 @@ class TestToolRegistryScreenerBlocking:
 # genome/__init__.py — select_parents stub (line 61)
 # ============================================================================
 
-from nawal.genome import select_parents, Population, PopulationConfig
+from nawal.genome import Population, PopulationConfig, select_parents
 from nawal.genome.encoding import Genome
 
 
@@ -230,7 +227,6 @@ class TestInputScreenerGaps:
 
 from security.byzantine_detection import (
     ByzantineDetector,
-    AggregationMethod,
 )
 
 
@@ -262,7 +258,7 @@ class TestByzantineDetectionGaps:
 # security/differential_privacy.py — lines 164, 253
 # ============================================================================
 
-from security.differential_privacy import DifferentialPrivacy, PrivacyBudget
+from security.differential_privacy import DifferentialPrivacy
 
 
 class TestDifferentialPrivacyGaps:
@@ -408,8 +404,8 @@ class TestInternalSimulatorGaps:
 # memory/working.py — lines 97, 104, 112-113, 196
 # ============================================================================
 
-from memory.working import WorkingMemory
 from memory.interfaces import MemoryRecord
+from memory.working import WorkingMemory
 
 
 class TestWorkingMemoryGaps:
@@ -577,8 +573,6 @@ class TestOutputFilterGaps:
 # ============================================================================
 
 from hybrid.engine import HybridNawalEngine, create_hybrid_engine
-from hybrid.confidence import ConfidenceScorer
-from hybrid.router import IntelligentRouter
 
 
 class TestHybridEngineGaps:
@@ -849,7 +843,7 @@ class TestExecutorGaps:
 # valuation/safety.py — lines 39-41, 156-157, 167
 # ============================================================================
 
-from valuation.safety import BasicSafetyFilter, ValuationLayer
+from valuation.safety import BasicSafetyFilter
 
 
 class TestValuationSafetyGaps:
@@ -900,8 +894,8 @@ class TestValuationRewardGaps:
 # maintenance/self_repair.py — lines 116, 118, 132-133, 150-169, etc.
 # ============================================================================
 
-from maintenance.self_repair import SelfRepair, RepairStrategy
 from maintenance.interfaces import DriftReport, RepairResult
+from maintenance.self_repair import RepairStrategy, SelfRepair
 
 
 class TestSelfRepairGaps:

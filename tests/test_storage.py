@@ -9,17 +9,15 @@ Covers:
 
 from __future__ import annotations
 
-import hashlib
-import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 
+from storage.checkpoint_manager import CheckpointManager
 from storage.metrics_db import MetricsStore
 from storage.pakit_client import PakitClient
-from storage.checkpoint_manager import CheckpointManager
 
 # ===========================================================================
 # MetricsStore

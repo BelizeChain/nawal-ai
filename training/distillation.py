@@ -45,18 +45,19 @@ References:
     - Sanh et al. (2019): "DistilBERT, a distilled version of BERT"
 """
 
+import logging
+from pathlib import Path
+from typing import Any
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
-from typing import Optional, Dict, Any, Union, Callable
-import logging
-from pathlib import Path
-from tqdm import tqdm
 import wandb
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
-from architecture.transformer import NawalTransformer
 from architecture.config import NawalModelConfig
+from architecture.transformer import NawalTransformer
 from hybrid.teacher import DeepSeekTeacher
 from storage.pakit_client import PakitClient
 
@@ -140,7 +141,7 @@ class KnowledgeDistillationLoss(nn.Module):
             between soft and hard losses despite temperature scaling.
         """
         # Reshape for loss computation
-        batch_size, seq_len, vocab_size = student_logits.shape
+        _batch_size, _seq_len, vocab_size = student_logits.shape
         student_logits_flat = student_logits.view(-1, vocab_size)
         teacher_logits_flat = teacher_logits.view(-1, vocab_size)
         labels_flat = labels.view(-1)
@@ -213,16 +214,16 @@ class KnowledgeDistillationTrainer:
 
     def __init__(
         self,
-        student_config: Optional[NawalModelConfig] = None,
-        student_model: Optional[NawalTransformer] = None,
+        student_config: NawalModelConfig | None = None,
+        student_model: NawalTransformer | None = None,
         teacher_model_id: str = "deepseek-ai/DeepSeek-Coder-V2-Lite-Instruct",
-        teacher_model: Optional[DeepSeekTeacher] = None,
+        teacher_model: DeepSeekTeacher | None = None,
         temperature: float = 4.0,
         alpha: float = 0.7,
         learning_rate: float = 5e-5,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
         use_wandb: bool = False,
-        pakit_gateway: Optional[str] = None,
+        pakit_gateway: str | None = None,
     ):
         """Initialize knowledge distillation trainer.
 
@@ -255,9 +256,7 @@ class KnowledgeDistillationTrainer:
             self.student = NawalTransformer(NawalModelConfig.nawal_medium())
 
         self.student = self.student.to(self.device)
-        logger.info(
-            f"Student model: {self.student.config.num_parameters():,} parameters"
-        )
+        logger.info(f"Student model: {self.student.config.num_parameters():,} parameters")
 
         # Initialize teacher model (frozen)
         if teacher_model is not None:
@@ -306,8 +305,8 @@ class KnowledgeDistillationTrainer:
 
     def train_step(
         self,
-        batch: Dict[str, torch.Tensor],
-    ) -> Dict[str, float]:
+        batch: dict[str, torch.Tensor],
+    ) -> dict[str, float]:
         """Single training step with distillation loss.
 
         Args:
@@ -327,7 +326,7 @@ class KnowledgeDistillationTrainer:
         self.optimizer.zero_grad()
 
         input_ids = batch["input_ids"].to(self.device)
-        attention_mask = batch.get("attention_mask", None)
+        attention_mask = batch.get("attention_mask")
         if attention_mask is not None:
             attention_mask = attention_mask.to(self.device)
         labels = batch["labels"].to(self.device)
@@ -340,9 +339,7 @@ class KnowledgeDistillationTrainer:
 
         # Teacher forward pass (no gradients)
         with torch.no_grad():
-            teacher_outputs = self.teacher.model(
-                input_ids=input_ids, attention_mask=attention_mask
-            )
+            teacher_outputs = self.teacher.model(input_ids=input_ids, attention_mask=attention_mask)
             teacher_logits = teacher_outputs.logits
 
         # Compute distillation loss
@@ -355,18 +352,14 @@ class KnowledgeDistillationTrainer:
 
         # Compute individual loss components for logging
         with torch.no_grad():
-            batch_size, seq_len, vocab_size = student_logits.shape
+            _batch_size, _seq_len, vocab_size = student_logits.shape
             student_logits_flat = student_logits.view(-1, vocab_size)
             teacher_logits_flat = teacher_logits.view(-1, vocab_size)
             labels_flat = labels.view(-1)
 
             # Soft loss
-            student_soft = F.log_softmax(
-                student_logits_flat / self.loss_fn.temperature, dim=-1
-            )
-            teacher_soft = F.softmax(
-                teacher_logits_flat / self.loss_fn.temperature, dim=-1
-            )
+            student_soft = F.log_softmax(student_logits_flat / self.loss_fn.temperature, dim=-1)
+            teacher_soft = F.softmax(teacher_logits_flat / self.loss_fn.temperature, dim=-1)
             soft_loss = F.kl_div(student_soft, teacher_soft, reduction="batchmean") * (
                 self.loss_fn.temperature**2
             )
@@ -388,17 +381,17 @@ class KnowledgeDistillationTrainer:
 
     def train(
         self,
-        train_dataset: Union[str, Dataset, DataLoader],
-        val_dataset: Optional[Union[str, Dataset, DataLoader]] = None,
+        train_dataset: str | Dataset | DataLoader,
+        val_dataset: str | Dataset | DataLoader | None = None,
         num_epochs: int = 10,
         batch_size: int = 8,
-        learning_rate: Optional[float] = None,
+        learning_rate: float | None = None,
         warmup_steps: int = 500,
         gradient_accumulation_steps: int = 1,
         eval_every: int = 500,
         save_every: int = 1000,
         checkpoint_dir: str = "./checkpoints",
-        max_steps: Optional[int] = None,
+        max_steps: int | None = None,
     ) -> None:
         """Train student model with knowledge distillation.
 
@@ -445,25 +438,17 @@ class KnowledgeDistillationTrainer:
 
         # Prepare data loaders
         if isinstance(train_dataset, str):
-            train_loader = self._create_dataloader(
-                train_dataset, batch_size, shuffle=True
-            )
+            train_loader = self._create_dataloader(train_dataset, batch_size, shuffle=True)
         elif isinstance(train_dataset, Dataset):
-            train_loader = DataLoader(
-                train_dataset, batch_size=batch_size, shuffle=True
-            )
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         else:
             train_loader = train_dataset
 
         if val_dataset is not None:
             if isinstance(val_dataset, str):
-                val_loader = self._create_dataloader(
-                    val_dataset, batch_size, shuffle=False
-                )
+                val_loader = self._create_dataloader(val_dataset, batch_size, shuffle=False)
             elif isinstance(val_dataset, Dataset):
-                val_loader = DataLoader(
-                    val_dataset, batch_size=batch_size, shuffle=False
-                )
+                val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
             else:
                 val_loader = val_dataset
         else:
@@ -472,9 +457,7 @@ class KnowledgeDistillationTrainer:
         # Training loop
         logger.info(f"Starting training for {num_epochs} epochs")
         logger.info(f"Student: {self.student.config.num_parameters():,} params")
-        logger.info(
-            f"Temperature: {self.loss_fn.temperature}, Alpha: {self.loss_fn.alpha}"
-        )
+        logger.info(f"Temperature: {self.loss_fn.temperature}, Alpha: {self.loss_fn.alpha}")
 
         for epoch in range(num_epochs):
             self.current_epoch = epoch
@@ -487,7 +470,7 @@ class KnowledgeDistillationTrainer:
 
             progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}")
 
-            for batch_idx, batch in enumerate(progress_bar):
+            for _batch_idx, batch in enumerate(progress_bar):
                 metrics = self.train_step(batch)
 
                 # Accumulate metrics
@@ -535,15 +518,11 @@ class KnowledgeDistillationTrainer:
                     if val_metrics["loss"] < self.best_val_loss:
                         self.best_val_loss = val_metrics["loss"]
                         self.save_checkpoint(checkpoint_path / "best_model.pt")
-                        logger.info(
-                            f"Saved new best model (val_loss={val_metrics['loss']:.4f})"
-                        )
+                        logger.info(f"Saved new best model (val_loss={val_metrics['loss']:.4f})")
 
                 # Periodic checkpoint
                 if self.global_step % save_every == 0:
-                    self.save_checkpoint(
-                        checkpoint_path / f"checkpoint_step_{self.global_step}.pt"
-                    )
+                    self.save_checkpoint(checkpoint_path / f"checkpoint_step_{self.global_step}.pt")
 
                 # Max steps check
                 if max_steps is not None and self.global_step >= max_steps:
@@ -568,7 +547,7 @@ class KnowledgeDistillationTrainer:
         if self.use_wandb:
             wandb.finish()
 
-    def evaluate(self, val_loader: DataLoader) -> Dict[str, float]:
+    def evaluate(self, val_loader: DataLoader) -> dict[str, float]:
         """Evaluate student model on validation set.
 
         Args:
@@ -606,7 +585,7 @@ class KnowledgeDistillationTrainer:
                 loss = self.loss_fn(student_logits, teacher_logits, labels)
 
                 # Compute perplexity
-                batch_size, seq_len, vocab_size = student_logits.shape
+                _batch_size, _seq_len, vocab_size = student_logits.shape
                 student_logits_flat = student_logits.view(-1, vocab_size)
                 labels_flat = labels.view(-1)
                 hard_loss = F.cross_entropy(student_logits_flat, labels_flat)
@@ -623,7 +602,7 @@ class KnowledgeDistillationTrainer:
             "perplexity": total_perplexity / num_batches,
         }
 
-    def save_checkpoint(self, path: Union[str, Path]) -> None:
+    def save_checkpoint(self, path: str | Path) -> None:
         """Save training checkpoint.
 
         Args:
@@ -643,9 +622,7 @@ class KnowledgeDistillationTrainer:
         logger.info(f"Checkpoint saved to {path}")
 
     @classmethod
-    def from_checkpoint(
-        cls, path: Union[str, Path], **kwargs
-    ) -> "KnowledgeDistillationTrainer":
+    def from_checkpoint(cls, path: str | Path, **kwargs) -> "KnowledgeDistillationTrainer":
         """Load trainer from checkpoint.
 
         Args:
@@ -680,7 +657,7 @@ class KnowledgeDistillationTrainer:
 
         return trainer
 
-    def save_student(self, path: Union[str, Path]) -> None:
+    def save_student(self, path: str | Path) -> None:
         """Save distilled student model for deployment.
 
         Args:
@@ -689,7 +666,7 @@ class KnowledgeDistillationTrainer:
         self.student.save_pretrained(path)
         logger.info(f"Student model saved to {path}")
 
-    def upload_to_pakit(self, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def upload_to_pakit(self, metadata: dict[str, Any] | None = None) -> str:
         """Upload distilled model to Pakit DAG storage.
 
         Args:
@@ -702,9 +679,7 @@ class KnowledgeDistillationTrainer:
             RuntimeError: If pakit_client not initialized (need pakit_gateway in __init__).
         """
         if self.pakit_client is None:
-            raise RuntimeError(
-                "Pakit client not initialized. Provide pakit_gateway in __init__."
-            )
+            raise RuntimeError("Pakit client not initialized. Provide pakit_gateway in __init__.")
 
         # Save to temporary directory
         import tempfile
@@ -752,6 +727,4 @@ class KnowledgeDistillationTrainer:
 
         dataset = TensorDataset(dummy_inputs, dummy_inputs)  # input_ids = labels
 
-        return DataLoader(
-            dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn
-        )
+        return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)

@@ -24,7 +24,7 @@ Usage::
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -36,7 +36,7 @@ from control.interfaces import AbstractPlanner, Goal, GoalStatus, Plan
 
 # Each template is a list of step dicts.  Variables like {goal} are filled
 # at plan-generation time via str.format_map on each step's "args" values.
-_TEMPLATES: Dict[str, List[List[Dict[str, Any]]]] = {
+_TEMPLATES: dict[str, list[list[dict[str, Any]]]] = {
     "retrieve": [
         [
             {"tool": "memory_read", "args": {"query": "{goal}", "top_k": 5}},
@@ -84,7 +84,7 @@ _TEMPLATES: Dict[str, List[List[Dict[str, Any]]]] = {
 }
 
 # Keywords that trigger each template type
-_INTENT_KEYWORDS: Dict[str, List[str]] = {
+_INTENT_KEYWORDS: dict[str, list[str]] = {
     "retrieve": [
         "retrieve",
         "find",
@@ -132,17 +132,13 @@ def _detect_intent(description: str) -> str:
     return "default"
 
 
-def _fill_template(
-    template: List[Dict[str, Any]], goal_desc: str
-) -> List[Dict[str, Any]]:
+def _fill_template(template: list[dict[str, Any]], goal_desc: str) -> list[dict[str, Any]]:
     """Substitute {goal} placeholders in a template copy."""
     filled = []
     for raw_step in template:
         step = {"tool": raw_step["tool"], "args": {}}
         for k, v in raw_step.get("args", {}).items():
-            step["args"][k] = (
-                v.format_map({"goal": goal_desc}) if isinstance(v, str) else v
-            )
+            step["args"][k] = v.format_map({"goal": goal_desc}) if isinstance(v, str) else v
         filled.append(step)
     return filled
 
@@ -170,10 +166,10 @@ class ClassicalPlanner(AbstractPlanner):
 
     def __init__(
         self,
-        available_tools: Optional[List[str]] = None,
+        available_tools: list[str] | None = None,
         base_confidence: float = 0.7,
     ) -> None:
-        self.available_tools: Optional[set[str]] = (
+        self.available_tools: set[str] | None = (
             set(available_tools) if available_tools is not None else None
         )
         self.base_confidence = base_confidence
@@ -185,9 +181,9 @@ class ClassicalPlanner(AbstractPlanner):
     def generate_plans(
         self,
         goal: Goal,
-        world_state: Dict[str, Any],
+        world_state: dict[str, Any],
         n_candidates: int = 3,
-    ) -> List[Plan]:
+    ) -> list[Plan]:
         """
         Produce up to *n_candidates* Plans from the template library.
 
@@ -205,7 +201,7 @@ class ClassicalPlanner(AbstractPlanner):
         variants = _TEMPLATES.get(intent, _TEMPLATES["default"])
         logger.debug(f"Planner detected intent={intent!r} for goal={goal.goal_id!r}")
 
-        plans: List[Plan] = []
+        plans: list[Plan] = []
         for template in variants:
             steps = _fill_template(template, goal.description)
 
@@ -251,8 +247,8 @@ class ClassicalPlanner(AbstractPlanner):
 
     def select_plan(
         self,
-        plans: List[Plan],
-        constraints: Optional[Dict[str, Any]] = None,
+        plans: list[Plan],
+        constraints: dict[str, Any] | None = None,
     ) -> Plan:
         """
         Select the highest-scoring plan.
@@ -316,7 +312,7 @@ class ClassicalPlanner(AbstractPlanner):
         self,
         plan: Plan,
         goal: Goal,
-        world_state: Dict[str, Any],
+        world_state: dict[str, Any],
     ) -> float:
         """
         Composite score in [0, 1]:
@@ -327,9 +323,7 @@ class ClassicalPlanner(AbstractPlanner):
         # Feasibility: deduct 0.1 per unknown tool
         unknown = 0
         if self.available_tools is not None:
-            unknown = sum(
-                1 for s in plan.steps if s["tool"] not in self.available_tools
-            )
+            unknown = sum(1 for s in plan.steps if s["tool"] not in self.available_tools)
         feasibility = max(0.0, 1.0 - unknown * 0.1)
 
         # Efficiency: prefer fewer steps (normalise against max template length = 4)

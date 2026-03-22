@@ -34,10 +34,9 @@ Usage::
 
 from __future__ import annotations
 
-import json
 import pickle
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from loguru import logger
@@ -84,7 +83,7 @@ class SemanticMemory(AbstractMemory):
         self,
         hop_depth: int = 2,
         proximity_decay: float = 0.5,
-        persist_path: Optional[str] = None,
+        persist_path: str | None = None,
     ) -> None:
         if not (0.0 < proximity_decay <= 1.0):
             raise ValueError("proximity_decay must be in (0, 1]")
@@ -94,12 +93,12 @@ class SemanticMemory(AbstractMemory):
         self.persist_path = persist_path
 
         if NX_AVAILABLE:
-            self._graph: "nx.MultiDiGraph" = nx.MultiDiGraph()
+            self._graph: nx.MultiDiGraph = nx.MultiDiGraph()
         else:
             self._graph = None  # type: ignore[assignment]
 
         # Plain dict fallback for when networkx is absent
-        self._records: Dict[str, MemoryRecord] = {}
+        self._records: dict[str, MemoryRecord] = {}
 
         if persist_path and Path(persist_path).exists():
             self.load(persist_path)
@@ -118,10 +117,10 @@ class SemanticMemory(AbstractMemory):
 
     def retrieve(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[MemoryRecord]:
         """
         Retrieve top-k concepts by spreading-activation search.
 
@@ -143,19 +142,17 @@ class SemanticMemory(AbstractMemory):
             return []
 
         # Step 1: cosine similarity scoring
-        sim_scores: Dict[str, float] = {}
+        sim_scores: dict[str, float] = {}
         for key, rec in candidates.items():
             if rec.embedding is not None:
-                sim_scores[key] = _cosine(
-                    q, np.asarray(rec.embedding, dtype=np.float32)
-                )
+                sim_scores[key] = _cosine(q, np.asarray(rec.embedding, dtype=np.float32))
             else:
                 sim_scores[key] = 0.0
 
         sorted_by_sim = sorted(sim_scores.items(), key=lambda x: x[1], reverse=True)
 
         # Step 2: BFS spreading-activation from top seeds
-        activation: Dict[str, float] = {}
+        activation: dict[str, float] = {}
         if NX_AVAILABLE:
             seed_keys = [k for k, _ in sorted_by_sim[:4]]
             for seed in seed_keys:
@@ -165,7 +162,7 @@ class SemanticMemory(AbstractMemory):
             activation = dict(sorted_by_sim)
 
         # Step 3: merge
-        final_scores: Dict[str, float] = {}
+        final_scores: dict[str, float] = {}
         for key in candidates:
             sim = sim_scores.get(key, 0.0)
             act = activation.get(key, 0.0)
@@ -174,7 +171,7 @@ class SemanticMemory(AbstractMemory):
         ranked = sorted(final_scores.items(), key=lambda x: x[1], reverse=True)
         return [candidates[k] for k, _ in ranked[:top_k]]
 
-    def get(self, key: str) -> Optional[MemoryRecord]:
+    def get(self, key: str) -> MemoryRecord | None:
         rec = self._records.get(key)
         if rec is not None and rec.is_expired():
             self.delete(key)
@@ -207,7 +204,7 @@ class SemanticMemory(AbstractMemory):
         target_key: str,
         relation: str = "related-to",
         weight: float = 1.0,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Add a typed, weighted directed edge between two concept nodes.
@@ -244,9 +241,9 @@ class SemanticMemory(AbstractMemory):
     def neighbours(
         self,
         key: str,
-        relation: Optional[str] = None,
+        relation: str | None = None,
         hops: int = 1,
-    ) -> List[Tuple[str, str, float]]:
+    ) -> list[tuple[str, str, float]]:
         """
         Return neighbouring concept keys within *hops* edges.
 
@@ -261,7 +258,7 @@ class SemanticMemory(AbstractMemory):
         if not NX_AVAILABLE or not self._graph.has_node(key):
             return []
 
-        visited: Dict[str, Tuple[str, float]] = {}
+        visited: dict[str, tuple[str, float]] = {}
         frontier = [key]
         for _ in range(hops):
             next_frontier = []
@@ -278,7 +275,7 @@ class SemanticMemory(AbstractMemory):
 
         return [(nbr, rel, w) for nbr, (rel, w) in visited.items()]
 
-    def path(self, source_key: str, target_key: str) -> Optional[List[str]]:
+    def path(self, source_key: str, target_key: str) -> list[str] | None:
         """
         Shortest path between two concept nodes (key sequence).
 
@@ -291,7 +288,7 @@ class SemanticMemory(AbstractMemory):
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             return None
 
-    def concept_summary(self, key: str) -> Dict[str, Any]:
+    def concept_summary(self, key: str) -> dict[str, Any]:
         """
         Return a dict summarising a concept and its direct relations.
         """
@@ -304,8 +301,7 @@ class SemanticMemory(AbstractMemory):
             "content": rec.content,
             "metadata": rec.metadata,
             "relations": [
-                {"target": nbr, "relation": rel, "weight": w}
-                for nbr, rel, w in neighbours
+                {"target": nbr, "relation": rel, "weight": w} for nbr, rel, w in neighbours
             ],
         }
 
@@ -313,7 +309,7 @@ class SemanticMemory(AbstractMemory):
     # Persistence                                                          #
     # ------------------------------------------------------------------ #
 
-    def save(self, path: Optional[str] = None) -> None:
+    def save(self, path: str | None = None) -> None:
         """
         Persist the graph to disk (pickle format).
 
@@ -331,7 +327,7 @@ class SemanticMemory(AbstractMemory):
             pickle.dump(data, fh, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info(f"SemanticMemory saved to {target!r} ({len(self._records)} nodes)")
 
-    def load(self, path: Optional[str] = None) -> None:
+    def load(self, path: str | None = None) -> None:
         """Load a previously saved graph from disk."""
         target = path or self.persist_path
         if not target:
@@ -340,12 +336,8 @@ class SemanticMemory(AbstractMemory):
             data = pickle.load(fh)  # nosec B301
         self._records = data.get("records", {})
         if NX_AVAILABLE and data.get("graph"):
-            self._graph = nx.node_link_graph(
-                data["graph"], directed=True, multigraph=True
-            )
-        logger.info(
-            f"SemanticMemory loaded from {target!r} ({len(self._records)} nodes)"
-        )
+            self._graph = nx.node_link_graph(data["graph"], directed=True, multigraph=True)
+        logger.info(f"SemanticMemory loaded from {target!r} ({len(self._records)} nodes)")
 
     # ------------------------------------------------------------------ #
     # BFS spreading-activation (internal)                                  #
@@ -355,7 +347,7 @@ class SemanticMemory(AbstractMemory):
         self,
         seed: str,
         seed_score: float,
-        activation: Dict[str, float],
+        activation: dict[str, float],
     ) -> None:
         """Propagate activation from *seed* via BFS up to *hop_depth* hops."""
         frontier = [(seed, seed_score)]
@@ -388,7 +380,7 @@ class SemanticMemory(AbstractMemory):
 # --------------------------------------------------------------------------- #
 
 
-def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     norm_a = float(np.linalg.norm(a))
     norm_b = float(np.linalg.norm(b))
     if norm_a == 0.0 or norm_b == 0.0:
@@ -396,7 +388,7 @@ def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
     return float(np.dot(a, b) / (norm_a * norm_b))
 
 
-def _meta_matches(record: MemoryRecord, filters: Optional[Dict[str, Any]]) -> bool:
+def _meta_matches(record: MemoryRecord, filters: dict[str, Any] | None) -> bool:
     if not filters:
         return True
     return all(record.metadata.get(k) == v for k, v in filters.items())

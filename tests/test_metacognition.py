@@ -12,20 +12,19 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import os
 import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pytest
 
-from metacognition.interfaces import ConfidenceScore, CritiqueResult
-from metacognition.self_critic import SelfCritic
-from metacognition.consistency_checker import ConsistencyChecker
 from metacognition.confidence_calibrator import ConfidenceCalibrator
-from metacognition.internal_simulator import InternalSimulator
+from metacognition.consistency_checker import ConsistencyChecker
 from metacognition.identity_module import AgentProfile, DecisionRecord, IdentityModule
+from metacognition.interfaces import ConfidenceScore
+from metacognition.internal_simulator import InternalSimulator
 from metacognition.layer import MetacognitionLayer, ReflectionResult
+from metacognition.self_critic import SelfCritic
 
 # =========================================================================== #
 # Helpers
@@ -92,10 +91,10 @@ class TestSelfCritic:
 
     def test_add_and_remove_check(self):
         critic = SelfCritic()
-        original_names = list(critic.check_names())
+        list(critic.check_names())
 
         # Add a custom check that always fails
-        def always_fail(response: str, ctx: Dict) -> Optional[str]:
+        def always_fail(response: str, ctx: dict) -> str | None:
             return "always fails"
 
         critic.add_check("always_fail", always_fail)
@@ -127,7 +126,7 @@ class TestSelfCritic:
         # With threshold=2, a single issue should still approve
         critic = SelfCritic(auto_revise=False, fail_threshold=2)
 
-        def one_issue(r: str, ctx: Dict) -> Optional[str]:
+        def one_issue(r: str, ctx: dict) -> str | None:
             return "one issue"
 
         critic.add_check("one_issue", one_issue, prepend=True)
@@ -267,7 +266,7 @@ class TestConfidenceCalibrator:
 
 class TestInternalSimulator:
 
-    def _state(self) -> Dict[str, Any]:
+    def _state(self) -> dict[str, Any]:
         return {
             "goal": "Answer user",
             "context": [],
@@ -328,7 +327,7 @@ class TestInternalSimulator:
         """Simulator accepts a mock valuation layer without crashing."""
 
         class MockVL:
-            def score(self, state: Dict) -> float:
+            def score(self, state: dict) -> float:
                 return 1.0
 
         sim = InternalSimulator(valuation_layer=MockVL(), seed=0)
@@ -456,7 +455,7 @@ class TestIdentityModule:
 
 class TestMetacognitionLayer:
 
-    def _candidates(self) -> List[str]:
+    def _candidates(self) -> list[str]:
         return [
             "Paris is the capital of France.",
             "France's capital city is Paris, home to the Louvre.",

@@ -21,14 +21,11 @@ is unchanged.
 
 from __future__ import annotations
 
-import math
-from typing import Any, Dict, List, Optional
-
 import torch
 import torch.nn as nn
 from loguru import logger
 
-from perception.interfaces import AbstractCortex, WorldState
+from perception.interfaces import WorldState
 from perception.text_cortex import _l2_normalize, _project
 
 # --------------------------------------------------------------------------- #
@@ -87,8 +84,7 @@ class MultimodalCortex:
     ) -> None:
         if fusion_strategy not in self.STRATEGIES:
             raise ValueError(
-                f"fusion_strategy must be one of {self.STRATEGIES}, "
-                f"got {fusion_strategy!r}"
+                f"fusion_strategy must be one of {self.STRATEGIES}, " f"got {fusion_strategy!r}"
             )
         self.hidden_dim = hidden_dim
         self.fusion_strategy = fusion_strategy
@@ -96,28 +92,24 @@ class MultimodalCortex:
         self.image_weight = image_weight
         self.audio_weight = audio_weight
         self.device = (
-            ("cuda" if torch.cuda.is_available() else "cpu")
-            if device == "auto"
-            else device
+            ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else device
         )
 
         # Lazy-initialised projectors (used only in "projection" mode)
-        self._projectors: Dict[str, Optional[_ModalityProjector]] = {
+        self._projectors: dict[str, _ModalityProjector | None] = {
             "text": None,
             "image": None,
             "audio": None,
         }
         self._projectors_trained = False
 
-        logger.debug(
-            f"MultimodalCortex init: dim={hidden_dim} " f"strategy={fusion_strategy}"
-        )
+        logger.debug(f"MultimodalCortex init: dim={hidden_dim} " f"strategy={fusion_strategy}")
 
     # ------------------------------------------------------------------ #
     # Primary API                                                          #
     # ------------------------------------------------------------------ #
 
-    def fuse(self, world_state: WorldState) -> List[float]:
+    def fuse(self, world_state: WorldState) -> list[float]:
         """
         Fuse all embedding fields of *world_state* into a single vector.
 
@@ -129,8 +121,8 @@ class MultimodalCortex:
             List[float] of length ``hidden_dim``, L2-normalised.
             Returns zero vector if no embeddings are present.
         """
-        embeddings: Dict[str, List[float]] = {}
-        weights: Dict[str, float] = {}
+        embeddings: dict[str, list[float]] = {}
+        weights: dict[str, float] = {}
 
         if world_state.text_embedding is not None:
             embeddings["text"] = world_state.text_embedding
@@ -168,7 +160,7 @@ class MultimodalCortex:
     # Fusion implementations                                               #
     # ------------------------------------------------------------------ #
 
-    def _mean_fuse(self, embeddings: Dict[str, List[float]]) -> List[float]:
+    def _mean_fuse(self, embeddings: dict[str, list[float]]) -> list[float]:
         """Simple mean of all embeddings, projected to hidden_dim."""
         acc = [0.0] * self.hidden_dim
         for vec in embeddings.values():
@@ -180,9 +172,9 @@ class MultimodalCortex:
 
     def _weighted_fuse(
         self,
-        embeddings: Dict[str, List[float]],
-        weights: Dict[str, float],
-    ) -> List[float]:
+        embeddings: dict[str, list[float]],
+        weights: dict[str, float],
+    ) -> list[float]:
         """Weighted mean, normalised by total weight of present modalities."""
         total_w = sum(weights.get(k, 1.0) for k in embeddings)
         acc = [0.0] * self.hidden_dim
@@ -193,7 +185,7 @@ class MultimodalCortex:
                 acc[i] += v * w
         return acc
 
-    def _project_fuse(self, embeddings: Dict[str, List[float]]) -> List[float]:
+    def _project_fuse(self, embeddings: dict[str, list[float]]) -> list[float]:
         """
         Learned cross-attention projection fusion.
 
@@ -211,22 +203,20 @@ class MultimodalCortex:
                 in_dim = len(vec)
                 if proj.net[0].in_features != in_dim:
                     # Dimension mismatch — recreate projector
-                    self._projectors[key] = _ModalityProjector(
-                        in_dim, self.hidden_dim
-                    ).to(self.device)
+                    self._projectors[key] = _ModalityProjector(in_dim, self.hidden_dim).to(
+                        self.device
+                    )
                     proj = self._projectors[key]
                 t = proj(torch.tensor(vec, device=self.device).unsqueeze(0)).squeeze(0)
             acc_tensor += t
         return acc_tensor.detach().cpu().tolist()
 
-    def _init_projectors(self, embeddings: Dict[str, List[float]]) -> None:
+    def _init_projectors(self, embeddings: dict[str, list[float]]) -> None:
         """Lazily initialise projectors from input dimensions."""
         for key, vec in embeddings.items():
             if self._projectors[key] is None:
                 in_dim = len(vec)
-                self._projectors[key] = _ModalityProjector(in_dim, self.hidden_dim).to(
-                    self.device
-                )
+                self._projectors[key] = _ModalityProjector(in_dim, self.hidden_dim).to(self.device)
 
 
 # --------------------------------------------------------------------------- #
@@ -234,7 +224,7 @@ class MultimodalCortex:
 # --------------------------------------------------------------------------- #
 
 
-def _maybe_project(vec: List[float], dim: int) -> List[float]:
+def _maybe_project(vec: list[float], dim: int) -> list[float]:
     """Project or truncate *vec* to *dim* dimensions."""
     if len(vec) == dim:
         return vec

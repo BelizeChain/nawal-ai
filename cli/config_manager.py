@@ -8,10 +8,10 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, Any, Optional
-from pathlib import Path
-import os
 import json
+import os
+from pathlib import Path
+from typing import Any
 
 # Optional YAML library
 try:
@@ -34,7 +34,7 @@ class ConfigManager:
         self.profiles = ["dev", "test", "prod"]
         self.active_profile = os.getenv("NAWAL_PROFILE", "dev")
 
-    def load_config(self, config_path: Path) -> Dict[str, Any]:
+    def load_config(self, config_path: Path) -> dict[str, Any]:
         """
         Load configuration from file.
 
@@ -56,15 +56,13 @@ class ConfigManager:
 
         if suffix in [".yaml", ".yml"]:
             if not YAML_AVAILABLE:
-                raise ImportError(
-                    "PyYAML required for YAML configs. Install: pip install pyyaml"
-                )
+                raise ImportError("PyYAML required for YAML configs. Install: pip install pyyaml")
 
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
 
         elif suffix == ".json":
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = json.load(f)
 
         else:
@@ -78,7 +76,7 @@ class ConfigManager:
 
         return config
 
-    def save_config(self, config: Dict[str, Any], config_path: Path) -> None:
+    def save_config(self, config: dict[str, Any], config_path: Path) -> None:
         """
         Save configuration to file.
 
@@ -119,7 +117,7 @@ class ConfigManager:
         default_config = self._get_default_config()
         self.save_config(default_config, config_path)
 
-    def _get_default_config(self) -> Dict[str, Any]:
+    def _get_default_config(self) -> dict[str, Any]:
         """
         Get default configuration.
 
@@ -211,7 +209,7 @@ class ConfigManager:
             },
         }
 
-    def _merge_env_vars(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_env_vars(self, config: dict[str, Any]) -> dict[str, Any]:
         """
         Merge environment variables into configuration.
 
@@ -260,7 +258,7 @@ class ConfigManager:
 
         return config
 
-    def _validate_config(self, config: Dict[str, Any]) -> None:
+    def _validate_config(self, config: dict[str, Any]) -> None:
         """
         Validate configuration.
 
@@ -311,7 +309,7 @@ class ConfigManager:
         if blockchain["chain"] not in valid_chains:
             raise ValueError(f"Chain must be one of: {valid_chains}")
 
-    def get_profile_config(self, profile: str) -> Dict[str, Any]:
+    def get_profile_config(self, profile: str) -> dict[str, Any]:
         """
         Get configuration for specific profile.
 
@@ -325,9 +323,7 @@ class ConfigManager:
             ValueError: If profile is invalid
         """
         if profile not in self.profiles:
-            raise ValueError(
-                f"Invalid profile: {profile}. Must be one of: {self.profiles}"
-            )
+            raise ValueError(f"Invalid profile: {profile}. Must be one of: {self.profiles}")
 
         config = self._get_default_config()
         config["profile"] = profile
@@ -369,9 +365,7 @@ class ConfigManager:
             ValueError: If profile is invalid
         """
         if profile not in self.profiles:
-            raise ValueError(
-                f"Invalid profile: {profile}. Must be one of: {self.profiles}"
-            )
+            raise ValueError(f"Invalid profile: {profile}. Must be one of: {self.profiles}")
 
         self.active_profile = profile
         os.environ["NAWAL_PROFILE"] = profile

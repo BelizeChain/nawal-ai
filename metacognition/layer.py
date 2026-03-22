@@ -37,16 +37,16 @@ PhaseHook:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
-from metacognition.interfaces import ConfidenceScore, CritiqueResult
-from metacognition.self_critic import SelfCritic
-from metacognition.consistency_checker import ConsistencyChecker, ConsistencyResult
 from metacognition.confidence_calibrator import ConfidenceCalibrator
-from metacognition.internal_simulator import InternalSimulator
+from metacognition.consistency_checker import ConsistencyChecker, ConsistencyResult
 from metacognition.identity_module import IdentityModule
+from metacognition.interfaces import ConfidenceScore, CritiqueResult
+from metacognition.internal_simulator import InternalSimulator
+from metacognition.self_critic import SelfCritic
 
 # --------------------------------------------------------------------------- #
 # Reflection result                                                            #
@@ -72,9 +72,9 @@ class ReflectionResult:
     best_candidate: str
     approved: bool
     confidence: ConfidenceScore
-    critique: Optional[CritiqueResult] = None
-    consistency: Optional[ConsistencyResult] = None
-    issues: List[str] = field(default_factory=list)
+    critique: CritiqueResult | None = None
+    consistency: ConsistencyResult | None = None
+    issues: list[str] = field(default_factory=list)
     self_description: str = ""
 
 
@@ -100,13 +100,13 @@ class MetacognitionLayer:
 
     def __init__(
         self,
-        critic: Optional[SelfCritic] = None,
-        consistency_checker: Optional[ConsistencyChecker] = None,
-        calibrator: Optional[ConfidenceCalibrator] = None,
-        simulator: Optional[InternalSimulator] = None,
-        identity: Optional[IdentityModule] = None,
-        valuation_layer: Optional[Any] = None,
-        persist_path: Optional[str] = None,
+        critic: SelfCritic | None = None,
+        consistency_checker: ConsistencyChecker | None = None,
+        calibrator: ConfidenceCalibrator | None = None,
+        simulator: InternalSimulator | None = None,
+        identity: IdentityModule | None = None,
+        valuation_layer: Any | None = None,
+        persist_path: str | None = None,
     ) -> None:
         self._critic = critic or SelfCritic()
         self._checker = consistency_checker or ConsistencyChecker()
@@ -120,11 +120,11 @@ class MetacognitionLayer:
 
     def reflect(
         self,
-        candidates: List[str],
-        context: Optional[Dict[str, Any]] = None,
-        plan_score: Optional[float] = None,
-        memory_relevance: Optional[float] = None,
-        safety_score: Optional[float] = None,
+        candidates: list[str],
+        context: dict[str, Any] | None = None,
+        plan_score: float | None = None,
+        memory_relevance: float | None = None,
+        safety_score: float | None = None,
     ) -> ReflectionResult:
         """
         Run the full metacognitive reflection cycle.
@@ -164,21 +164,17 @@ class MetacognitionLayer:
             consistency = self._checker.check(candidates, ctx)
 
             # Step 2: Critique each candidate
-            critiques: List[CritiqueResult] = [
-                self._critic.critique(c, ctx) for c in candidates
-            ]
+            critiques: list[CritiqueResult] = [self._critic.critique(c, ctx) for c in candidates]
 
             # Step 3: Select best
             # Prefer: approved + most-consistent + highest critic confidence
-            best_idx, best_critique = self._select_best(
-                candidates, critiques, consistency
-            )
+            best_idx, best_critique = self._select_best(candidates, critiques, consistency)
             best_candidate = candidates[best_idx]
             approved = critiques[best_idx].approved if critiques else False
 
             # Step 4: Calibration
             verbal_signal = best_candidate if best_candidate else ""
-            signals: Dict[str, Any] = {
+            signals: dict[str, Any] = {
                 "verbal": verbal_signal,
                 "consistency": consistency.score,
             }
@@ -230,11 +226,11 @@ class MetacognitionLayer:
 
     def simulate_actions(
         self,
-        current_state: Dict[str, Any],
-        possible_actions: List[Dict[str, Any]],
+        current_state: dict[str, Any],
+        possible_actions: list[dict[str, Any]],
         horizon: int = 3,
         n_samples: int = 4,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Wrapper around InternalSimulator.simulate() + best_action().
 
@@ -283,10 +279,10 @@ class MetacognitionLayer:
 
     def _select_best(
         self,
-        candidates: List[str],
-        critiques: List[CritiqueResult],
+        candidates: list[str],
+        critiques: list[CritiqueResult],
         consistency: ConsistencyResult,
-    ) -> tuple[int, Optional[CritiqueResult]]:
+    ) -> tuple[int, CritiqueResult | None]:
         """
         Pick the best (index, critique) from candidates given critiques
         and consistency result.
@@ -310,9 +306,7 @@ class MetacognitionLayer:
             idx = max(
                 pool,
                 key=lambda i: (
-                    critiques[i].confidence.value
-                    if critiques[i].confidence is not None
-                    else 0.5
+                    critiques[i].confidence.value if critiques[i].confidence is not None else 0.5
                 ),
             )
 

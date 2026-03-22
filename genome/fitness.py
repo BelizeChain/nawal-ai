@@ -14,21 +14,19 @@ Latest Features:
 - Byzantine-fault detection
 """
 
-from typing import Protocol, Any
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
-from enum import Enum
-
-from loguru import logger
 import asyncio
 import statistics
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
-from pydantic import BaseModel, Field, ConfigDict
+from loguru import logger
 
 from .encoding import Genome
 
 
-class FitnessMetric(str, Enum):
+class FitnessMetric(StrEnum):
     """Types of fitness metrics"""
 
     QUALITY = "quality"
@@ -55,7 +53,7 @@ class FitnessScore:
 
     # Metadata
     genome_id: str
-    evaluated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    evaluated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     evaluator_id: str = "system"
 
     # Detailed metrics
@@ -122,9 +120,7 @@ class PoUWAlignment:
     SLASHING_THRESHOLD = 50.0  # Below this triggers investigation
 
     @classmethod
-    def calculate_fitness(
-        cls, quality: float, timeliness: float, honesty: float
-    ) -> float:
+    def calculate_fitness(cls, quality: float, timeliness: float, honesty: float) -> float:
         """
         Calculate overall fitness score using PoUW weights.
 
@@ -214,15 +210,11 @@ class FitnessEvaluator:
             Complete fitness score
         """
         # Evaluate each criterion in parallel
-        quality_task = asyncio.create_task(
-            self._evaluate_quality_async(genome, training_metrics)
-        )
+        quality_task = asyncio.create_task(self._evaluate_quality_async(genome, training_metrics))
         timeliness_task = asyncio.create_task(
             self._evaluate_timeliness_async(genome, training_metrics)
         )
-        honesty_task = asyncio.create_task(
-            self._evaluate_honesty_async(genome, training_metrics)
-        )
+        honesty_task = asyncio.create_task(self._evaluate_honesty_async(genome, training_metrics))
 
         # Wait for all evaluations
         quality, timeliness, honesty = await asyncio.gather(
@@ -252,9 +244,7 @@ class FitnessEvaluator:
 
         return fitness_score
 
-    def evaluate(
-        self, genome: Genome, training_metrics: dict[str, Any]
-    ) -> FitnessScore:
+    def evaluate(self, genome: Genome, training_metrics: dict[str, Any]) -> FitnessScore:
         """
         Synchronously evaluate genome fitness.
 
@@ -305,9 +295,7 @@ class FitnessEvaluator:
 
         return fitness_score
 
-    async def _evaluate_quality_async(
-        self, genome: Genome, metrics: dict[str, Any]
-    ) -> float:
+    async def _evaluate_quality_async(self, genome: Genome, metrics: dict[str, Any]) -> float:
         """
         Evaluate model quality (accuracy, performance).
 
@@ -335,9 +323,7 @@ class FitnessEvaluator:
         initial_loss = metrics.get("initial_loss", 10.0)
         final_loss = metrics.get("final_loss", initial_loss)
         loss_reduction = (
-            max(0, (initial_loss - final_loss) / initial_loss)
-            if initial_loss > 0
-            else 0
+            max(0, (initial_loss - final_loss) / initial_loss) if initial_loss > 0 else 0
         )
         quality_components.append(("loss_reduction", loss_reduction * 100, 0.30))
 
@@ -362,9 +348,7 @@ class FitnessEvaluator:
 
         return quality_score
 
-    async def _evaluate_timeliness_async(
-        self, genome: Genome, metrics: dict[str, Any]
-    ) -> float:
+    async def _evaluate_timeliness_async(self, genome: Genome, metrics: dict[str, Any]) -> float:
         """Evaluate training efficiency"""
         await asyncio.sleep(0.1)
         return self._evaluate_timeliness(genome, metrics)
@@ -415,9 +399,7 @@ class FitnessEvaluator:
         timeliness_components.append(("efficiency", efficiency_score, 0.20))
 
         # Calculate weighted timeliness score
-        timeliness_score = sum(
-            score * weight for _, score, weight in timeliness_components
-        )
+        timeliness_score = sum(score * weight for _, score, weight in timeliness_components)
         timeliness_score = max(0.0, min(100.0, timeliness_score))
 
         logger.debug(f"Timeliness components: {timeliness_components}")
@@ -425,9 +407,7 @@ class FitnessEvaluator:
 
         return timeliness_score
 
-    async def _evaluate_honesty_async(
-        self, genome: Genome, metrics: dict[str, Any]
-    ) -> float:
+    async def _evaluate_honesty_async(self, genome: Genome, metrics: dict[str, Any]) -> float:
         """Evaluate privacy compliance"""
         await asyncio.sleep(0.1)
         return self._evaluate_honesty(genome, metrics)
@@ -460,9 +440,7 @@ class FitnessEvaluator:
         sovereignty_checks_passed = metrics.get("sovereignty_checks_passed", 0)
         sovereignty_checks_total = metrics.get("sovereignty_checks_total", 1)
 
-        sovereignty_score = (
-            sovereignty_checks_passed / max(sovereignty_checks_total, 1)
-        ) * 100
+        sovereignty_score = (sovereignty_checks_passed / max(sovereignty_checks_total, 1)) * 100
         honesty_components.append(("sovereignty", sovereignty_score, 0.30))
 
         # 3. Byzantine Resistance (20% of honesty)
@@ -509,9 +487,7 @@ class FitnessEvaluator:
             "quality_mean": statistics.mean(qualities),
             "quality_stdev": statistics.stdev(qualities) if len(qualities) > 1 else 0,
             "timeliness_mean": statistics.mean(timelinesses),
-            "timeliness_stdev": (
-                statistics.stdev(timelinesses) if len(timelinesses) > 1 else 0
-            ),
+            "timeliness_stdev": (statistics.stdev(timelinesses) if len(timelinesses) > 1 else 0),
             "honesty_mean": statistics.mean(honesties),
             "honesty_stdev": statistics.stdev(honesties) if len(honesties) > 1 else 0,
             "overall_mean": statistics.mean(overalls),
@@ -557,10 +533,8 @@ if __name__ == "__main__":
 
     print(f"Genome: {genome.genome_id}")
     print(f"\nFitness Score: {fitness_score}")
-    print(f"\nPoUW Alignment:")
-    print(
-        f"  Reward Multiplier: {PoUWAlignment.reward_multiplier(fitness_score.overall):.2f}x"
-    )
+    print("\nPoUW Alignment:")
+    print(f"  Reward Multiplier: {PoUWAlignment.reward_multiplier(fitness_score.overall):.2f}x")
 
     should_slash, reason = PoUWAlignment.should_slash(fitness_score.overall)
     print(f"  Should Slash: {should_slash}")
@@ -569,7 +543,7 @@ if __name__ == "__main__":
 
     # Get statistics
     stats = evaluator.get_statistics()
-    print(f"\nEvaluator Statistics:")
+    print("\nEvaluator Statistics:")
     for key, value in stats.items():
         print(f"  {key}: {value:.2f}")
 

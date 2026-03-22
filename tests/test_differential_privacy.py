@@ -11,12 +11,12 @@ Tests cover:
 Author: BelizeChain Team
 """
 
-import pytest
-import torch
 from unittest.mock import Mock
 
+import pytest
+import torch
 from nawal.client.genome_trainer import GenomeTrainer, TrainingConfig
-from nawal.genome.dna import Genome, ArchitectureLayer, LayerType
+from nawal.genome.dna import ArchitectureLayer, Genome, LayerType
 
 # =============================================================================
 # Fixtures
@@ -148,7 +148,7 @@ async def test_clipping_history_tracking(
     trainer.set_genome(simple_genome)
 
     # Add multiple gradient checks
-    for i in range(5):
+    for _i in range(5):
         gradients = {"layer1.weight": torch.randn(32, 10) * 0.8}
         trainer._check_gradient_clipping(gradients, mock_dp_config)
 
@@ -441,7 +441,7 @@ async def test_gradient_clip_history_limits(
     trainer.set_genome(simple_genome)
 
     # Add 50 gradient checks (should keep last 30)
-    for i in range(50):
+    for _i in range(50):
         gradients = {"layer1.weight": torch.randn(32, 10) * 0.5}
         trainer._check_gradient_clipping(gradients, mock_dp_config)
 

@@ -14,12 +14,12 @@ Usage:
     >>> response = engine.generate("What is DALLA?")
 """
 
-import torch
-from typing import Optional, Dict, List
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+import torch
 from nawal.client.nawal import Nawal, create_nawal
+
 from .confidence import ConfidenceScorer
 from .router import IntelligentRouter
 from .teacher import DeepSeekTeacher, create_deepseek_teacher
@@ -90,8 +90,8 @@ class HybridNawalEngine:
 
     def __init__(
         self,
-        nawal_model: Optional[Nawal] = None,
-        teacher_model: Optional[DeepSeekTeacher] = None,
+        nawal_model: Nawal | None = None,
+        teacher_model: DeepSeekTeacher | None = None,
         confidence_threshold: float = 0.75,
         auto_load_teacher: bool = False,
         enable_distillation_logging: bool = True,
@@ -111,9 +111,7 @@ class HybridNawalEngine:
         logger.info("Nawal sovereign model loaded")
 
         # Initialize confidence scorer
-        self.confidence_scorer = ConfidenceScorer(
-            confidence_threshold=confidence_threshold
-        )
+        self.confidence_scorer = ConfidenceScorer(confidence_threshold=confidence_threshold)
 
         # Initialize router
         self.router = IntelligentRouter(
@@ -156,7 +154,7 @@ class HybridNawalEngine:
         max_length: int = 100,
         temperature: float = 0.8,
         detect_language: bool = True,
-    ) -> Dict:
+    ) -> dict:
         """
         Generate response using hybrid routing
 
@@ -174,15 +172,12 @@ class HybridNawalEngine:
                 - latency_ms: Response time in milliseconds
                 - metadata: Additional routing info
         """
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
 
         # Detect language
         detected_lang = "en"
         if detect_language:
-            if (
-                hasattr(self.nawal, "language_detector")
-                and self.nawal.language_detector
-            ):
+            if hasattr(self.nawal, "language_detector") and self.nawal.language_detector:
                 detected_lang = self.nawal.language_detector.detect(prompt)
             else:
                 logger.debug("No language_detector available, defaulting to English")
@@ -250,7 +245,7 @@ class HybridNawalEngine:
                 decision = "nawal"  # Update for metadata accuracy
 
         # Calculate latency
-        end_time = datetime.now(timezone.utc)
+        end_time = datetime.now(UTC)
         latency_ms = (end_time - start_time).total_seconds() * 1000
 
         return {
@@ -263,7 +258,7 @@ class HybridNawalEngine:
             "metadata": routing_metadata,
         }
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get comprehensive statistics"""
         return {
             "routing": self.router.get_statistics(),
@@ -343,9 +338,7 @@ if __name__ == "__main__":
         print(f"\n[Query {i}] {query}")
         result = engine.generate(query, max_length=50)
         print(f"[{result['model_used'].upper()}] {result['text'][:200]}")
-        print(
-            f"Confidence: {result['confidence']:.3f} | Latency: {result['latency_ms']:.1f}ms"
-        )
+        print(f"Confidence: {result['confidence']:.3f} | Latency: {result['latency_ms']:.1f}ms")
 
     # Show statistics
     print("\n" + "=" * 70)

@@ -10,24 +10,16 @@ Checks:
 
 from __future__ import annotations
 
-import json
-import os
-import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from maintenance.interfaces import (
     DriftReport,
     RepairResult,
     RepairStrategy,
-    RiskLevel,
 )
-from maintenance.self_repair import SelfRepair
 from maintenance.layer import MaintenanceLayer
-from metacognition.interfaces import ConfidenceScore, CritiqueResult
+from maintenance.self_repair import SelfRepair
 from metacognition.layer import MetacognitionLayer, ReflectionResult
 from monitoring.logging_config import configure_logging
 
@@ -361,8 +353,8 @@ class TestRecommendation1_AzureExporter:
     def test_azure_exporter_disabled_without_sdk(self):
         """Without the SDK installed, AzureExporter should instantiate but stay disabled."""
         from monitoring.prometheus_exporter import (
-            AzureExporter,
             AZURE_MONITOR_AVAILABLE,
+            AzureExporter,
         )
 
         exporter = AzureExporter()
@@ -435,8 +427,8 @@ class TestRecommendation2_CustomMetrics:
 
     def test_prometheus_update_includes_sovereignty(self):
         """update_from_collector should propagate sovereignty_rate."""
-        from monitoring.prometheus_exporter import PrometheusExporter
         from monitoring.metrics import MetricsCollector, MetricType
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         mc = MetricsCollector()
         mc.record(MetricType.SOVEREIGNTY_RATE, 0.88)
@@ -451,7 +443,6 @@ class TestRecommendation3_SS58Logging:
 
     def test_enroll_log_is_debug(self):
         """The enrollment log line in api_server should use logger.debug, not logger.info."""
-        import ast
 
         source_path = Path(__file__).resolve().parent.parent / "api_server.py"
         source = source_path.read_text()

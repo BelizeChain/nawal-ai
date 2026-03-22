@@ -11,12 +11,10 @@ from __future__ import annotations
 import csv
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from monitoring.metrics import MetricType, Metric, MetricsCollector
+from monitoring.metrics import Metric, MetricsCollector, MetricType
 from monitoring.metrics_collector import InferenceMetricsCollector
 
 # ===========================================================================

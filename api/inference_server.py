@@ -3,25 +3,26 @@ Production-grade inference API for Nawal BelizeChain LLM
 FastAPI REST/gRPC endpoint for serving trained models
 """
 
+import asyncio
+import json
+import logging
 import os
 import time
 from collections import defaultdict
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Depends, Header, Request
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import StreamingResponse, JSONResponse
-from pydantic import BaseModel, Field
-from typing import Any, Optional, List, Dict, AsyncIterator
-import torch
-import asyncio
-import logging
-from datetime import datetime, timezone
-import json
+from datetime import UTC, datetime
+from typing import Any
 
-from nawal.client.model import BelizeChainLLM
-from nawal.security.dp_inference import DPInferenceGuard
+import torch
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, StreamingResponse
 from nawal.blockchain.identity_verifier import BelizeIDVerifier
+from nawal.client.model import BelizeChainLLM
 from nawal.monitoring.metrics_collector import InferenceMetricsCollector
+from nawal.security.dp_inference import DPInferenceGuard
+from pydantic import BaseModel, Field
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,9 +47,7 @@ async def lifespan(app: FastAPI):
             device="cuda" if torch.cuda.is_available() else "cpu",
         )
         model.eval()
-        logger.info(
-            f"Model loaded successfully ({model.num_parameters():,} parameters)"
-        )
+        logger.info(f"Model loaded successfully ({model.num_parameters():,} parameters)")
     except Exception as e:
         logger.error(f"Failed to load model: {e}")
         model = None
@@ -85,7 +84,7 @@ class _RateLimiter:
     def __init__(self, max_requests: int = 30, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window = window_seconds
-        self._hits: Dict[str, List[float]] = defaultdict(list)
+        self._hits: dict[str, list[float]] = defaultdict(list)
 
     def is_allowed(self, key: str) -> bool:
         now = time.monotonic()
@@ -120,18 +119,12 @@ async def rate_limit_middleware(request, call_next):
 class InferenceRequest(BaseModel):
     """Request schema for text generation"""
 
-    prompt: str = Field(
-        ..., min_length=1, max_length=2048, description="Input text prompt"
-    )
-    max_tokens: int = Field(
-        512, ge=1, le=2048, description="Maximum tokens to generate"
-    )
+    prompt: str = Field(..., min_length=1, max_length=2048, description="Input text prompt")
+    max_tokens: int = Field(512, ge=1, le=2048, description="Maximum tokens to generate")
     temperature: float = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: float = Field(0.9, ge=0.0, le=1.0, description="Nucleus sampling threshold")
     stream: bool = Field(False, description="Enable streaming response")
-    belizeid: Optional[str] = Field(
-        None, description="BelizeID for authenticated requests"
-    )
+    belizeid: str | None = Field(None, description="BelizeID for authenticated requests")
 
 
 class InferenceResponse(BaseModel):
@@ -152,19 +145,17 @@ class ModelInfo(BaseModel):
     parameters: int
     training_rounds: int
     last_updated: str
-    privacy_budget: Dict[str, float]
+    privacy_budget: dict[str, float]
 
 
 class BatchInferenceResponse(BaseModel):
     """Response for batch inference."""
 
-    results: List[Dict[str, Any]]
+    results: list[dict[str, Any]]
     total: int
 
 
-async def verify_belizeid(
-    request: Request, belizeid: Optional[str] = Header(None)
-) -> str:
+async def verify_belizeid(request: Request, belizeid: str | None = Header(None)) -> str:
     """Dependency: Verify BelizeID authentication (required)."""
     if not belizeid:
         raise HTTPException(status_code=401, detail="BelizeID header required")
@@ -183,7 +174,7 @@ async def health_check(request: Request):
         content={
             "status": status_str,
             "model_loaded": model_loaded,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         },
         status_code=200 if model_loaded else 503,
     )
@@ -217,7 +208,7 @@ async def generate_text(
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded")
 
-    start_time = datetime.now(timezone.utc)
+    start_time = datetime.now(UTC)
 
     try:
         # Apply differential privacy noise to input embeddings
@@ -230,9 +221,7 @@ async def generate_text(
                 top_p=request.top_p,
             )
 
-        inference_time = (
-            datetime.now(timezone.utc) - start_time
-        ).total_seconds() * 1000
+        inference_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
         # Log metrics
         await http_request.app.state.metrics.log_inference(
@@ -249,14 +238,12 @@ async def generate_text(
             ),  # DESIGN NOTE: swap for tokenizer.encode(output) when tokenizer is available
             inference_time_ms=inference_time,
             model_version=model.version,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Inference error: {e}")
-        raise HTTPException(
-            status_code=500, detail="Inference failed. Check server logs."
-        )
+        raise HTTPException(status_code=500, detail="Inference failed. Check server logs.")
 
 
 @app.post("/infer/stream", status_code=200)
@@ -290,7 +277,7 @@ async def generate_text_stream(
 
 @app.post("/batch/infer", response_model=BatchInferenceResponse, status_code=200)
 async def batch_inference(
-    requests: List[InferenceRequest],
+    requests: list[InferenceRequest],
     http_request: Request,
     belizeid: str = Depends(verify_belizeid),
 ):

@@ -22,9 +22,9 @@ import numpy as np
 import pytest
 
 from quantum.kinich_connector import (
+    TORCH_AVAILABLE,
     KinichQuantumConnector,
     QuantumEnhancedLayer,
-    TORCH_AVAILABLE,
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -493,8 +493,9 @@ class TestTorchUnavailableBranch:
 
     def test_torch_available_false_when_torch_absent(self):
         """Reload kinich_connector with torch hidden → TORCH_AVAILABLE=False (lines 16-18)."""
-        import sys
         import importlib
+        import sys
+
         import quantum.kinich_connector as target_module
 
         # Save originals

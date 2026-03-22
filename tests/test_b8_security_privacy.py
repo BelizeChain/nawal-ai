@@ -16,35 +16,31 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import torch
 import torch.nn as nn
 import yaml
 
-from security.differential_privacy import (
-    DPOptimizer,
-    DifferentialPrivacy,
-    PrivacyAccountant,
-    PrivacyBudget,
-    PrivacyBudgetExhaustedError,
-    create_dp_optimizer,
-)
-from security.byzantine_detection import (
-    AggregationMethod,
-    ByzantineDetector,
-    ClientReputation,
-)
 from blockchain.payroll_connector import (
     EmployeeType,
     PayrollEntry,
     PayrollProof,
 )
 from client.nawal import ComplianceFilter
-from maintenance.output_filter import OutputFilter
 from maintenance.interfaces import RiskLevel
+from maintenance.output_filter import OutputFilter
+from security.byzantine_detection import (
+    AggregationMethod,
+    ByzantineDetector,
+)
+from security.differential_privacy import (
+    DifferentialPrivacy,
+    DPOptimizer,
+    PrivacyAccountant,
+    PrivacyBudgetExhaustedError,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -69,17 +65,17 @@ def _model_with_grads(scale: float = 1.0) -> _TinyModel:
 
 
 def _make_payroll_entry(**overrides) -> PayrollEntry:
-    defaults = dict(
-        employee_id="BZ-12345-0001",
-        employee_name_hash=hashlib.sha256(b"John Doe").hexdigest(),
-        gross_salary=5_000_000_000_000,
-        tax_withholding=600_000_000_000,
-        social_security=250_000_000_000,
-        pension_contribution=250_000_000_000,
-        net_salary=3_900_000_000_000,
-        payment_period="2026-02",
-        employee_type=EmployeeType.PRIVATE,
-    )
+    defaults = {
+        "employee_id": "BZ-12345-0001",
+        "employee_name_hash": hashlib.sha256(b"John Doe").hexdigest(),
+        "gross_salary": 5_000_000_000_000,
+        "tax_withholding": 600_000_000_000,
+        "social_security": 250_000_000_000,
+        "pension_contribution": 250_000_000_000,
+        "net_salary": 3_900_000_000_000,
+        "payment_period": "2026-02",
+        "employee_type": EmployeeType.PRIVATE,
+    }
     defaults.update(overrides)
     return PayrollEntry(**defaults)
 
@@ -184,7 +180,7 @@ class TestC81_DPWrapperCorrectness:
         dp = DifferentialPrivacy(epsilon=5.0, clip_norm=1.0, noise_multiplier=0.5)
         dp_opt = DPOptimizer(base_opt, dp)
         dp_opt.step(model)
-        eps, delta = dp.get_privacy_spent()
+        eps, _delta = dp.get_privacy_spent()
         assert eps > 0
 
 
@@ -294,8 +290,9 @@ class TestC83_ZKProofGeneration:
 
     def test_proof_data_no_plaintext_totals(self):
         """Proof JSON must NOT contain plaintext salary totals."""
-        from blockchain.payroll_connector import PayrollConnector
         import json
+
+        from blockchain.payroll_connector import PayrollConnector
 
         connector = PayrollConnector.__new__(PayrollConnector)
         entries = [
@@ -327,6 +324,7 @@ class TestC83_ZKProofGeneration:
     def test_zk_proof_works_in_production(self):
         """_generate_zk_proof must produce a valid JSON proof in any environment."""
         import json
+
         from blockchain.payroll_connector import PayrollConnector
 
         connector = PayrollConnector.__new__(PayrollConnector)
@@ -350,7 +348,6 @@ class TestC84_ZKProofVerification:
 
     def test_verify_works_in_production(self):
         """PayrollProof.verify() must work in production with valid commitment proof."""
-        import json
         from blockchain.payroll_connector import PayrollConnector
 
         connector = PayrollConnector.__new__(PayrollConnector)
@@ -367,7 +364,6 @@ class TestC84_ZKProofVerification:
 
     def test_verify_valid_commitment_proof(self):
         """verify() accepts a correctly generated commitment proof."""
-        import json
         from blockchain.payroll_connector import PayrollConnector
 
         connector = PayrollConnector.__new__(PayrollConnector)
@@ -414,7 +410,6 @@ class TestC84_ZKProofVerification:
 
     def test_verify_rejects_tampered_commitment(self):
         """verify() must reject proof where commitment doesn't match merkle_binding."""
-        import json
         from blockchain.payroll_connector import PayrollConnector
 
         connector = PayrollConnector.__new__(PayrollConnector)

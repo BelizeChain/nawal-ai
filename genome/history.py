@@ -17,10 +17,11 @@ Python: 3.13+
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
 from loguru import logger
 
 from .encoding import Genome
@@ -173,7 +174,7 @@ class EvolutionHistory:
             experiment_name: Name of this evolution experiment
         """
         self.experiment_name = experiment_name
-        self.start_time = datetime.now(timezone.utc).isoformat()
+        self.start_time = datetime.now(UTC).isoformat()
 
         # Generation records
         self.generations: dict[int, GenerationRecord] = {}
@@ -231,7 +232,7 @@ class EvolutionHistory:
         # Create generation record
         record = GenerationRecord(
             generation=generation,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             statistics=statistics,
             best_genome_id=best_genome_id,
             best_fitness=best_fitness,
@@ -414,8 +415,7 @@ class EvolutionHistory:
 
         # Average population size
         avg_population = (
-            sum(r.population_size for r in self.generations.values())
-            / total_generations
+            sum(r.population_size for r in self.generations.values()) / total_generations
         )
 
         # Total mutations and crossovers
@@ -451,12 +451,8 @@ class EvolutionHistory:
             "experiment_name": self.experiment_name,
             "start_time": self.start_time,
             "summary": self.compute_summary(),
-            "generations": {
-                str(gen): record.to_dict() for gen, record in self.generations.items()
-            },
-            "lineages": {
-                gid: lineage.to_dict() for gid, lineage in self.lineages.items()
-            },
+            "generations": {str(gen): record.to_dict() for gen, record in self.generations.items()},
+            "lineages": {gid: lineage.to_dict() for gid, lineage in self.lineages.items()},
             "best_genomes": {str(gen): gid for gen, gid in self.best_genomes.items()},
         }
 
@@ -479,7 +475,7 @@ class EvolutionHistory:
         """
         filepath = Path(filepath)
 
-        with open(filepath, "r") as f:
+        with open(filepath) as f:
             data = json.load(f)
 
         self.experiment_name = data["experiment_name"]
@@ -492,9 +488,7 @@ class EvolutionHistory:
         }
 
         # Import lineages
-        self.lineages = {
-            gid: GenomeLineage(**lineage) for gid, lineage in data["lineages"].items()
-        }
+        self.lineages = {gid: GenomeLineage(**lineage) for gid, lineage in data["lineages"].items()}
 
         # Import best genomes
         self.best_genomes = {int(gen): gid for gen, gid in data["best_genomes"].items()}
@@ -644,8 +638,8 @@ class InnovationHistory:
 # =============================================================================
 
 __all__ = [
+    "EvolutionHistory",
     "GenerationRecord",
     "GenomeLineage",
-    "EvolutionHistory",
     "InnovationHistory",  # Added for backward compatibility
 ]

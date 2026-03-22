@@ -12,8 +12,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-from typing import Dict
+from unittest.mock import MagicMock
 
 import pytest
 import torch
@@ -105,7 +104,7 @@ def _make_student_model() -> nn.Module:
     return TinyStudent()
 
 
-def _make_batch() -> Dict[str, torch.Tensor]:
+def _make_batch() -> dict[str, torch.Tensor]:
     return {
         "input_ids": torch.randint(0, VOCAB, (BATCH, SEQ)),
         "labels": torch.randint(0, VOCAB, (BATCH, SEQ)),
@@ -393,7 +392,7 @@ class TestKnowledgeDistillationTrainerStep:
         batch = _make_batch()
         losses = [trainer.train_step(batch)["loss"] for _ in range(5)]
         # After 5 steps on a tiny model with a fixed batch, at least 2 values differ
-        assert len(set(f"{l:.6f}" for l in losses)) > 1
+        assert len({f"{l:.6f}" for l in losses}) > 1
 
     def test_train_step_updates_student_parameters(self, trainer):
         """Student weights should change after a gradient step."""
@@ -402,7 +401,7 @@ class TestKnowledgeDistillationTrainerStep:
         trainer.train_step(batch)
         params_after = [p.data for p in trainer.student.parameters()]
         any_changed = any(
-            not torch.equal(b, a) for b, a in zip(params_before, params_after)
+            not torch.equal(b, a) for b, a in zip(params_before, params_after, strict=False)
         )
         assert any_changed, "Student parameters were not updated"
 

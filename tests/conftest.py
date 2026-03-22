@@ -12,26 +12,22 @@ Author: BelizeChain Team
 License: MIT
 """
 
-import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
 
 import pytest
 import torch
 import torch.nn as nn
-from torch.utils.data import TensorDataset, DataLoader
-
-from nawal.genome.dna import DNA, LayerGene, ConnectionGene
-from nawal.genome.population import Population
-from nawal.genome.history import InnovationHistory
 from nawal.config import (
-    GenomeConfig,
     EvolutionConfig,
-    TrainingConfig,
     FederatedConfig,
+    GenomeConfig,
     NawalConfig,
+    TrainingConfig,
 )
+from nawal.genome.dna import DNA, ConnectionGene, LayerGene
+from nawal.genome.history import InnovationHistory
+from torch.utils.data import DataLoader, TensorDataset
 
 # ============================================================================
 # Directory Fixtures
@@ -202,8 +198,8 @@ def innovation_history():
 @pytest.fixture
 def sample_population(genome_config, evolution_config, innovation_history):
     """Create a sample population for testing."""
+    from nawal.genome.encoding import ArchitectureLayer, Genome, LayerType
     from nawal.genome.population import PopulationConfig, PopulationManager
-    from nawal.genome.encoding import Genome, ArchitectureLayer, LayerType
 
     # Create population config from evolution config
     pop_config = PopulationConfig(
@@ -369,6 +365,7 @@ def seed():
     """Set random seed for reproducibility."""
     torch.manual_seed(42)
     import random
+
     import numpy as np
 
     random.seed(42)

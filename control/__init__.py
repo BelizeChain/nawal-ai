@@ -15,22 +15,22 @@ Canonical import:
     from nawal.control.interfaces import AbstractPlanner, AbstractExecutor
 """
 
-from control.interfaces import AbstractPlanner, AbstractExecutor, Goal, GoalStatus, Plan
-from control.goal_stack import GoalStack
-from control.planner import ClassicalPlanner
-from control.executor import ToolExecutor
 from control.controller import ExecutiveController
+from control.executor import ToolExecutor
+from control.goal_stack import GoalStack
+from control.interfaces import AbstractExecutor, AbstractPlanner, Goal, GoalStatus, Plan
+from control.planner import ClassicalPlanner
 
 __all__ = [
+    "AbstractExecutor",
     # Interfaces
     "AbstractPlanner",
-    "AbstractExecutor",
+    "ClassicalPlanner",
+    "ExecutiveController",
     "Goal",
-    "GoalStatus",
-    "Plan",
     # Implementations (Phase 2)
     "GoalStack",
-    "ClassicalPlanner",
+    "GoalStatus",
+    "Plan",
     "ToolExecutor",
-    "ExecutiveController",
 ]

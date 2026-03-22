@@ -172,12 +172,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff black isort
+          pip install ruff black
 
       - name: Check code formatting (Black)
         run: |
           black --check --diff --exclude "(tests|docs|examples)" .
 
-      - name: Check import sorting (isort)
+      - name: Check import sorting (Ruff)
         run: |
-          isort --check-only --diff --skip tests .
+          ruff check --select I .

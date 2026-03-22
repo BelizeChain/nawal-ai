@@ -5,9 +5,8 @@ This is a sovereign implementation with NO inheritance from HuggingFace or
 Microsoft models. All configuration designed specifically for Belizean needs.
 """
 
-from typing import List, Optional
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -69,7 +68,7 @@ class NawalModelConfig:
     # Belizean-Specific
     belizean_vocab_extension: bool = True
     multilingual_mode: bool = True
-    supported_languages: List[str] = field(
+    supported_languages: list[str] = field(
         default_factory=lambda: [
             "en",  # English
             "es",  # Spanish
@@ -128,7 +127,7 @@ class NawalModelConfig:
     @classmethod
     def load_from_json(cls, path: str) -> "NawalModelConfig":
         """Load configuration from JSON file"""
-        with open(path, "r") as f:
+        with open(path) as f:
             config_dict = json.load(f)
         return cls(**config_dict)
 

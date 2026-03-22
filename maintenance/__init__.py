@@ -22,33 +22,33 @@ Canonical import:
     from nawal.maintenance.interfaces import RiskLevel, ScreeningResult
 """
 
-from maintenance.interfaces import (
-    RiskLevel,
-    RepairStrategy,
-    ScreeningResult,
-    FilterResult,
-    DriftReport,
-    RepairResult,
-)
-from maintenance.input_screener import InputScreener
-from maintenance.output_filter import OutputFilter
 from maintenance.drift_detector import DriftDetector
-from maintenance.self_repair import SelfRepair
+from maintenance.input_screener import InputScreener
+from maintenance.interfaces import (
+    DriftReport,
+    FilterResult,
+    RepairResult,
+    RepairStrategy,
+    RiskLevel,
+    ScreeningResult,
+)
 from maintenance.layer import MaintenanceLayer
+from maintenance.output_filter import OutputFilter
+from maintenance.self_repair import SelfRepair
 
 __all__ = [
-    # Data classes / enums
-    "RiskLevel",
-    "RepairStrategy",
-    "ScreeningResult",
-    "FilterResult",
+    "DriftDetector",
     "DriftReport",
-    "RepairResult",
+    "FilterResult",
     # Components
     "InputScreener",
-    "OutputFilter",
-    "DriftDetector",
-    "SelfRepair",
     # Facade
     "MaintenanceLayer",
+    "OutputFilter",
+    "RepairResult",
+    "RepairStrategy",
+    # Data classes / enums
+    "RiskLevel",
+    "ScreeningResult",
+    "SelfRepair",
 ]

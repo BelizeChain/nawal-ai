@@ -15,17 +15,17 @@ Canonical import:
     from nawal.valuation.interfaces import AbstractRewardModel, SafetyFilter
 """
 
-from valuation.interfaces import AbstractRewardModel, SafetyFilter, DriveSignal
+from valuation.interfaces import AbstractRewardModel, DriveSignal, SafetyFilter
 from valuation.reward import DriveBasedRewardModel
 from valuation.safety import BasicSafetyFilter, ValuationLayer
 
 __all__ = [
     # Interfaces
     "AbstractRewardModel",
-    "SafetyFilter",
-    "DriveSignal",
+    "BasicSafetyFilter",
     # Implementations (Phase 2)
     "DriveBasedRewardModel",
-    "BasicSafetyFilter",
+    "DriveSignal",
+    "SafetyFilter",
     "ValuationLayer",
 ]

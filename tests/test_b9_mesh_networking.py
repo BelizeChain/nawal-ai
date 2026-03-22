@@ -18,25 +18,22 @@ Covers 6 fixes:
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import json
 import os
 import time
-from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from blockchain.mesh_network import (
-    MeshNetworkClient,
+    ConsensusRound,
     MeshMessage,
+    MeshNetworkClient,
     MessageType,
     PeerInfo,
-    ConsensusRound,
 )
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -152,7 +149,7 @@ class TestC91Ed25519:
 
             msg = mesh._create_message(MessageType.HEARTBEAT, {"ts": 1})
             # Backdate timestamp beyond max age
-            msg.timestamp = datetime.now(timezone.utc).timestamp() - (
+            msg.timestamp = datetime.now(UTC).timestamp() - (
                 mesh._max_message_age + 60
             )
             # Re-sign with backdated timestamp
@@ -313,7 +310,7 @@ class TestC93PeerDiscovery:
         mesh.substrate = MagicMock()
         mesh.substrate.query.side_effect = Exception("RPC timeout")
 
-        result = await mesh.discover_peers()
+        await mesh.discover_peers()
         # Should return empty (failure) but NOT wipe existing peers
         assert "existing_peer" in mesh.peers
 
@@ -337,9 +334,9 @@ class TestC93PeerDiscovery:
             },
         ]
 
-        result = await mesh.discover_peers()
+        await mesh.discover_peers()
         # Invalid address should be filtered out
-        valid_peers = [
+        [
             p for p in mesh.peers.values() if _is_valid_multiaddr(p.multiaddr)
         ]
         # The invalid peer should not be in the peer list
@@ -474,7 +471,7 @@ class TestC94ConsensusProtocol:
             sender_id="voter_1",
             message_type=MessageType.CONSENSUS_VOTE,
             payload={"round_id": "r10", "voter_id": "voter_1", "approve": True},
-            timestamp=datetime.now(timezone.utc).timestamp(),
+            timestamp=datetime.now(UTC).timestamp(),
             signature="",
         )
         await client._handle_consensus_vote(msg)
@@ -498,7 +495,7 @@ class TestC94ConsensusProtocol:
                 sender_id=f"p{i}",
                 message_type=MessageType.CONSENSUS_VOTE,
                 payload={"round_id": "r_full", "voter_id": f"p{i}", "approve": True},
-                timestamp=datetime.now(timezone.utc).timestamp(),
+                timestamp=datetime.now(UTC).timestamp(),
                 signature="",
             )
             await client._handle_consensus_vote(msg)
@@ -519,7 +516,7 @@ class TestC94ConsensusProtocol:
                 "voter_id": "voter_x",
                 "approve": True,
             },
-            timestamp=datetime.now(timezone.utc).timestamp(),
+            timestamp=datetime.now(UTC).timestamp(),
             signature="",
         )
         # Should not raise
@@ -550,7 +547,7 @@ class TestC94ConsensusProtocol:
             sender_id="latecomer",
             message_type=MessageType.CONSENSUS_VOTE,
             payload={"round_id": "rfin", "voter_id": "latecomer", "approve": True},
-            timestamp=datetime.now(timezone.utc).timestamp(),
+            timestamp=datetime.now(UTC).timestamp(),
             signature="",
         )
         await client._handle_consensus_vote(msg)

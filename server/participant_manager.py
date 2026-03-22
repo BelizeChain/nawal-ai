@@ -18,9 +18,10 @@ Python: 3.13+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from enum import Enum, auto
 from typing import Any
+
 from loguru import logger
 
 # =============================================================================
@@ -64,12 +65,8 @@ class Participant:
 
     # Status
     status: ParticipantStatus = ParticipantStatus.PENDING
-    enrolled_at: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
-    last_seen: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    enrolled_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    last_seen: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     # Contributions
     rounds_participated: int = 0
@@ -103,7 +100,7 @@ class Participant:
         """
         old_status = self.status
         self.status = new_status
-        self.last_seen = datetime.now(timezone.utc).isoformat()
+        self.last_seen = datetime.now(UTC).isoformat()
 
         logger.info(
             "Participant status updated",
@@ -144,7 +141,7 @@ class Participant:
             0.4 * self.avg_quality + 0.3 * self.avg_timeliness + 0.3 * self.avg_honesty
         )
 
-        self.last_seen = datetime.now(timezone.utc).isoformat()
+        self.last_seen = datetime.now(UTC).isoformat()
 
         logger.debug(
             "Contribution recorded",
@@ -256,7 +253,7 @@ class Participant:
             return False
 
         last_seen = datetime.fromisoformat(self.last_seen)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         return (now - last_seen).total_seconds() < timeout
 
@@ -358,9 +355,7 @@ class ParticipantManager:
 
     def get_active_participants(self) -> list[Participant]:
         """Get all active participants."""
-        return [
-            p for p in self.participants.values() if p.is_active(self.activity_timeout)
-        ]
+        return [p for p in self.participants.values() if p.is_active(self.activity_timeout)]
 
     def update_participant_status(
         self,
@@ -480,9 +475,7 @@ class ParticipantManager:
                     f"Participant {participant.participant_id} below slashing threshold",
                     fitness=participant.avg_fitness,
                 )
-                participant.update_status(
-                    ParticipantStatus.SLASHED, "Fitness below 50%"
-                )
+                participant.update_status(ParticipantStatus.SLASHED, "Fitness below 50%")
                 continue
 
             # Calculate reward
@@ -520,59 +513,27 @@ class ParticipantManager:
             "total_participants": len(self.participants),
             "active_participants": len(active),
             "pending": len(
-                [
-                    p
-                    for p in self.participants.values()
-                    if p.status == ParticipantStatus.PENDING
-                ]
+                [p for p in self.participants.values() if p.status == ParticipantStatus.PENDING]
             ),
             "idle": len(
-                [
-                    p
-                    for p in self.participants.values()
-                    if p.status == ParticipantStatus.IDLE
-                ]
+                [p for p in self.participants.values() if p.status == ParticipantStatus.IDLE]
             ),
             "offline": len(
-                [
-                    p
-                    for p in self.participants.values()
-                    if p.status == ParticipantStatus.OFFLINE
-                ]
+                [p for p in self.participants.values() if p.status == ParticipantStatus.OFFLINE]
             ),
             "byzantine": len(
-                [
-                    p
-                    for p in self.participants.values()
-                    if p.status == ParticipantStatus.BYZANTINE
-                ]
+                [p for p in self.participants.values() if p.status == ParticipantStatus.BYZANTINE]
             ),
             "slashed": len(
-                [
-                    p
-                    for p in self.participants.values()
-                    if p.status == ParticipantStatus.SLASHED
-                ]
+                [p for p in self.participants.values() if p.status == ParticipantStatus.SLASHED]
             ),
-            "avg_fitness": (
-                sum(p.avg_fitness for p in active) / len(active) if active else 0.0
-            ),
-            "avg_reputation": sum(
-                p.reputation_score for p in self.participants.values()
-            )
+            "avg_fitness": (sum(p.avg_fitness for p in active) / len(active) if active else 0.0),
+            "avg_reputation": sum(p.reputation_score for p in self.participants.values())
             / len(self.participants),
-            "total_contributions": sum(
-                p.rounds_participated for p in self.participants.values()
-            ),
-            "total_samples": sum(
-                p.total_samples_trained for p in self.participants.values()
-            ),
-            "total_rewards_distributed": sum(
-                p.total_rewards for p in self.participants.values()
-            ),
-            "pending_rewards": sum(
-                p.pending_rewards for p in self.participants.values()
-            ),
+            "total_contributions": sum(p.rounds_participated for p in self.participants.values()),
+            "total_samples": sum(p.total_samples_trained for p in self.participants.values()),
+            "total_rewards_distributed": sum(p.total_rewards for p in self.participants.values()),
+            "pending_rewards": sum(p.pending_rewards for p in self.participants.values()),
         }
 
 
@@ -581,7 +542,7 @@ class ParticipantManager:
 # =============================================================================
 
 __all__ = [
-    "ParticipantStatus",
     "Participant",
     "ParticipantManager",
+    "ParticipantStatus",
 ]

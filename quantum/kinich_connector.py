@@ -4,10 +4,11 @@ Kinich Quantum Connector
 Connects Nawal's classical ML models to Kinich's quantum processors.
 """
 
+import asyncio
+from typing import Any
+
 import numpy as np
 from loguru import logger
-from typing import Optional, Dict, Any, List, Tuple
-import asyncio
 
 try:
     import torch
@@ -90,7 +91,7 @@ class KinichQuantumConnector:
 
         # Cache for quantum results (bounded to prevent memory leaks)
         self._cache_max_size: int = 1024
-        self.result_cache: Dict[str, np.ndarray] = {}
+        self.result_cache: dict[str, np.ndarray] = {}
 
         # Statistics
         self.stats = {
@@ -112,8 +113,8 @@ class KinichQuantumConnector:
         """Initialize connection to Kinich quantum backend (sync-safe)."""
         try:
             import os
-            import urllib.request
             import urllib.error
+            import urllib.request
 
             kinich_api_url = os.getenv("KINICH_API_URL", self.kinich_endpoint)
 
@@ -126,9 +127,7 @@ class KinichQuantumConnector:
                 with urllib.request.urlopen(req, timeout=5) as resp:
                     self.kinich_available = resp.status == 200
                 if self.kinich_available:
-                    logger.info(
-                        f"Connected to Kinich quantum backend at {kinich_api_url}"
-                    )
+                    logger.info(f"Connected to Kinich quantum backend at {kinich_api_url}")
                 else:
                     logger.warning("Kinich health check failed")
             except (urllib.error.URLError, OSError) as health_error:
@@ -246,9 +245,7 @@ class KinichQuantumConnector:
 
         return result
 
-    async def _quantum_forward(
-        self, features: np.ndarray, model_type: str, **kwargs
-    ) -> np.ndarray:
+    async def _quantum_forward(self, features: np.ndarray, model_type: str, **kwargs) -> np.ndarray:
         """
         Execute quantum forward pass via Kinich HTTP API.
 
@@ -269,32 +266,34 @@ class KinichQuantumConnector:
         }
 
         # Send to Kinich API
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(
                 f"{self.kinich_endpoint}/api/v1/qml/process",
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=self.request_timeout),
-            ) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    raise RuntimeError(f"Kinich API error: {error_text}")
+            ) as resp,
+        ):
+            if resp.status != 200:
+                error_text = await resp.text()
+                raise RuntimeError(f"Kinich API error: {error_text}")
 
-                result = await resp.json()
+            result = await resp.json()
 
-                if "quantum_enhanced_features" not in result:
-                    raise RuntimeError(
-                        f"Kinich response missing 'quantum_enhanced_features' key, "
-                        f"got keys: {list(result.keys())}"
-                    )
+            if "quantum_enhanced_features" not in result:
+                raise RuntimeError(
+                    f"Kinich response missing 'quantum_enhanced_features' key, "
+                    f"got keys: {list(result.keys())}"
+                )
 
-                classical_results = np.array(result["quantum_enhanced_features"])
+            classical_results = np.array(result["quantum_enhanced_features"])
 
-                # Validate response shape matches input
-                if classical_results.shape != features.shape:
-                    raise RuntimeError(
-                        f"Kinich response shape {classical_results.shape} != "
-                        f"input shape {features.shape}"
-                    )
+            # Validate response shape matches input
+            if classical_results.shape != features.shape:
+                raise RuntimeError(
+                    f"Kinich response shape {classical_results.shape} != "
+                    f"input shape {features.shape}"
+                )
 
         return classical_results
 
@@ -345,7 +344,7 @@ class KinichQuantumConnector:
         # Use hash of feature values
         return str(hash(features.tobytes()))
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """
         Get connector statistics.
 
@@ -362,12 +361,8 @@ class KinichQuantumConnector:
             "quantum_ratio": (
                 self.stats["quantum_calls"] / total_calls if total_calls > 0 else 0.0
             ),
-            "cache_hit_ratio": (
-                self.stats["cache_hits"] / total_calls if total_calls > 0 else 0.0
-            ),
-            "avg_latency": (
-                self.stats["total_latency"] / total_calls if total_calls > 0 else 0.0
-            ),
+            "cache_hit_ratio": (self.stats["cache_hits"] / total_calls if total_calls > 0 else 0.0),
+            "avg_latency": (self.stats["total_latency"] / total_calls if total_calls > 0 else 0.0),
             "kinich_available": self.kinich_available,
             "circuit_open": self._circuit_open,
             "consecutive_failures": self._consecutive_failures,
@@ -444,8 +439,7 @@ class QuantumEnhancedLayer(nn.Module if TORCH_AVAILABLE else object):
         )
 
         logger.info(
-            f"Initialized QuantumEnhancedLayer: "
-            f"{classical_dim}→{quantum_dim}→{classical_dim}"
+            f"Initialized QuantumEnhancedLayer: " f"{classical_dim}→{quantum_dim}→{classical_dim}"
         )
 
     def forward(self, x: "torch.Tensor") -> "torch.Tensor":
@@ -462,7 +456,6 @@ class QuantumEnhancedLayer(nn.Module if TORCH_AVAILABLE else object):
         x_np = x.detach().cpu().numpy()
 
         # Process via Kinich — run coroutine safely from sync or async context
-        import asyncio
 
         try:
             loop = asyncio.get_running_loop()

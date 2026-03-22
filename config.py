@@ -21,8 +21,8 @@ import os
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
 from loguru import logger
+from pydantic import BaseModel, Field, field_validator
 
 # =============================================================================
 # Evolution Configuration
@@ -591,7 +591,7 @@ class NawalConfig(BaseModel):
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
 
-        with open(path, "r") as f:
+        with open(path) as f:
             data = yaml.safe_load(f)
 
         logger.info(f"Loaded configuration from {path}")
@@ -614,7 +614,7 @@ class NawalConfig(BaseModel):
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
 
-        with open(path, "r") as f:
+        with open(path) as f:
             data = json.load(f)
 
         logger.info(f"Loaded configuration from {path}")
@@ -673,9 +673,7 @@ class NawalConfig(BaseModel):
             NawalConfig instance
         """
         config_dict = cls._env_to_dict(prefix)
-        logger.info(
-            f"Loaded configuration from environment variables (prefix={prefix})"
-        )
+        logger.info(f"Loaded configuration from environment variables (prefix={prefix})")
         return cls(**config_dict)
 
     def to_yaml(self, path: str | Path) -> None:
@@ -777,13 +775,13 @@ def load_config(
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
         if path.suffix in (".yaml", ".yml"):
-            with open(path, "r") as f:
+            with open(path) as f:
                 base_dict = yaml.safe_load(f) or {}
             logger.info(f"Loaded base configuration from {path}")
         elif path.suffix == ".json":
             import json
 
-            with open(path, "r") as f:
+            with open(path) as f:
                 base_dict = json.load(f)
             logger.info(f"Loaded base configuration from {path}")
         else:
@@ -817,13 +815,13 @@ GenomeConfig = EvolutionConfig
 # =============================================================================
 
 __all__ = [
-    "NawalConfig",
+    "ComplianceConfig",
     "EvolutionConfig",
     "FederatedConfig",
-    "TrainingConfig",
-    "ModelConfig",
-    "ComplianceConfig",
-    "StorageConfig",
     "GenomeConfig",  # Alias for backward compatibility
+    "ModelConfig",
+    "NawalConfig",
+    "StorageConfig",
+    "TrainingConfig",
     "load_config",
 ]

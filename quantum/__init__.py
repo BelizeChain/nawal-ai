@@ -26,24 +26,24 @@ Backward-compat paths (still work via shims):
     from nawal.models.hybrid_llm import HybridQuantumClassicalLLM
 """
 
-from quantum.kinich_connector import KinichQuantumConnector, QuantumEnhancedLayer
 from quantum.hybrid_llm import HybridQuantumClassicalLLM
+from quantum.kinich_connector import KinichQuantumConnector, QuantumEnhancedLayer
+from quantum.quantum_anomaly import QuantumAnomalyDetector
+from quantum.quantum_imagination import QuantumImagination, SimulatedState
 
 # Phase 5 — quantum subsystems
 from quantum.quantum_memory import QuantumMemory
 from quantum.quantum_optimizer import QuantumPlanOptimizer
-from quantum.quantum_anomaly import QuantumAnomalyDetector
-from quantum.quantum_imagination import QuantumImagination, SimulatedState
 
 __all__ = [
+    "HybridQuantumClassicalLLM",
     # Core
     "KinichQuantumConnector",
+    "QuantumAnomalyDetector",
     "QuantumEnhancedLayer",
-    "HybridQuantumClassicalLLM",
+    "QuantumImagination",
     # Phase 5
     "QuantumMemory",
     "QuantumPlanOptimizer",
-    "QuantumAnomalyDetector",
-    "QuantumImagination",
     "SimulatedState",
 ]

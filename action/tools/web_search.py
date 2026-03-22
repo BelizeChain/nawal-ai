@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -71,13 +71,11 @@ class WebSearchTool(AbstractTool):
 
     def __init__(
         self,
-        searxng_url: Optional[str] = None,
+        searxng_url: str | None = None,
         timeout: int = 10,
         use_stub: bool = False,
     ) -> None:
-        self._url = searxng_url or os.environ.get(
-            "SEARXNG_URL", "http://localhost:8080"
-        )
+        self._url = searxng_url or os.environ.get("SEARXNG_URL", "http://localhost:8080")
         self._timeout = timeout
         self._stub = use_stub or os.environ.get("NAWAL_STUB_TOOLS", "").lower() in (
             "1",
@@ -115,9 +113,7 @@ class WebSearchTool(AbstractTool):
             try:
                 results = self._live_search(query, num_results, language)
             except Exception as exc:
-                logger.warning(
-                    f"WebSearchTool: live search failed ({exc}), falling back to stub"
-                )
+                logger.warning(f"WebSearchTool: live search failed ({exc}), falling back to stub")
                 results = self._stub_results(query, num_results)
 
         latency_ms = (time.time() - t0) * 1000
@@ -136,13 +132,11 @@ class WebSearchTool(AbstractTool):
     # Internal helpers                                                     #
     # ------------------------------------------------------------------ #
 
-    def _live_search(
-        self, query: str, num_results: int, language: str
-    ) -> List[Dict[str, str]]:
+    def _live_search(self, query: str, num_results: int, language: str) -> list[dict[str, str]]:
         """Call a real SearXNG endpoint."""
+        import json
         import urllib.parse
         import urllib.request
-        import json
 
         params = urllib.parse.urlencode(
             {
@@ -152,9 +146,7 @@ class WebSearchTool(AbstractTool):
             }
         )
         url = f"{self._url.rstrip('/')}/search?{params}"
-        req = urllib.request.urlopen(
-            url, timeout=self._timeout
-        )  # noqa: S310 — internal service
+        req = urllib.request.urlopen(url, timeout=self._timeout)
         data = json.loads(req.read().decode())
         raw = data.get("results", [])[:num_results]
         return [
@@ -166,7 +158,7 @@ class WebSearchTool(AbstractTool):
             for r in raw
         ]
 
-    def _stub_results(self, query: str, num_results: int) -> List[Dict[str, str]]:
+    def _stub_results(self, query: str, num_results: int) -> list[dict[str, str]]:
         """Return deterministic stub results (offline / test mode)."""
         return [
             {

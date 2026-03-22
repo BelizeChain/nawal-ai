@@ -28,18 +28,14 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
-from decimal import Decimal
+from typing import Any
 
 from loguru import logger
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding, rsa
-from cryptography.hazmat.backends import default_backend
 
 try:
-    from substrateinterface import SubstrateInterface, Keypair
+    from substrateinterface import Keypair, SubstrateInterface
     from substrateinterface.exceptions import SubstrateRequestException
 
     SUBSTRATE_AVAILABLE = True
@@ -90,7 +86,7 @@ class PayrollEntry:
     net_salary: int
     payment_period: str  # YYYY-MM format
     employee_type: EmployeeType
-    department: Optional[str] = None
+    department: str | None = None
 
     def __post_init__(self):
         """Validate payroll entry."""
@@ -108,9 +104,7 @@ class PayrollEntry:
             - self.pension_contribution
         )
         if abs(expected_net - self.net_salary) > 1:  # Allow 1 Planck rounding error
-            raise ValueError(
-                f"Net salary mismatch: expected {expected_net}, got {self.net_salary}"
-            )
+            raise ValueError(f"Net salary mismatch: expected {expected_net}, got {self.net_salary}")
 
 
 @dataclass
@@ -125,22 +119,18 @@ class PayrollSubmission:
     total_tax: int
     total_net: int
     employee_count: int
-    entries: List[PayrollEntry]
+    entries: list[PayrollEntry]
     zk_proof: str  # Zero-knowledge proof of correctness
     merkle_root: str  # Merkle root of all entries
-    timestamp: float = field(
-        default_factory=lambda: datetime.now(timezone.utc).timestamp()
-    )
+    timestamp: float = field(default_factory=lambda: datetime.now(UTC).timestamp())
     status: PayrollStatus = PayrollStatus.PENDING
 
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate submission data."""
         errors = []
 
         if self.employee_count != len(self.entries):
-            errors.append(
-                f"Employee count mismatch: {self.employee_count} vs {len(self.entries)}"
-            )
+            errors.append(f"Employee count mismatch: {self.employee_count} vs {len(self.entries)}")
 
         # Validate totals
         calc_gross = sum(e.gross_salary for e in self.entries)
@@ -172,7 +162,7 @@ class PayrollProof:
 
     proof_type: str  # "zk-snark" or "bulletproof"
     proof_data: str  # Serialized proof
-    public_inputs: List[str]  # Public verification inputs
+    public_inputs: list[str]  # Public verification inputs
     commitment: str  # Commitment to private data
 
     def verify(self) -> bool:
@@ -224,13 +214,8 @@ class PayrollProof:
             return False
 
         # Verify merkle_binding = SHA256(aggregate_commitment || self.commitment)
-        expected_binding = hashlib.sha256(
-            (expected_agg + self.commitment).encode()
-        ).hexdigest()
-        if proof.get("merkle_binding") != expected_binding:
-            return False
-
-        return True
+        expected_binding = hashlib.sha256((expected_agg + self.commitment).encode()).hexdigest()
+        return proof.get("merkle_binding") == expected_binding
 
 
 @dataclass
@@ -291,7 +276,7 @@ class PayrollConnector:
     def __init__(
         self,
         websocket_url: str = "ws://127.0.0.1:9944",
-        keypair: Optional[Keypair] = None,
+        keypair: Keypair | None = None,
         mock_mode: bool = False,
     ):
         """
@@ -305,7 +290,7 @@ class PayrollConnector:
         self.websocket_url = websocket_url
         self.keypair = keypair
         self.mock_mode = mock_mode or not SUBSTRATE_AVAILABLE
-        self.substrate: Optional[SubstrateInterface] = None
+        self.substrate: SubstrateInterface | None = None
         self._connected = False
 
         if self.mock_mode:
@@ -328,9 +313,7 @@ class PayrollConnector:
         try:
             self.substrate = SubstrateInterface(url=self.websocket_url)
             self._connected = True
-            logger.info(
-                f"Connected to BelizeChain Payroll pallet at {self.websocket_url}"
-            )
+            logger.info(f"Connected to BelizeChain Payroll pallet at {self.websocket_url}")
             return True
 
         except Exception as e:
@@ -345,9 +328,9 @@ class PayrollConnector:
 
     async def submit_payroll(
         self,
-        entries: List[PayrollEntry],
+        entries: list[PayrollEntry],
         payment_period: str,
-        employer_name: Optional[str] = None,
+        employer_name: str | None = None,
     ) -> PayrollSubmission:
         """
         Submit payroll with ZK-proof.
@@ -372,7 +355,7 @@ class PayrollConnector:
 
         # Generate submission ID
         submission_id = hashlib.sha256(
-            f"{self.keypair.ss58_address}{payment_period}{datetime.now(timezone.utc).timestamp()}".encode()
+            f"{self.keypair.ss58_address}{payment_period}{datetime.now(UTC).timestamp()}".encode()
         ).hexdigest()[:16]
 
         # Calculate totals
@@ -437,9 +420,7 @@ class PayrollConnector:
                     logger.info(f"Payroll {submission_id} submitted successfully")
                 else:
                     submission.status = PayrollStatus.FAILED
-                    raise RuntimeError(
-                        f"Payroll submission failed: {receipt.error_message}"
-                    )
+                    raise RuntimeError(f"Payroll submission failed: {receipt.error_message}")
 
             except SubstrateRequestException as e:
                 logger.error(f"Blockchain error: {e}")
@@ -536,7 +517,7 @@ class PayrollConnector:
         self,
         employee_id: str,
         payment_period: str,
-    ) -> Optional[EmployeePaystub]:
+    ) -> EmployeePaystub | None:
         """
         Get paystub for an employee (requires employee's keypair).
 
@@ -598,7 +579,7 @@ class PayrollConnector:
     async def get_payroll_stats(
         self,
         payment_period: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get aggregated payroll statistics (government view).
 
@@ -639,7 +620,7 @@ class PayrollConnector:
     # Internal Methods
     # -------------------------------------------------------------------------
 
-    def _compute_merkle_root(self, entries: List[PayrollEntry]) -> str:
+    def _compute_merkle_root(self, entries: list[PayrollEntry]) -> str:
         """
         Compute Merkle root of payroll entries.
 
@@ -653,9 +634,9 @@ class PayrollConnector:
         leaves = []
         for entry in entries:
             # Generate a per-entry salt for preimage resistance
-            salt = hashlib.sha256(
-                f"{entry.employee_id}:{entry.payment_period}".encode()
-            ).digest()[:16]
+            salt = hashlib.sha256(f"{entry.employee_id}:{entry.payment_period}".encode()).digest()[
+                :16
+            ]
             # Hash individual fields with salt to prevent plaintext brute-forcing
             leaf_hash = hashlib.sha256(
                 salt
@@ -683,7 +664,7 @@ class PayrollConnector:
 
     def _generate_zk_proof(
         self,
-        entries: List[PayrollEntry],
+        entries: list[PayrollEntry],
         merkle_root: str,
     ) -> str:
         """
@@ -724,14 +705,10 @@ class PayrollConnector:
 
         # Aggregate commitment = SHA256(sorted individual commitments)
         sorted_commits = sorted(entry_commitments)
-        aggregate_commitment = hashlib.sha256(
-            "".join(sorted_commits).encode()
-        ).hexdigest()
+        aggregate_commitment = hashlib.sha256("".join(sorted_commits).encode()).hexdigest()
 
         # Bind aggregate to merkle root
-        merkle_binding = hashlib.sha256(
-            (aggregate_commitment + merkle_root).encode()
-        ).hexdigest()
+        merkle_binding = hashlib.sha256((aggregate_commitment + merkle_root).encode()).hexdigest()
 
         proof_data = {
             "version": 1,
@@ -741,7 +718,7 @@ class PayrollConnector:
             "aggregate_commitment": aggregate_commitment,
             "entry_count": len(entries),
             "merkle_binding": merkle_binding,
-            "timestamp": datetime.now(timezone.utc).timestamp(),
+            "timestamp": datetime.now(UTC).timestamp(),
         }
 
         return json.dumps(proof_data, sort_keys=True)
@@ -749,7 +726,7 @@ class PayrollConnector:
     def calculate_tax_withholding(
         self,
         gross_salary: int,
-        tax_brackets: Optional[List[Dict[str, Any]]] = None,
+        tax_brackets: list[dict[str, Any]] | None = None,
     ) -> int:
         """
         Calculate tax withholding based on Belize tax brackets.

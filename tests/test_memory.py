@@ -9,16 +9,15 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import List
 
 import numpy as np
 import pytest
 
-from memory.interfaces import MemoryRecord
-from memory.working import WorkingMemory
 from memory.episodic import EpisodicMemory
-from memory.semantic import SemanticMemory
+from memory.interfaces import MemoryRecord
 from memory.manager import MemoryManager
+from memory.semantic import SemanticMemory
+from memory.working import WorkingMemory
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                      #
@@ -26,11 +25,11 @@ from memory.manager import MemoryManager
 
 
 def _rec(
-    key: str = None,
+    key: str | None = None,
     content: str = "test",
     dim: int = 8,
-    metadata: dict = None,
-    ttl: float = None,
+    metadata: dict | None = None,
+    ttl: float | None = None,
 ) -> MemoryRecord:
     """Create a MemoryRecord with a random embedding."""
     emb = list(np.random.randn(dim).astype(float))
@@ -43,7 +42,7 @@ def _rec(
     )
 
 
-def _unit(dim: int = 8, scale: float = 1.0) -> List[float]:
+def _unit(dim: int = 8, scale: float = 1.0) -> list[float]:
     """Return a random unit-normalised vector."""
     v = np.random.randn(dim).astype(float)
     v /= np.linalg.norm(v) + 1e-9

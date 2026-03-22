@@ -7,9 +7,8 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Optional
-from pathlib import Path
 import sys
+from pathlib import Path
 
 from loguru import logger
 
@@ -29,7 +28,7 @@ except ImportError:
 @click.option("--config", "-c", type=click.Path(exists=True), help="Config file path")
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
 @click.pass_context
-def cli(ctx, config: Optional[str], verbose: bool):
+def cli(ctx, config: str | None, verbose: bool):
     """
     Nawal AI - Federated Learning for BelizeChain.
 
@@ -70,8 +69,8 @@ def train(
     logger.info(f"Starting local training: dataset={dataset}, epochs={epochs}")
 
     try:
-        from nawal.training import ValidatorTrainer, TrainingConfig
         from nawal.data import DataManager, DatasetConfig, DatasetType
+        from nawal.training import TrainingConfig, ValidatorTrainer
 
         # Load dataset
         data_config = DatasetConfig(
@@ -131,14 +130,12 @@ def evolve(
     checkpoint_dir: str,
 ):
     """Run evolutionary optimization."""
-    logger.info(
-        f"Starting evolution: generations={generations}, population={population}"
-    )
+    logger.info(f"Starting evolution: generations={generations}, population={population}")
 
     try:
-        from nawal.orchestrator import EvolutionOrchestrator
-        from nawal.genome import GenomeConfig, GeneticAlgorithmConfig
         from nawal.config import EvolutionConfig
+        from nawal.genome import GeneticAlgorithmConfig, GenomeConfig
+        from nawal.orchestrator import EvolutionOrchestrator
 
         # Configure evolution
         genome_config = GenomeConfig()
@@ -173,9 +170,7 @@ def evolve(
 @cli.command()
 @click.option("--num-clients", "-n", type=int, default=10, help="Number of clients")
 @click.option("--rounds", "-r", type=int, default=100, help="Federated rounds")
-@click.option(
-    "--min-clients", "-m", type=int, default=5, help="Minimum clients per round"
-)
+@click.option("--min-clients", "-m", type=int, default=5, help="Minimum clients per round")
 @click.option("--port", "-p", type=int, default=8080, help="Server port")
 @click.pass_context
 def federate(ctx, num_clients: int, rounds: int, min_clients: int, port: int):
@@ -221,14 +216,12 @@ def validator():
     required=True,
     help="Keypair URI (e.g. seed phrase or //Alice for dev)",
 )
-@click.option(
-    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
-)
+@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
 def validator_register(
     name: str,
     email: str,
-    legal_name: Optional[str],
-    tax_id: Optional[str],
+    legal_name: str | None,
+    tax_id: str | None,
     keypair_uri: str,
     chain: str,
 ):
@@ -237,10 +230,10 @@ def validator_register(
 
     try:
         from nawal.blockchain import (
-            SubstrateClient,
             ChainConfig,
-            ValidatorManager,
+            SubstrateClient,
             ValidatorIdentity,
+            ValidatorManager,
         )
 
         # Connect to chain
@@ -283,9 +276,7 @@ def validator_register(
 
 @validator.command(name="submit-fitness")
 @click.option("--quality", type=float, required=True, help="Quality score (0-100)")
-@click.option(
-    "--timeliness", type=float, required=True, help="Timeliness score (0-100)"
-)
+@click.option("--timeliness", type=float, required=True, help="Timeliness score (0-100)")
 @click.option("--honesty", type=float, required=True, help="Honesty score (0-100)")
 @click.option("--round", type=int, required=True, help="Training round")
 @click.option(
@@ -293,9 +284,7 @@ def validator_register(
     required=True,
     help="Keypair URI (e.g. seed phrase or //Alice for dev)",
 )
-@click.option(
-    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
-)
+@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
 def validator_submit_fitness(
     quality: float,
     timeliness: float,
@@ -309,10 +298,10 @@ def validator_submit_fitness(
 
     try:
         from nawal.blockchain import (
-            SubstrateClient,
             ChainConfig,
-            StakingInterface,
             FitnessScore,
+            StakingInterface,
+            SubstrateClient,
         )
 
         # Connect to chain
@@ -373,9 +362,7 @@ def genome():
     required=True,
     help="Keypair URI (e.g. seed phrase or //Alice for dev)",
 )
-@click.option(
-    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
-)
+@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
 @click.option("--storage", default="local", type=click.Choice(["local", "pakit"]))
 def genome_store(
     genome_file: str,
@@ -390,15 +377,16 @@ def genome_store(
 
     try:
         import json
+
         from nawal.blockchain import (
-            SubstrateClient,
             ChainConfig,
             GenomeRegistry,
             StorageBackend,
+            SubstrateClient,
         )
 
         # Load genome
-        with open(genome_file, "r") as f:
+        with open(genome_file) as f:
             genome_data = json.load(f)
 
         # Connect to chain
@@ -437,20 +425,19 @@ def genome_store(
 @genome.command(name="get")
 @click.argument("genome_id")
 @click.option("--output", "-o", type=click.Path(), help="Output file path")
-@click.option(
-    "--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"])
-)
-def genome_get(genome_id: str, output: Optional[str], chain: str):
+@click.option("--chain", default="local", type=click.Choice(["local", "testnet", "mainnet"]))
+def genome_get(genome_id: str, output: str | None, chain: str):
     """Retrieve genome from chain."""
     logger.info(f"Retrieving genome: {genome_id[:16]}...")
 
     try:
         import json
+
         from nawal.blockchain import (
-            SubstrateClient,
             ChainConfig,
             GenomeRegistry,
             StorageBackend,
+            SubstrateClient,
         )
 
         # Connect to chain
@@ -521,8 +508,8 @@ def config(ctx, init: bool, validate: bool, show: bool):
 
     elif show:
         try:
-            from nawal.cli.config_manager import ConfigManager
             import yaml
+            from nawal.cli.config_manager import ConfigManager
 
             manager = ConfigManager()
             config_data = manager.load_config(Path(config_file))

@@ -15,13 +15,13 @@ from __future__ import annotations
 import asyncio
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
+
 from loguru import logger
 
 try:
-    from substrateinterface import SubstrateInterface, Keypair
-    from substrateinterface.exceptions import SubstrateRequestException
+    from substrateinterface import Keypair, SubstrateInterface
 
     SUBSTRATE_AVAILABLE = True
 except ImportError:
@@ -54,9 +54,7 @@ class ParticipationRecord:
     """Record of community participation activity."""
 
     account_id: str
-    activity_type: (
-        str  # 'FederatedLearning', 'EducationModule', 'GreenProject', 'Volunteer'
-    )
+    activity_type: str  # 'FederatedLearning', 'EducationModule', 'GreenProject', 'Volunteer'
     points_earned: int
     metadata: dict[str, Any]
     timestamp: int
@@ -159,7 +157,7 @@ class CommunityConnector:
                 education_modules_completed=2,
                 green_project_contributions=5000 * 10**12,  # 5000 DALLA
                 monthly_fee_exemption=100 * 10**12,  # 100 DALLA
-                last_updated=int(datetime.now(timezone.utc).timestamp()),
+                last_updated=int(datetime.now(UTC).timestamp()),
             )
 
         if not self._connected or not self.substrate:
@@ -225,9 +223,7 @@ class CommunityConnector:
             (success: bool, tx_hash: str)
         """
         if self.mock_mode:
-            logger.info(
-                f"Mock: Recording {activity_type} participation for {account_id[:8]}..."
-            )
+            logger.info(f"Mock: Recording {activity_type} participation for {account_id[:8]}...")
             return (True, "0xMOCK_TX_HASH")
 
         if not self._connected or not self.substrate:
@@ -255,14 +251,10 @@ class CommunityConnector:
             )
 
             # Create signed extrinsic
-            extrinsic = self.substrate.create_signed_extrinsic(
-                call=call, keypair=self.keypair
-            )
+            extrinsic = self.substrate.create_signed_extrinsic(call=call, keypair=self.keypair)
 
             # Submit extrinsic
-            receipt = self.substrate.submit_extrinsic(
-                extrinsic, wait_for_inclusion=True
-            )
+            receipt = self.substrate.submit_extrinsic(extrinsic, wait_for_inclusion=True)
 
             if receipt.is_success:
                 logger.info(f"Participation recorded: {receipt.extrinsic_hash}")
@@ -300,7 +292,7 @@ class CommunityConnector:
             "round_number": round_number,
             "samples_trained": samples_trained,
             "training_duration": training_duration_seconds,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         return await self.record_participation(
@@ -326,7 +318,7 @@ class CommunityConnector:
         """
         metadata = {
             "module_id": module_id,
-            "completion_date": datetime.now(timezone.utc).isoformat(),
+            "completion_date": datetime.now(UTC).isoformat(),
         }
 
         return await self.record_participation(
@@ -353,7 +345,7 @@ class CommunityConnector:
         amount_planck = int(amount_dalla * 10**12)
         metadata = {
             "project_id": project_id,
-            "contribution_date": datetime.now(timezone.utc).isoformat(),
+            "contribution_date": datetime.now(UTC).isoformat(),
         }
 
         return await self.record_participation(

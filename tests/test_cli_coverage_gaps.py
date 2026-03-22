@@ -8,9 +8,8 @@ Covers:
 
 import json
 import os
-import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -60,7 +59,7 @@ class TestTrainCommand:
                 ),
             },
         ):
-            result = runner.invoke(cli, ["train", "--epochs", "1", "--batch-size", "4"])
+            runner.invoke(cli, ["train", "--epochs", "1", "--batch-size", "4"])
             # Should attempt training (may fail on torch import but exercises the path)
 
     def test_train_failure(self):
@@ -74,7 +73,7 @@ class TestTrainCommand:
                 "nawal.training": None,  # Force ImportError
             },
         ):
-            result = runner.invoke(cli, ["train", "--epochs", "1"])
+            runner.invoke(cli, ["train", "--epochs", "1"])
             # Should handle gracefully
 
 
@@ -104,7 +103,7 @@ class TestEvolveCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "evolve",
@@ -126,7 +125,7 @@ class TestEvolveCommand:
                 "nawal.orchestrator": None,
             },
         ):
-            result = runner.invoke(cli, ["evolve"])
+            runner.invoke(cli, ["evolve"])
 
 
 class TestFederateCommand:
@@ -147,7 +146,7 @@ class TestFederateCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "federate",
@@ -169,7 +168,7 @@ class TestFederateCommand:
                 "nawal.server": None,
             },
         ):
-            result = runner.invoke(cli, ["federate"])
+            runner.invoke(cli, ["federate"])
 
 
 class TestValidatorRegisterCommand:
@@ -200,7 +199,7 @@ class TestValidatorRegisterCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "validator",
@@ -243,7 +242,7 @@ class TestValidatorRegisterCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "validator",
@@ -286,7 +285,7 @@ class TestValidatorSubmitFitness:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "validator",
@@ -329,7 +328,7 @@ class TestValidatorSubmitFitness:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "validator",
@@ -381,7 +380,7 @@ class TestGenomeStoreCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "genome",
@@ -411,7 +410,7 @@ class TestGenomeStoreCommand:
                 "nawal.blockchain": None,
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "genome",
@@ -455,7 +454,7 @@ class TestGenomeGetCommand:
                 ),
             },
         ):
-            result = runner.invoke(cli, ["genome", "get", "abcdef1234567890"])
+            runner.invoke(cli, ["genome", "get", "abcdef1234567890"])
 
     def test_genome_get_to_file(self, tmp_path):
         from cli.commands import cli
@@ -483,7 +482,7 @@ class TestGenomeGetCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "genome",
@@ -518,7 +517,7 @@ class TestGenomeGetCommand:
                 ),
             },
         ):
-            result = runner.invoke(cli, ["genome", "get", "nonexistent"])
+            runner.invoke(cli, ["genome", "get", "nonexistent"])
 
 
 class TestConfigCommand:
@@ -529,7 +528,7 @@ class TestConfigCommand:
 
         runner = CliRunner()
 
-        config_file = tmp_path / "config.yaml"
+        tmp_path / "config.yaml"
         mock_manager = MagicMock()
 
         with patch.dict(
@@ -540,7 +539,7 @@ class TestConfigCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "--config",
@@ -569,7 +568,7 @@ class TestConfigCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "--config",
@@ -597,7 +596,7 @@ class TestConfigCommand:
                 ),
             },
         ):
-            result = runner.invoke(
+            runner.invoke(
                 cli,
                 [
                     "--config",

@@ -14,19 +14,15 @@ Key Features:
 """
 
 import logging
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer, AutoModel
-import flwr as fl
-from typing import Dict, List, Tuple, Optional
-import numpy as np
-from dataclasses import dataclass
 import os
-from pathlib import Path
+from dataclasses import dataclass
 
-from .model import BelizeChainLLM, QuantizedBelizeModel
+import flwr as fl
+import numpy as np
+import torch
+
 from .data_loader import BelizeDataLoader, ComplianceDataFilter
+from .model import BelizeChainLLM, QuantizedBelizeModel
 
 # Configure logging for Belize compliance
 logging.basicConfig(
@@ -52,8 +48,8 @@ class BelizeTrainingConfig:
     quantization_bits: int = 8
     compliance_mode: bool = True
     data_sovereignty_check: bool = True
-    azure_endpoint: Optional[str] = None
-    encryption_key_path: Optional[str] = None
+    azure_endpoint: str | None = None
+    encryption_key_path: str | None = None
 
 
 class BelizeChainFederatedClient(fl.client.NumPyClient):
@@ -83,13 +79,9 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
                     model_name=self.config.model_name,
                     bits=self.config.quantization_bits,
                 ).to(self.device)
-                logger.info(
-                    f"Loaded quantized model ({self.config.quantization_bits}-bit)"
-                )
+                logger.info(f"Loaded quantized model ({self.config.quantization_bits}-bit)")
             else:
-                self.model = BelizeChainLLM(model_name=self.config.model_name).to(
-                    self.device
-                )
+                self.model = BelizeChainLLM(model_name=self.config.model_name).to(self.device)
                 logger.info("Loaded full-precision model")
 
         except Exception as e:
@@ -102,9 +94,7 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
             self.data_loader = BelizeDataLoader(
                 participant_id=self.config.participant_id,
                 batch_size=self.config.batch_size,
-                compliance_filter=(
-                    self.compliance_filter if self.config.compliance_mode else None
-                ),
+                compliance_filter=(self.compliance_filter if self.config.compliance_mode else None),
                 data_sovereignty_check=self.config.data_sovereignty_check,
             )
             logger.info("Data loader initialized with compliance filtering")
@@ -113,15 +103,15 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
             logger.error(f"Data loader setup failed: {e}")
             raise
 
-    def get_parameters(self, config: Dict) -> List[np.ndarray]:
+    def get_parameters(self, config: dict) -> list[np.ndarray]:
         """Extract model parameters for federated aggregation"""
         logger.info("Extracting model parameters for aggregation")
         return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
 
-    def set_parameters(self, parameters: List[np.ndarray]) -> None:
+    def set_parameters(self, parameters: list[np.ndarray]) -> None:
         """Set model parameters from federated aggregation with integrity checks."""
         logger.info("Setting model parameters from global aggregation")
-        params_dict = zip(self.model.state_dict().keys(), parameters)
+        params_dict = zip(self.model.state_dict().keys(), parameters, strict=False)
         state_dict = {}
         for k, v in params_dict:
             t = torch.tensor(v)
@@ -140,9 +130,7 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
             state_dict[k] = t
         self.model.load_state_dict(state_dict, strict=True)
 
-    def fit(
-        self, parameters: List[np.ndarray], config: Dict
-    ) -> Tuple[List[np.ndarray], int, Dict]:
+    def fit(self, parameters: list[np.ndarray], config: dict) -> tuple[list[np.ndarray], int, dict]:
         """
         Local training round with privacy preservation
 
@@ -153,18 +141,14 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
         Returns:
             Updated parameters, number of samples, training metrics
         """
-        logger.info(
-            f"Starting local training round for participant {self.config.participant_id}"
-        )
+        logger.info(f"Starting local training round for participant {self.config.participant_id}")
 
         # Set global parameters
         self.set_parameters(parameters)
 
         # Prepare model for training
         self.model.train()
-        optimizer = torch.optim.AdamW(
-            self.model.parameters(), lr=self.config.learning_rate
-        )
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.config.learning_rate)
 
         total_loss = 0.0
         num_samples = 0
@@ -228,9 +212,7 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
         logger.info(f"Local training completed: {metrics}")
         return updated_parameters, num_samples, metrics
 
-    def evaluate(
-        self, parameters: List[np.ndarray], config: Dict
-    ) -> Tuple[float, int, Dict]:
+    def evaluate(self, parameters: list[np.ndarray], config: dict) -> tuple[float, int, dict]:
         """
         Local evaluation with privacy preservation
 
@@ -283,14 +265,12 @@ class BelizeChainFederatedClient(fl.client.NumPyClient):
             "evaluation_samples": num_samples,
         }
 
-        logger.info(
-            f"Evaluation completed: Loss={avg_loss:.4f}, Accuracy={avg_accuracy:.4f}"
-        )
+        logger.info(f"Evaluation completed: Loss={avg_loss:.4f}, Accuracy={avg_accuracy:.4f}")
         return avg_loss, num_samples, metrics
 
     def _apply_differential_privacy(
-        self, parameters: List[np.ndarray], epsilon: float
-    ) -> List[np.ndarray]:
+        self, parameters: list[np.ndarray], epsilon: float
+    ) -> list[np.ndarray]:
         """Apply differential privacy to model parameters using Gaussian mechanism.
 
         Uses L2-sensitivity with Gaussian noise, aligned with the Gaussian mechanism
@@ -337,8 +317,8 @@ def main():
 from .genome_trainer import GenomeTrainer
 
 __all__ = [
-    "BelizeTrainingConfig",
     "BelizeChainFederatedClient",
+    "BelizeTrainingConfig",
     "GenomeTrainer",  # Exported for backward compatibility
 ]
 

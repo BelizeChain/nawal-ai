@@ -16,10 +16,6 @@ Focus areas:
 import asyncio
 import json
 import os
-import sys
-import tempfile
-from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -144,7 +140,7 @@ class TestNawalConfigLoad:
         assert result is not None
 
     def test_load_config_defaults(self, monkeypatch):
-        from config import load_config, NawalConfig
+        from config import NawalConfig, load_config
 
         for k in list(os.environ.keys()):
             if k.startswith("NAWAL_"):
@@ -578,7 +574,8 @@ class TestDummyBelizeIDVerifier:
 
     def test_create_verifier_dummy(self):
         import os
-        from blockchain.identity_verifier import create_verifier, DummyBelizeIDVerifier
+
+        from blockchain.identity_verifier import DummyBelizeIDVerifier, create_verifier
 
         os.environ["NAWAL_ENV"] = "development"
         try:
@@ -835,24 +832,25 @@ class TestApiServerRemaining:
         api_server.app_state.staking_connector = None
 
     def test_get_round_status_not_found(self):
-        from api_server import get_round_status
         from fastapi import HTTPException
+
+        from api_server import get_round_status
 
         with pytest.raises(HTTPException) as exc_info:
             _run(get_round_status("nonexistent-round"))
         assert exc_info.value.status_code == 404
 
     def test_get_round_status_found(self):
-        import api_server
-        from api_server import get_round_status, start_fl_round, StartRoundRequest
+        from api_server import StartRoundRequest, get_round_status, start_fl_round
 
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
         result = _run(get_round_status(r.round_id))
         assert result.round_id == r.round_id
 
     def test_rate_limit_middleware_health_bypass(self):
-        from api_server import rate_limit_middleware
         from fastapi.responses import JSONResponse
+
+        from api_server import rate_limit_middleware
 
         class MockReq:
             class url:
@@ -868,8 +866,9 @@ class TestApiServerRemaining:
         assert result is not None
 
     def test_rate_limit_middleware_normal(self):
-        from api_server import rate_limit_middleware
         from fastapi.responses import JSONResponse
+
+        from api_server import rate_limit_middleware
 
         class MockReq:
             class url:
@@ -886,11 +885,11 @@ class TestApiServerRemaining:
 
     def test_start_fl_round_exception_path(self):
         """Force exception in start_fl_round to cover lines 438-440."""
-        import api_server
-        from api_server import start_fl_round, StartRoundRequest
         from fastapi import HTTPException
 
-        original_counter = api_server.app_state.round_counter
+        import api_server
+        from api_server import StartRoundRequest, start_fl_round
+
 
         # Inject invalid state to cause an exception inside the handler
         # Make active_rounds raise an error on assignment
@@ -908,9 +907,10 @@ class TestApiServerRemaining:
 
     def test_enroll_participant_exception_path(self):
         """Cover lines 512-514 — exception handler in enroll_participant."""
-        import api_server
-        from api_server import enroll_participant, EnrollRequest
         from fastapi import HTTPException
+
+        import api_server
+        from api_server import EnrollRequest, enroll_participant
 
         # Set a staking_connector that raises on enroll_participant
         mock_sc = AsyncMock()
@@ -926,8 +926,9 @@ class TestApiServerRemaining:
 
     def test_get_participant_stats_no_blockchain(self):
         """Cover 503 path in get_participant_stats."""
-        from api_server import get_participant_stats
         from fastapi import HTTPException
+
+        from api_server import get_participant_stats
 
         with pytest.raises(HTTPException) as exc_info:
             _run(
@@ -939,9 +940,10 @@ class TestApiServerRemaining:
 
     def test_get_participant_stats_exception_path(self):
         """Cover lines 643-645 — exception handler in get_participant_stats."""
+        from fastapi import HTTPException
+
         import api_server
         from api_server import get_participant_stats
-        from fastapi import HTTPException
 
         mock_sc = AsyncMock()
         mock_sc.get_participant = AsyncMock(side_effect=RuntimeError("RPC error"))
@@ -956,9 +958,10 @@ class TestApiServerRemaining:
 
     def test_get_system_metrics_exception_path(self):
         """Cover lines 696-698 — exception handler in get_system_metrics."""
+        from fastapi import HTTPException
+
         import api_server
         from api_server import get_system_metrics
-        from fastapi import HTTPException
 
         # Inject a staking_connector that raises
         mock_sc = AsyncMock()
@@ -1026,7 +1029,7 @@ class TestGenomeOperatorsEdges:
         return g
 
     def test_mutation_operator_mutate(self):
-        from genome.operators import MutationOperator, MutationConfig
+        from genome.operators import MutationConfig, MutationOperator
 
         cfg = MutationConfig()  # use defaults
         op = MutationOperator(cfg)
@@ -1035,7 +1038,7 @@ class TestGenomeOperatorsEdges:
         assert result is not None
 
     def test_crossover_operator_crossover(self):
-        from genome.operators import CrossoverOperator, CrossoverConfig
+        from genome.operators import CrossoverConfig, CrossoverOperator
 
         cfg = CrossoverConfig()
         op = CrossoverOperator(cfg)
@@ -1211,8 +1214,9 @@ class TestControllerRemaining:
 class TestTransformerRemaining:
     def test_transformer_forward_with_mask(self):
         import torch
-        from architecture.transformer import NawalTransformer
+
         from architecture.config import NawalModelConfig
+        from architecture.transformer import NawalTransformer
 
         cfg = NawalModelConfig(
             vocab_size=100,
@@ -1254,7 +1258,6 @@ class TestAggregatorRemaining:
 
 class TestHybridModules:
     def test_hybrid_memory_import(self):
-        from unittest.mock import MagicMock
         from quantum.quantum_memory import QuantumMemory
 
         qm = QuantumMemory(backing_store=MagicMock())

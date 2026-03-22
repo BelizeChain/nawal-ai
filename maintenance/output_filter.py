@@ -25,7 +25,6 @@ downstream auditing but do not block it.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
@@ -55,11 +54,10 @@ except ImportError:
 # Default output filter patterns                                                #
 # --------------------------------------------------------------------------- #
 
-_HARM_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
+_HARM_PATTERNS: list[tuple[str, str, RiskLevel]] = [
     # Violence / gore
     (
-        r"\b(step.by.step|instructions?|guide)\b.{0,60}"
-        r"\b(murder|torture|mutilate|assault)\b",
+        r"\b(step.by.step|instructions?|guide)\b.{0,60}" r"\b(murder|torture|mutilate|assault)\b",
         "violence_instructions",
         RiskLevel.BLOCKED,
     ),
@@ -72,8 +70,7 @@ _HARM_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
     ),
     # Drug synthesis in output
     (
-        r"\b(add\s+the|combine\s+the|heat\s+the)\b.{0,60}"
-        r"\b(precursor|reagent|synthesis)\b",
+        r"\b(add\s+the|combine\s+the|heat\s+the)\b.{0,60}" r"\b(precursor|reagent|synthesis)\b",
         "drug_synthesis_output",
         RiskLevel.BLOCKED,
     ),
@@ -104,7 +101,7 @@ _HARM_PATTERNS: List[Tuple[str, str, RiskLevel]] = [
     ),
 ]
 
-_HALLUCINATION_HINTS: List[Tuple[str, str, RiskLevel]] = [
+_HALLUCINATION_HINTS: list[tuple[str, str, RiskLevel]] = [
     (r"\[source:\s*N/A\]", "hallucination_na_source", RiskLevel.LOW),
     (
         r"\(as of\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\)",
@@ -118,7 +115,7 @@ _HALLUCINATION_HINTS: List[Tuple[str, str, RiskLevel]] = [
     ),
 ]
 
-_PII_OUTPUT: List[Tuple[str, str, RiskLevel]] = [
+_PII_OUTPUT: list[tuple[str, str, RiskLevel]] = [
     (r"\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b", "ssn_in_output", RiskLevel.HIGH),
     (r"\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b", "cc_in_output", RiskLevel.HIGH),
 ]
@@ -149,7 +146,7 @@ class OutputFilter(AbstractOutputFilter):
 
     def __init__(
         self,
-        extra_patterns: Optional[List[Tuple[str, str, RiskLevel]]] = None,
+        extra_patterns: list[tuple[str, str, RiskLevel]] | None = None,
         max_output_len: int = 20_000,
         pii_check: bool = True,
         hallucination_hints: bool = True,
@@ -158,16 +155,15 @@ class OutputFilter(AbstractOutputFilter):
         self._pii_check = pii_check
         self._hallucination_hints = hallucination_hints
 
-        self._harm: List[Tuple[re.Pattern, str, RiskLevel]] = [
+        self._harm: list[tuple[re.Pattern, str, RiskLevel]] = [
             (re.compile(p, re.IGNORECASE | re.DOTALL), lbl, lvl)
             for p, lbl, lvl in _HARM_PATTERNS + (extra_patterns or [])
         ]
-        self._pii: List[Tuple[re.Pattern, str, RiskLevel]] = [
+        self._pii: list[tuple[re.Pattern, str, RiskLevel]] = [
             (re.compile(p, re.IGNORECASE), lbl, lvl) for p, lbl, lvl in _PII_OUTPUT
         ]
-        self._hints: List[Tuple[re.Pattern, str, RiskLevel]] = [
-            (re.compile(p, re.IGNORECASE), lbl, lvl)
-            for p, lbl, lvl in _HALLUCINATION_HINTS
+        self._hints: list[tuple[re.Pattern, str, RiskLevel]] = [
+            (re.compile(p, re.IGNORECASE), lbl, lvl) for p, lbl, lvl in _HALLUCINATION_HINTS
         ]
 
         logger.info(
@@ -186,7 +182,7 @@ class OutputFilter(AbstractOutputFilter):
         Returns:
             FilterResult — is_safe=False means the response must not be delivered.
         """
-        flags: List[str] = []
+        flags: list[str] = []
         max_level = RiskLevel.NONE
         filtered = response
 
@@ -228,9 +224,7 @@ class OutputFilter(AbstractOutputFilter):
         is_safe = max_level not in (RiskLevel.MEDIUM, RiskLevel.HIGH, RiskLevel.BLOCKED)
 
         if not is_safe:
-            logger.warning(
-                f"OutputFilter blocked response: risk={max_level} flags={flags}"
-            )
+            logger.warning(f"OutputFilter blocked response: risk={max_level} flags={flags}")
             filtered = "[Content blocked by safety filter]"
 
         return FilterResult(
@@ -244,9 +238,7 @@ class OutputFilter(AbstractOutputFilter):
         """Quick boolean safety check (passes an empty prompt)."""
         return self.filter("", response).is_safe
 
-    def add_pattern(
-        self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH
-    ) -> None:
+    def add_pattern(self, pattern, label: str, level: RiskLevel = RiskLevel.HIGH) -> None:
         """Register an additional harm pattern at runtime.
 
         *pattern* may be a raw string or a pre-compiled ``re.Pattern``.

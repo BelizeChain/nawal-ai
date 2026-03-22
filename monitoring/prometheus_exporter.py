@@ -7,22 +7,23 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Optional
-import threading
 import os
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from datetime import datetime
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from monitoring.metrics import MetricsCollector
 
 # Optional Prometheus client
 try:
     from prometheus_client import (
+        CONTENT_TYPE_LATEST,
+        CollectorRegistry,
         Counter,
         Gauge,
         Histogram,
-        Summary,
-        CollectorRegistry,
         generate_latest,
-        CONTENT_TYPE_LATEST,
     )
 
     PROMETHEUS_AVAILABLE = True
@@ -37,9 +38,7 @@ class PrometheusExporter:
     Provides HTTP endpoint for Prometheus scraping.
     """
 
-    def __init__(
-        self, port: int = 9090, registry: Optional["CollectorRegistry"] = None
-    ):
+    def __init__(self, port: int = 9090, registry: Optional["CollectorRegistry"] = None):
         """
         Initialize Prometheus exporter.
 
@@ -48,14 +47,12 @@ class PrometheusExporter:
             registry: Optional custom registry
         """
         if not PROMETHEUS_AVAILABLE:
-            raise ImportError(
-                "prometheus_client required. Install: pip install prometheus-client"
-            )
+            raise ImportError("prometheus_client required. Install: pip install prometheus-client")
 
         self.port = port
         self.registry = registry or CollectorRegistry()
-        self._server: Optional[HTTPServer] = None
-        self._thread: Optional[threading.Thread] = None
+        self._server: HTTPServer | None = None
+        self._thread: threading.Thread | None = None
 
         # Define metrics
         self._init_metrics()

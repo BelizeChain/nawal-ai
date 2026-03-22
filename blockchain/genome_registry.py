@@ -15,17 +15,16 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Optional
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from enum import Enum
-from pathlib import Path
 import hashlib
 import json
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from enum import Enum
+from pathlib import Path
 
 from loguru import logger
 
-from .substrate_client import SubstrateClient, ExtrinsicReceipt
+from .substrate_client import SubstrateClient
 
 
 class StorageBackend(Enum):
@@ -59,15 +58,15 @@ class GenomeMetadata:
     fitness: float
     storage_backend: StorageBackend
     content_hash: str
-    parent_ids: List[str] = field(default_factory=list)
-    created_at: Optional[datetime] = None
+    parent_ids: list[str] = field(default_factory=list)
+    created_at: datetime | None = None
     size_bytes: int = 0
 
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = datetime.now()
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for chain storage."""
         return {
             "genome_id": self.genome_id,
@@ -114,7 +113,7 @@ class GenomeRegistry:
         client: SubstrateClient,
         storage_backend: StorageBackend = StorageBackend.LOCAL,
         ipfs_url: str = "http://127.0.0.1:5001",
-        local_storage_dir: Optional[Path] = None,
+        local_storage_dir: Path | None = None,
     ):
         """
         Initialize GenomeRegistry.
@@ -142,10 +141,10 @@ class GenomeRegistry:
     def store_genome(
         self,
         keypair,
-        genome: Dict,
+        genome: dict,
         fitness: float,
         generation: int,
-        parent_ids: Optional[List[str]] = None,
+        parent_ids: list[str] | None = None,
         wait_for_finalization: bool = False,
     ) -> GenomeMetadata:
         """
@@ -162,9 +161,7 @@ class GenomeRegistry:
         Returns:
             Genome metadata
         """
-        logger.info(
-            f"Storing genome: generation={generation}, " f"fitness={fitness:.2f}"
-        )
+        logger.info(f"Storing genome: generation={generation}, " f"fitness={fitness:.2f}")
 
         # Serialize genome
         genome_json = json.dumps(genome, sort_keys=True)
@@ -206,8 +203,7 @@ class GenomeRegistry:
 
         if receipt.success:
             logger.success(
-                f"Genome stored: ID={genome_id[:16]}..., "
-                f"hash={content_hash[:16]}..."
+                f"Genome stored: ID={genome_id[:16]}..., " f"hash={content_hash[:16]}..."
             )
         else:
             logger.error(f"Genome storage failed: {receipt.error}")
@@ -215,7 +211,7 @@ class GenomeRegistry:
 
         return metadata
 
-    def get_genome(self, genome_id: str) -> Optional[Dict]:
+    def get_genome(self, genome_id: str) -> dict | None:
         """
         Retrieve genome from storage.
 
@@ -247,9 +243,7 @@ class GenomeRegistry:
                 f"expected {metadata.genome_id[:16]}..., "
                 f"got {actual_hash[:16]}..."
             )
-            raise ValueError(
-                f"Content integrity verification failed for genome {genome_id}"
-            )
+            raise ValueError(f"Content integrity verification failed for genome {genome_id}")
 
         # Parse genome
         genome = json.loads(genome_bytes.decode("utf-8"))
@@ -257,7 +251,7 @@ class GenomeRegistry:
         logger.debug(f"Retrieved genome: {genome_id[:16]}...")
         return genome
 
-    def get_metadata(self, genome_id: str) -> Optional[GenomeMetadata]:
+    def get_metadata(self, genome_id: str) -> GenomeMetadata | None:
         """
         Get genome metadata from chain.
 
@@ -285,7 +279,7 @@ class GenomeRegistry:
                 storage_backend=StorageBackend(data["storage_backend"]),
                 content_hash=data["content_hash"],
                 parent_ids=data.get("parent_ids", []),
-                created_at=datetime.fromtimestamp(data["timestamp"], tz=timezone.utc),
+                created_at=datetime.fromtimestamp(data["timestamp"], tz=UTC),
                 size_bytes=data["size_bytes"],
             )
 
@@ -295,7 +289,7 @@ class GenomeRegistry:
             logger.error(f"Failed to get genome metadata: {e}")
             return None
 
-    def get_lineage(self, genome_id: str, depth: int = 10) -> List[GenomeMetadata]:
+    def get_lineage(self, genome_id: str, depth: int = 10) -> list[GenomeMetadata]:
         """
         Get genome lineage (ancestors).
 
@@ -328,7 +322,7 @@ class GenomeRegistry:
         logger.debug(f"Retrieved lineage: {len(lineage)} generations")
         return lineage
 
-    def get_by_owner(self, owner: str) -> List[GenomeMetadata]:
+    def get_by_owner(self, owner: str) -> list[GenomeMetadata]:
         """
         Get all genomes owned by address.
 
@@ -448,12 +442,7 @@ class GenomeRegistry:
         """
         # Sanitize genome_id to prevent path traversal
         safe_id = Path(genome_id).name
-        if (
-            not safe_id
-            or safe_id in (".", "..")
-            or "/" in genome_id
-            or "\\" in genome_id
-        ):
+        if not safe_id or safe_id in (".", "..") or "/" in genome_id or "\\" in genome_id:
             raise ValueError(f"Invalid genome ID: {genome_id}")
         file_path = self.local_storage_dir / f"{safe_id}.json"
         # Verify resolved path is under storage dir

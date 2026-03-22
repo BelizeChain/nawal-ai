@@ -13,21 +13,19 @@ Coverage:
 
 from __future__ import annotations
 
-import pytest
-
 from nawal.action import (
-    ToolStatus,
-    ToolCategory,
-    ToolResult,
-    ToolSpec,
     AbstractTool,
-    ToolRegistry,
     ActionExecutor,
-    WebSearchTool,
+    ActionLayer,
     CodeSandbox,
     MemoryReadTool,
     MemoryWriteTool,
-    ActionLayer,
+    ToolCategory,
+    ToolRegistry,
+    ToolResult,
+    ToolSpec,
+    ToolStatus,
+    WebSearchTool,
 )
 
 # ═══════════════════════════════════════════════════════════════════════════ #

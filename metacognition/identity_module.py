@@ -39,7 +39,7 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -63,7 +63,7 @@ class AgentProfile:
     )
     version: str = "2.0.0-brain"
     sovereign: str = "BelizeChain"
-    values: List[str] = field(
+    values: list[str] = field(
         default_factory=lambda: [
             "Accuracy over speed",
             "Safety and harmlessness",
@@ -72,7 +72,7 @@ class AgentProfile:
             "Curiosity and lifelong learning",
         ]
     )
-    capabilities: List[str] = field(
+    capabilities: list[str] = field(
         default_factory=lambda: [
             "Text generation and dialogue",
             "Domain expertise: AgriTech, Marine, Education, Tech",
@@ -82,7 +82,7 @@ class AgentProfile:
             "Federated learning and genome evolution (self-improvement)",
         ]
     )
-    limitations: List[str] = field(
+    limitations: list[str] = field(
         default_factory=lambda: [
             "Cannot perceive images or audio (Phase 5 future capability)",
             "Context window limit: 2048 tokens per session",
@@ -90,7 +90,7 @@ class AgentProfile:
             "No real-time internet access (RAG-based knowledge only)",
         ]
     )
-    languages: List[str] = field(
+    languages: list[str] = field(
         default_factory=lambda: ["English", "Spanish", "Kriol", "Garifuna", "Maya"]
     )
     style: str = (
@@ -118,7 +118,7 @@ class DecisionRecord:
     goal: str
     outcome: str
     confidence: float
-    notes: Dict[str, Any] = field(default_factory=dict)
+    notes: dict[str, Any] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- #
@@ -138,18 +138,18 @@ class IdentityModule:
 
     def __init__(
         self,
-        profile: Optional[AgentProfile] = None,
-        persist_path: Optional[str] = None,
+        profile: AgentProfile | None = None,
+        persist_path: str | None = None,
         max_history: int = 500,
     ) -> None:
         self._profile = profile if profile is not None else AgentProfile()
         self._persist_path = Path(persist_path) if persist_path else None
         self._max_history = max_history
-        self._history: List[DecisionRecord] = []
+        self._history: list[DecisionRecord] = []
 
         # In-memory capability overrides (runtime additions)
-        self._runtime_capabilities: List[str] = []
-        self._runtime_limitations: List[str] = []
+        self._runtime_capabilities: list[str] = []
+        self._runtime_limitations: list[str] = []
 
     # ------------------------------------------------------------------ #
     # Profile API                                                          #
@@ -177,10 +177,10 @@ class IdentityModule:
         if description not in self._runtime_limitations:
             self._runtime_limitations.append(description)
 
-    def all_capabilities(self) -> List[str]:
+    def all_capabilities(self) -> list[str]:
         return self._profile.capabilities + self._runtime_capabilities
 
-    def all_limitations(self) -> List[str]:
+    def all_limitations(self) -> list[str]:
         return self._profile.limitations + self._runtime_limitations
 
     # ------------------------------------------------------------------ #
@@ -192,7 +192,7 @@ class IdentityModule:
         goal: str,
         outcome: str,
         confidence: float = 0.5,
-        notes: Optional[Dict[str, Any]] = None,
+        notes: dict[str, Any] | None = None,
     ) -> DecisionRecord:
         """
         Append a decision record to the rolling history.
@@ -220,7 +220,7 @@ class IdentityModule:
         logger.debug(f"IdentityModule recorded decision: {goal!r} → {outcome}")
         return record
 
-    def recent_decisions(self, last_n: int = 10) -> List[DecisionRecord]:
+    def recent_decisions(self, last_n: int = 10) -> list[DecisionRecord]:
         """Return the *last_n* most-recent decisions (newest first)."""
         return list(reversed(self._history[-last_n:]))
 
@@ -279,10 +279,7 @@ class IdentityModule:
         """
         p = self._profile
         if brief:
-            return (
-                f"I am {p.name}, {p.sovereign}'s sovereign AI assistant "
-                f"(v{p.version})."
-            )
+            return f"I am {p.name}, {p.sovereign}'s sovereign AI assistant " f"(v{p.version})."
         return (
             f"I am {p.name}, {p.sovereign}'s sovereign AI ({p.version}). "
             f"I specialise in {', '.join(self._profile.languages)} and "
@@ -311,8 +308,7 @@ class IdentityModule:
                 encoding="utf-8",
             )
             logger.info(
-                f"IdentityModule saved to {self._persist_path} "
-                f"({len(self._history)} records)"
+                f"IdentityModule saved to {self._persist_path} " f"({len(self._history)} records)"
             )
         except Exception as exc:
             logger.error(f"IdentityModule.save failed: {exc}")

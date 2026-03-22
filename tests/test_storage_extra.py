@@ -8,17 +8,14 @@ Targets the specific uncovered branches reported by coverage:
 
 from __future__ import annotations
 
-import io
-import json
-import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
 
-from storage.pakit_client import PakitClient
 from storage.checkpoint_manager import CheckpointManager
+from storage.pakit_client import PakitClient
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -263,8 +260,9 @@ class TestRequestsUnavailableBranch:
 
     def test_requests_available_false_when_requests_absent(self):
         """Reload pakit_client with requests hidden → REQUESTS_AVAILABLE=False (lines 19-21)."""
-        import sys
         import importlib
+        import sys
+
         import storage.pakit_client as target_module
 
         saved_requests = sys.modules.pop("requests", None)

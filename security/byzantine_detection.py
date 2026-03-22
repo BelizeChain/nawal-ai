@@ -20,13 +20,11 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Optional, Tuple
-from enum import Enum
-from dataclasses import dataclass
 import math
+from dataclasses import dataclass
+from enum import Enum
 
 import torch
-import torch.nn as nn
 from loguru import logger
 
 
@@ -58,7 +56,7 @@ class ClientReputation:
     score: float = 1.0
     contributions: int = 0
     anomalies: int = 0
-    history: List[float] = None
+    history: list[float] = None
 
     def __post_init__(self):
         if self.history is None:
@@ -72,9 +70,7 @@ class ClientReputation:
             self.anomalies += 1
             self.score *= decay  # Decay reputation
         else:
-            self.score = min(
-                1.0, self.score + 0.02
-            )  # Gradual recovery (closer to decay rate)
+            self.score = min(1.0, self.score + 0.02)  # Gradual recovery (closer to decay rate)
 
         self.history.append(self.score)
 
@@ -131,7 +127,7 @@ class ByzantineDetector:
         self.reputation_enabled = reputation_enabled
 
         # Client reputation tracking
-        self.reputations: Dict[int, ClientReputation] = {}
+        self.reputations: dict[int, ClientReputation] = {}
 
         logger.info(
             f"ByzantineDetector initialized: method={method.value}, "
@@ -140,10 +136,10 @@ class ByzantineDetector:
 
     def aggregate(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
-        client_ids: Optional[List[int]] = None,
-        method: Optional[AggregationMethod] = None,
-    ) -> Dict[str, torch.Tensor]:
+        client_updates: list[dict[str, torch.Tensor]],
+        client_ids: list[int] | None = None,
+        method: AggregationMethod | None = None,
+    ) -> dict[str, torch.Tensor]:
         """
         Aggregate client updates with Byzantine tolerance.
 
@@ -164,7 +160,7 @@ class ByzantineDetector:
         # Detect anomalies if reputation enabled
         if self.reputation_enabled and client_ids is not None:
             anomalies = self.detect_anomalies(client_updates)
-            for client_id, is_anomalous in zip(client_ids, anomalies):
+            for client_id, is_anomalous in zip(client_ids, anomalies, strict=False):
                 self._update_reputation(client_id, is_anomalous)
 
         # Route to appropriate aggregation method
@@ -187,8 +183,8 @@ class ByzantineDetector:
 
     def _fedavg(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
-    ) -> Dict[str, torch.Tensor]:
+        client_updates: list[dict[str, torch.Tensor]],
+    ) -> dict[str, torch.Tensor]:
         """
         Standard FedAvg aggregation (not Byzantine-robust).
 
@@ -201,7 +197,7 @@ class ByzantineDetector:
         aggregated = {}
         num_clients = len(client_updates)
 
-        for param_name in client_updates[0].keys():
+        for param_name in client_updates[0]:
             param_sum = torch.zeros_like(client_updates[0][param_name])
             for update in client_updates:
                 param_sum += update[param_name]
@@ -211,8 +207,8 @@ class ByzantineDetector:
 
     def _krum(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
-    ) -> Dict[str, torch.Tensor]:
+        client_updates: list[dict[str, torch.Tensor]],
+    ) -> dict[str, torch.Tensor]:
         """
         Krum aggregation: Select single closest update.
 
@@ -262,9 +258,9 @@ class ByzantineDetector:
 
     def _multi_krum(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
-        m: Optional[int] = None,
-    ) -> Dict[str, torch.Tensor]:
+        client_updates: list[dict[str, torch.Tensor]],
+        m: int | None = None,
+    ) -> dict[str, torch.Tensor]:
         """
         Multi-Krum aggregation: Average m closest updates.
 
@@ -312,9 +308,9 @@ class ByzantineDetector:
 
     def _trimmed_mean(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
+        client_updates: list[dict[str, torch.Tensor]],
         trim_ratio: float = 0.1,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Trimmed mean aggregation: Remove outliers, average rest.
 
@@ -335,7 +331,7 @@ class ByzantineDetector:
 
         aggregated = {}
 
-        for param_name in client_updates[0].keys():
+        for param_name in client_updates[0]:
             # Stack all client values for this parameter
             stacked = torch.stack([u[param_name] for u in client_updates])
 
@@ -343,10 +339,7 @@ class ByzantineDetector:
             sorted_values, _ = torch.sort(stacked, dim=0)
 
             # Trim and average
-            if num_trim > 0:
-                trimmed = sorted_values[num_trim:-num_trim]
-            else:
-                trimmed = sorted_values
+            trimmed = sorted_values[num_trim:-num_trim] if num_trim > 0 else sorted_values
 
             aggregated[param_name] = trimmed.mean(dim=0)
 
@@ -355,8 +348,8 @@ class ByzantineDetector:
 
     def _median(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
-    ) -> Dict[str, torch.Tensor]:
+        client_updates: list[dict[str, torch.Tensor]],
+    ) -> dict[str, torch.Tensor]:
         """
         Coordinate-wise median aggregation.
 
@@ -370,7 +363,7 @@ class ByzantineDetector:
         """
         aggregated = {}
 
-        for param_name in client_updates[0].keys():
+        for param_name in client_updates[0]:
             stacked = torch.stack([u[param_name] for u in client_updates])
             aggregated[param_name] = torch.median(stacked, dim=0).values
 
@@ -379,9 +372,9 @@ class ByzantineDetector:
 
     def _phocas(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
-        client_ids: List[int],
-    ) -> Dict[str, torch.Tensor]:
+        client_updates: list[dict[str, torch.Tensor]],
+        client_ids: list[int],
+    ) -> dict[str, torch.Tensor]:
         """
         PHOCAS: Reputation-based weighted aggregation.
 
@@ -410,21 +403,19 @@ class ByzantineDetector:
 
         # Weighted average
         aggregated = {}
-        for param_name in client_updates[0].keys():
+        for param_name in client_updates[0]:
             weighted_sum = torch.zeros_like(client_updates[0][param_name])
-            for update, weight in zip(client_updates, weights):
+            for update, weight in zip(client_updates, weights, strict=False):
                 weighted_sum += update[param_name] * weight
             aggregated[param_name] = weighted_sum
 
-        logger.debug(
-            f"PHOCAS aggregation with weights: {[f'{w:.3f}' for w in weights]}"
-        )
+        logger.debug(f"PHOCAS aggregation with weights: {[f'{w:.3f}' for w in weights]}")
         return aggregated
 
     def _compute_pairwise_distances(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
-    ) -> List[List[float]]:
+        client_updates: list[dict[str, torch.Tensor]],
+    ) -> list[list[float]]:
         """
         Compute pairwise L2 distances between client updates.
 
@@ -447,8 +438,8 @@ class ByzantineDetector:
 
     def _compute_distance(
         self,
-        update1: Dict[str, torch.Tensor],
-        update2: Dict[str, torch.Tensor],
+        update1: dict[str, torch.Tensor],
+        update2: dict[str, torch.Tensor],
     ) -> float:
         """
         Compute L2 distance between two updates.
@@ -461,7 +452,7 @@ class ByzantineDetector:
             L2 distance
         """
         distance = 0.0
-        for param_name in update1.keys():
+        for param_name in update1:
             diff = update1[param_name] - update2[param_name]
             distance += torch.norm(diff).item() ** 2
 
@@ -469,10 +460,10 @@ class ByzantineDetector:
 
     def detect_anomalies(
         self,
-        client_updates: List[Dict[str, torch.Tensor]],
+        client_updates: list[dict[str, torch.Tensor]],
         threshold_std: float = 3.0,
         cosine_threshold: float = 0.5,
-    ) -> List[bool]:
+    ) -> list[bool]:
         """
         Detect anomalous client updates.
 
@@ -539,7 +530,7 @@ class ByzantineDetector:
 
         return anomalies
 
-    def _compute_norm(self, update: Dict[str, torch.Tensor]) -> float:
+    def _compute_norm(self, update: dict[str, torch.Tensor]) -> float:
         """Compute L2 norm of update."""
         total_norm = 0.0
         for param in update.values():
@@ -553,19 +544,15 @@ class ByzantineDetector:
 
         self.reputations[client_id].update(is_anomalous)
 
-    def get_client_reputation(self, client_id: int) -> Optional[ClientReputation]:
+    def get_client_reputation(self, client_id: int) -> ClientReputation | None:
         """Get reputation for specific client."""
         return self.reputations.get(client_id)
 
-    def get_trustworthy_clients(self, threshold: float = 0.5) -> List[int]:
+    def get_trustworthy_clients(self, threshold: float = 0.5) -> list[int]:
         """Get list of trustworthy client IDs."""
-        return [
-            cid
-            for cid, rep in self.reputations.items()
-            if rep.is_trustworthy(threshold)
-        ]
+        return [cid for cid, rep in self.reputations.items() if rep.is_trustworthy(threshold)]
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "method": self.method.value,

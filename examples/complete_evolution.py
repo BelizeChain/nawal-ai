@@ -8,12 +8,13 @@ Date: October 2025
 """
 
 import asyncio
+
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 from nawal import (
-    NawalConfig,
     EvolutionOrchestrator,
+    NawalConfig,
     load_config,
 )
 
@@ -149,7 +150,7 @@ async def main():
     print("   Generation | Best Fitness | Avg Fitness | Diversity")
     print("   " + "-" * 60)
 
-    for i, state in enumerate(orchestrator.generation_history[:10]):  # First 10
+    for _i, state in enumerate(orchestrator.generation_history[:10]):  # First 10
         print(
             f"   {state.generation + 1:>10} | "
             f"{state.best_fitness:>12.2f} | "

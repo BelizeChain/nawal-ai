@@ -17,44 +17,40 @@ Python: 3.13+
 
 from __future__ import annotations
 
-import asyncio
 import copy
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-import torch
-from torch.utils.data import DataLoader
-from loguru import logger
 
+import torch
+from loguru import logger
+from nawal.action import ActionLayer
+from nawal.config import NawalConfig
+from nawal.control import ExecutiveController
 from nawal.genome import (
     Genome,
     GenomeEncoder,
-    PopulationManager,
     PopulationConfig,
+    PopulationManager,
     SelectionStrategy,
-    select_parents,
     crossover,
     mutate,
 )
-from nawal.server import FederatedAggregator, AggregationStrategy
-from nawal.client import GenomeTrainer, TrainingConfig as ClientTrainingConfig
-from nawal.config import NawalConfig
+from nawal.maintenance import MaintenanceLayer
 from nawal.memory import MemoryManager
-from nawal.control import ExecutiveController
-from nawal.valuation import ValuationLayer
 from nawal.metacognition import MetacognitionLayer
 from nawal.perception import SensoryHub
 from nawal.quantum import (
-    QuantumMemory,
-    QuantumPlanOptimizer,
     QuantumAnomalyDetector,
     QuantumImagination,
+    QuantumMemory,
+    QuantumPlanOptimizer,
 )
-from nawal.maintenance import MaintenanceLayer
-from nawal.action import ActionLayer
+from nawal.valuation import ValuationLayer
+from torch.utils.data import DataLoader
 
 # =============================================================================
 # Generation State
@@ -209,11 +205,7 @@ class EvolutionOrchestrator:
         # 5d: Quantum imagination — parallel future-trajectory sampling
         # Wires into the metacognition simulator if present
         try:
-            _sim = (
-                getattr(self.metacognition, "simulator", None)
-                if self.metacognition
-                else None
-            )
+            _sim = getattr(self.metacognition, "simulator", None) if self.metacognition else None
             self.quantum_imagination = QuantumImagination(
                 internal_simulator=_sim,
             )
@@ -240,12 +232,9 @@ class EvolutionOrchestrator:
             self.action = ActionLayer(
                 memory_manager=self.memory,
                 safety_screener=(
-                    getattr(self.maintenance, "input_screener", None)
-                    if self.maintenance
-                    else None
+                    getattr(self.maintenance, "input_screener", None) if self.maintenance else None
                 ),
-                stub_network_tools=os.getenv("NAWAL_ENV", "development")
-                != "production",
+                stub_network_tools=os.getenv("NAWAL_ENV", "development") != "production",
             )
         except Exception as e:
             logger.warning("Action layer unavailable: {}", e)
@@ -274,14 +263,10 @@ class EvolutionOrchestrator:
         start_time = time.time()
 
         # Main evolution loop
-        for gen in range(
-            self.current_generation, self.config.evolution.num_generations
-        ):
+        for gen in range(self.current_generation, self.config.evolution.num_generations):
             self.current_generation = gen
 
-            logger.info(
-                f"=== GENERATION {gen + 1}/{self.config.evolution.num_generations} ==="
-            )
+            logger.info(f"=== GENERATION {gen + 1}/{self.config.evolution.num_generations} ===")
 
             # Run generation
             gen_start = time.time()
@@ -448,8 +433,7 @@ class EvolutionOrchestrator:
             List of parent genomes
         """
         num_parents = int(
-            self.config.evolution.population_size
-            * self.config.evolution.selection_pressure
+            self.config.evolution.population_size * self.config.evolution.selection_pressure
         )
         num_parents = max(2, num_parents)  # At least 2 parents
 
@@ -555,7 +539,7 @@ class EvolutionOrchestrator:
             avg_fitness=avg,
             diversity=diversity,
             training_time=training_time,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
         )
 
         self.generation_history.append(state)
@@ -593,7 +577,7 @@ class EvolutionOrchestrator:
                 for s in self.generation_history
             ],
             "config": self.config.model_dump(),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
         # Save checkpoint
@@ -721,9 +705,7 @@ class EvolutionOrchestrator:
             "best_fitness": latest.best_fitness,
             "avg_fitness": latest.avg_fitness,
             "diversity": latest.diversity,
-            "total_training_time": sum(
-                s.training_time for s in self.generation_history
-            ),
+            "total_training_time": sum(s.training_time for s in self.generation_history),
             "avg_generation_time": sum(s.training_time for s in self.generation_history)
             / len(self.generation_history),
             "fitness_history": [s.best_fitness for s in self.generation_history],

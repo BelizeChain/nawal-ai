@@ -30,15 +30,15 @@ Typical usage::
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from loguru import logger
 
 try:
-    from valuation.interfaces import SafetyFilter, AbstractRewardModel, DriveSignal
+    from valuation.interfaces import AbstractRewardModel, DriveSignal, SafetyFilter
     from valuation.reward import DriveBasedRewardModel
 except ImportError:
-    from interfaces import SafetyFilter, AbstractRewardModel, DriveSignal  # type: ignore
+    from interfaces import AbstractRewardModel, DriveSignal, SafetyFilter  # type: ignore
     from reward import DriveBasedRewardModel  # type: ignore
 
 
@@ -46,7 +46,7 @@ except ImportError:
 # Default blocklist                                                             #
 # --------------------------------------------------------------------------- #
 
-_DEFAULT_BLOCKLIST: List[str] = [
+_DEFAULT_BLOCKLIST: list[str] = [
     # Physical harm
     r"\bhow to (make|build|create|synthesize)\b.*\b(bomb|weapon|explosive|poison|virus)\b",
     r"\b(kill|murder|assault|torture)\b.{0,30}\b(person|people|human|child|user)\b",
@@ -84,14 +84,12 @@ class BasicSafetyFilter(SafetyFilter):
 
     def __init__(
         self,
-        blocklist: Optional[List[str]] = None,
+        blocklist: list[str] | None = None,
         max_length: int = 0,
-        extra_checks: Optional[List[Tuple[str, Any]]] = None,
+        extra_checks: list[tuple[str, Any]] | None = None,
     ) -> None:
         raw_patterns = blocklist if blocklist is not None else _DEFAULT_BLOCKLIST
-        self._patterns = [
-            re.compile(p, re.IGNORECASE | re.DOTALL) for p in raw_patterns
-        ]
+        self._patterns = [re.compile(p, re.IGNORECASE | re.DOTALL) for p in raw_patterns]
         self._max_length = max_length
         self._extra_checks = extra_checks or []
 
@@ -109,7 +107,7 @@ class BasicSafetyFilter(SafetyFilter):
         safe, _ = self._check(text)
         return safe
 
-    def filter(self, candidates: List[Any]) -> List[Any]:
+    def filter(self, candidates: list[Any]) -> list[Any]:
         """Return only the candidates that are safe."""
         result = []
         for c in candidates:
@@ -125,7 +123,7 @@ class BasicSafetyFilter(SafetyFilter):
     # Extended API
     # ------------------------------------------------------------------
 
-    def check_with_reason(self, candidate: Any) -> Tuple[bool, str]:
+    def check_with_reason(self, candidate: Any) -> tuple[bool, str]:
         """Return (is_safe, reason_string)."""
         text = self._extract_text(candidate)
         return self._check(text)
@@ -142,7 +140,7 @@ class BasicSafetyFilter(SafetyFilter):
     # Internals
     # ------------------------------------------------------------------
 
-    def _check(self, text: str) -> Tuple[bool, str]:
+    def _check(self, text: str) -> tuple[bool, str]:
         if self._max_length > 0 and len(text) > self._max_length:
             reason = f"length {len(text)} exceeds max {self._max_length}"
             return False, reason
@@ -200,21 +198,17 @@ class ValuationLayer:
 
     def __init__(
         self,
-        reward_model: Optional[AbstractRewardModel] = None,
-        safety_filter: Optional[SafetyFilter] = None,
+        reward_model: AbstractRewardModel | None = None,
+        safety_filter: SafetyFilter | None = None,
     ) -> None:
-        self._reward = (
-            reward_model if reward_model is not None else DriveBasedRewardModel()
-        )
-        self._safety = (
-            safety_filter if safety_filter is not None else BasicSafetyFilter()
-        )
+        self._reward = reward_model if reward_model is not None else DriveBasedRewardModel()
+        self._safety = safety_filter if safety_filter is not None else BasicSafetyFilter()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def filter_safe(self, candidates: List[Any]) -> List[Any]:
+    def filter_safe(self, candidates: list[Any]) -> list[Any]:
         """Return only safe candidates."""
         return self._safety.filter(candidates)
 
@@ -223,22 +217,22 @@ class ValuationLayer:
 
     def score(
         self,
-        candidates: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
-        drives: Optional[List[DriveSignal]] = None,
-    ) -> List[float]:
+        candidates: list[dict[str, Any]],
+        context: dict[str, Any] | None = None,
+        drives: list[DriveSignal] | None = None,
+    ) -> list[float]:
         """Score candidates (unsafe ones receive 0.0)."""
         safe_mask = [self._safety.is_safe(c) for c in candidates]
         raw_scores = self._reward.score(candidates, context, drives)
-        return [s if safe else 0.0 for s, safe in zip(raw_scores, safe_mask)]
+        return [s if safe else 0.0 for s, safe in zip(raw_scores, safe_mask, strict=False)]
 
     def ranked(
         self,
-        candidates: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
-        drives: Optional[List[DriveSignal]] = None,
+        candidates: list[dict[str, Any]],
+        context: dict[str, Any] | None = None,
+        drives: list[DriveSignal] | None = None,
         include_unsafe: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Return candidates sorted by score (descending).
 
@@ -256,10 +250,10 @@ class ValuationLayer:
 
     def best(
         self,
-        candidates: List[Dict[str, Any]],
-        context: Optional[Dict[str, Any]] = None,
-        drives: Optional[List[DriveSignal]] = None,
-    ) -> Optional[Dict[str, Any]]:
+        candidates: list[dict[str, Any]],
+        context: dict[str, Any] | None = None,
+        drives: list[DriveSignal] | None = None,
+    ) -> dict[str, Any] | None:
         """
         Return the single highest-scoring safe candidate, or None.
         """

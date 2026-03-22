@@ -11,17 +11,17 @@ Date: February 2026
 import asyncio
 import sys
 from pathlib import Path
+
 from loguru import logger
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from blockchain.mesh_network import (
+    MeshMessage,
     MeshNetworkClient,
     MessageType,
-    MeshMessage,
 )
-from blockchain.staking_connector import StakingConnector
 
 # Configure logging
 logger.remove()
@@ -133,7 +133,7 @@ async def main():
 
     try:
         # Process messages from queue
-        async for message in mesh.receive_messages():
+        async for _message in mesh.receive_messages():
             # Messages are handled by registered handlers
             pass
 

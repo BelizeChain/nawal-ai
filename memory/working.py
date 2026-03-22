@@ -18,10 +18,9 @@ quantum search is reserved for the much-larger EpisodicMemory store.
 
 from __future__ import annotations
 
-import math
 import uuid
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from loguru import logger
@@ -71,16 +70,14 @@ class WorkingMemory(AbstractMemory):
             logger.debug(f"WorkingMemory evicted key={evicted_key!r} (buffer full)")
 
         self._store[record.key] = record
-        logger.debug(
-            f"WorkingMemory stored key={record.key!r}  size={len(self._store)}"
-        )
+        logger.debug(f"WorkingMemory stored key={record.key!r}  size={len(self._store)}")
 
     def retrieve(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[MemoryRecord]:
         """
         Return the top-k records ranked by cosine similarity to *query_embedding*.
 
@@ -102,16 +99,14 @@ class WorkingMemory(AbstractMemory):
         scored: list[tuple[float, MemoryRecord]] = []
         for record in candidates:
             if record.embedding is not None:
-                scored.append(
-                    (_cosine(q, np.asarray(record.embedding, dtype=np.float32)), record)
-                )
+                scored.append((_cosine(q, np.asarray(record.embedding, dtype=np.float32)), record))
             else:
                 scored.append((0.0, record))
 
         scored.sort(key=lambda x: x[0], reverse=True)
         return [r for _, r in scored[:top_k]]
 
-    def get(self, key: str) -> Optional[MemoryRecord]:
+    def get(self, key: str) -> MemoryRecord | None:
         record = self._store.get(key)
         if record is not None and record.is_expired():
             del self._store[key]
@@ -135,13 +130,13 @@ class WorkingMemory(AbstractMemory):
     # Convenience API                                                      #
     # ------------------------------------------------------------------ #
 
-    def recent(self, n: int = 10) -> List[MemoryRecord]:
+    def recent(self, n: int = 10) -> list[MemoryRecord]:
         """Return the *n* most-recently stored records (newest first)."""
         self._prune_expired()
         items = list(self._store.values())
         return list(reversed(items))[:n]
 
-    def snapshot(self) -> List[MemoryRecord]:
+    def snapshot(self) -> list[MemoryRecord]:
         """Return all non-expired records in insertion order."""
         self._prune_expired()
         return list(self._store.values())
@@ -149,9 +144,9 @@ class WorkingMemory(AbstractMemory):
     def store_text(
         self,
         content: str,
-        embedding: Optional[List[float]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        ttl: Optional[float] = None,
+        embedding: list[float] | None = None,
+        metadata: dict[str, Any] | None = None,
+        ttl: float | None = None,
     ) -> MemoryRecord:
         """
         Convenience wrapper — store a raw text string as a MemoryRecord.
@@ -180,7 +175,7 @@ class WorkingMemory(AbstractMemory):
             logger.debug(f"WorkingMemory pruned {len(expired)} expired record(s)")
 
     @staticmethod
-    def _matches(record: MemoryRecord, filters: Optional[Dict[str, Any]]) -> bool:
+    def _matches(record: MemoryRecord, filters: dict[str, Any] | None) -> bool:
         if not filters:
             return True
         return all(record.metadata.get(k) == v for k, v in filters.items())
@@ -194,7 +189,7 @@ class WorkingMemory(AbstractMemory):
 # --------------------------------------------------------------------------- #
 
 
-def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     """Cosine similarity in [−1, 1]. Returns 0.0 if either vector is zero."""
     norm_a = float(np.linalg.norm(a))
     norm_b = float(np.linalg.norm(b))

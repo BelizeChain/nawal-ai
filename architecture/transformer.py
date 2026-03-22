@@ -8,13 +8,11 @@ Complete transformer implementation for Belizean AI sovereignty.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Tuple, List
-
 from loguru import logger
 
+from .attention import MultiHeadAttention
 from .config import NawalModelConfig
 from .embeddings import NawalEmbeddings
-from .attention import MultiHeadAttention
 from .feedforward import FeedForward
 
 
@@ -45,11 +43,11 @@ class NawalTransformerBlock(nn.Module):
     def forward(
         self,
         hidden_states: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        past_key_value: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+        attention_mask: torch.Tensor | None = None,
+        past_key_value: tuple[torch.Tensor, torch.Tensor] | None = None,
         use_cache: bool = False,
         is_causal: bool = True,
-    ) -> Tuple[torch.Tensor, Optional[Tuple[torch.Tensor, torch.Tensor]]]:
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor] | None]:
         """
         Forward pass through transformer block
 
@@ -162,10 +160,10 @@ class NawalTransformer(nn.Module):
     def forward(
         self,
         input_ids: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        position_ids: Optional[torch.Tensor] = None,
-        past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
-        labels: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
+        position_ids: torch.Tensor | None = None,
+        past_key_values: list[tuple[torch.Tensor, torch.Tensor]] | None = None,
+        labels: torch.Tensor | None = None,
         use_cache: bool = False,
         return_dict: bool = True,
     ) -> dict:
@@ -188,7 +186,7 @@ class NawalTransformer(nn.Module):
                 - past_key_values: Cached key/values (if use_cache=True)
                 - hidden_states: Final hidden states [batch_size, seq_len, hidden_size]
         """
-        batch_size, seq_len = input_ids.size()
+        _batch_size, _seq_len = input_ids.size()
 
         # Get embeddings
         hidden_states = self.embeddings(input_ids, position_ids=position_ids)
@@ -199,7 +197,7 @@ class NawalTransformer(nn.Module):
 
         # Pass through transformer blocks
         new_past_key_values = []
-        for i, (block, past_kv) in enumerate(zip(self.blocks, past_key_values)):
+        for _i, (block, past_kv) in enumerate(zip(self.blocks, past_key_values, strict=False)):
             hidden_states, new_past_kv = block(
                 hidden_states,
                 attention_mask=attention_mask,
@@ -235,7 +233,7 @@ class NawalTransformer(nn.Module):
             if use_cache:
                 output += (new_past_key_values,)
             if loss is not None:
-                output = (loss,) + output
+                output = (loss, *output)
             return output
 
         return {
@@ -286,9 +284,9 @@ class NawalTransformer(nn.Module):
                 else:
                     # Subsequent passes: feed only the new token with its position
                     model_input = input_ids[:, -1:]
-                    position_ids = torch.tensor(
-                        [[cur_len - 1]], device=input_ids.device
-                    ).expand(input_ids.size(0), -1)
+                    position_ids = torch.tensor([[cur_len - 1]], device=input_ids.device).expand(
+                        input_ids.size(0), -1
+                    )
 
                 # Forward pass
                 outputs = self.forward(
@@ -321,9 +319,7 @@ class NawalTransformer(nn.Module):
                         sorted_logits, sorted_indices = torch.sort(
                             next_token_logits, descending=True
                         )
-                        cumulative_probs = torch.cumsum(
-                            F.softmax(sorted_logits, dim=-1), dim=-1
-                        )
+                        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
 
                         # Remove tokens with cumulative probability > top_p
                         sorted_indices_to_remove = cumulative_probs > top_p

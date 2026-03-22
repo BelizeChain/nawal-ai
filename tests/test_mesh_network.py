@@ -9,12 +9,13 @@ Date: February 2026
 """
 
 import asyncio
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
 
 from blockchain.mesh_network import (
-    MeshNetworkClient,
     MeshMessage,
+    MeshNetworkClient,
     MessageType,
     PeerInfo,
 )
@@ -168,7 +169,7 @@ class TestMeshNetworkClient:
 
     async def test_merkle_root_computation(self):
         """Test Merkle root computation (used in mesh for data integrity)."""
-        mesh = MeshNetworkClient(peer_id="test_peer_008")
+        MeshNetworkClient(peer_id="test_peer_008")
 
         # This is actually in payroll, but the concept applies to mesh for data integrity
         # Just testing the mesh network for now

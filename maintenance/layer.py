@@ -36,23 +36,22 @@ Typical usage in api_server.py or orchestrator.py::
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from loguru import logger
 
+from maintenance.drift_detector import DriftDetector
+from maintenance.input_screener import InputScreener
 from maintenance.interfaces import (
     DriftReport,
     FilterResult,
     RepairResult,
     RepairStrategy,
-    RiskLevel,
     ScreeningResult,
 )
-from maintenance.input_screener import InputScreener
 from maintenance.output_filter import OutputFilter
-from maintenance.drift_detector import DriftDetector
 from maintenance.self_repair import SelfRepair
 
 # --------------------------------------------------------------------------- #
@@ -77,12 +76,12 @@ class MaintenanceLayer:
 
     def __init__(
         self,
-        checkpoint_path: Optional[str] = None,
-        episodic_memory: Optional[Any] = None,
-        alert_callback: Optional[Callable[[DriftReport], None]] = None,
+        checkpoint_path: str | None = None,
+        episodic_memory: Any | None = None,
+        alert_callback: Callable[[DriftReport], None] | None = None,
         auto_repair: bool = True,
-        quantum_anomaly_detector: Optional[Any] = None,
-        drift_thresholds: Optional[Dict[str, float]] = None,
+        quantum_anomaly_detector: Any | None = None,
+        drift_thresholds: dict[str, float] | None = None,
         drift_window: int = 100,
     ) -> None:
         self.input_screener = InputScreener()
@@ -100,7 +99,7 @@ class MaintenanceLayer:
         self._quantum_anomaly = quantum_anomaly_detector
 
         # Telemetry for anomaly detector (lazily fitted)
-        self._telemetry_buffer: List[np.ndarray] = []
+        self._telemetry_buffer: list[np.ndarray] = []
         self._anomaly_fitted = False
 
         logger.info(
@@ -116,7 +115,7 @@ class MaintenanceLayer:
     def screen_input(
         self,
         prompt: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> ScreeningResult:
         """Screen an incoming prompt.  Returns is_safe=False to block."""
         return self.input_screener.screen(prompt, context)
@@ -129,15 +128,15 @@ class MaintenanceLayer:
     # Drift monitoring                                                     #
     # ------------------------------------------------------------------ #
 
-    def record_baseline(self, checkpoint_id: str, metrics: Dict[str, float]) -> None:
+    def record_baseline(self, checkpoint_id: str, metrics: dict[str, float]) -> None:
         """Delegate to DriftDetector.record_baseline."""
         self.drift_detector.record_baseline(checkpoint_id, metrics)
 
-    def record_metrics(self, metrics: Dict[str, float]) -> None:
+    def record_metrics(self, metrics: dict[str, float]) -> None:
         """Record an operational observation to the DriftDetector."""
         self.drift_detector.record_observation(metrics)
 
-    def check_and_repair(self) -> Optional[RepairResult]:
+    def check_and_repair(self) -> RepairResult | None:
         """
         Check for drift and trigger SelfRepair if drifted.
 
@@ -195,7 +194,7 @@ class MaintenanceLayer:
     # Convenience introspection                                            #
     # ------------------------------------------------------------------ #
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Return a status summary dict for monitoring dashboards."""
         drift_report = self.drift_detector.check()
         return {

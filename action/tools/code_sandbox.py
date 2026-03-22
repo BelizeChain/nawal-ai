@@ -19,10 +19,9 @@ from __future__ import annotations
 
 import io
 import os
-import sys
 import time
-from contextlib import redirect_stdout, redirect_stderr
-from typing import Any, Dict, Optional
+from contextlib import redirect_stderr, redirect_stdout
+from typing import Any
 
 from loguru import logger
 
@@ -36,8 +35,11 @@ from action.interfaces import (
 
 # RestrictedPython import — optional; fall back to plain exec if absent
 try:
-    from RestrictedPython import compile_restricted, safe_globals  # type: ignore
-    from RestrictedPython import PrintCollector  # type: ignore
+    from RestrictedPython import (  # type: ignore
+        PrintCollector,  # type: ignore
+        compile_restricted,
+        safe_globals,
+    )
 
     _RESTRICTED_PYTHON_AVAILABLE = True
 except ImportError:
@@ -101,7 +103,7 @@ class CodeSandbox(AbstractTool):
         timeout_seconds: int = 10,
         max_output_len: int = 4096,
         use_stub: bool = False,
-        allow_imports: Optional[frozenset] = None,
+        allow_imports: frozenset | None = None,
     ) -> None:
         self._timeout = timeout_seconds
         self._max_out = max_output_len
@@ -123,7 +125,7 @@ class CodeSandbox(AbstractTool):
     def run(
         self,
         code: str,
-        context: Optional[Dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
         **_: Any,
     ) -> ToolResult:
         if not code or not code.strip():
@@ -155,7 +157,7 @@ class CodeSandbox(AbstractTool):
     # Execution back-ends                                                  #
     # ------------------------------------------------------------------ #
 
-    def _sandboxed_exec(self, code: str, context: Dict[str, Any]) -> tuple:
+    def _sandboxed_exec(self, code: str, context: dict[str, Any]) -> tuple:
         stdout_buf = io.StringIO()
         stderr_buf = io.StringIO()
 
@@ -172,16 +174,14 @@ class CodeSandbox(AbstractTool):
             g["_getitem_"] = lambda obj, key: obj[key]
             g["__builtins__"]["__import__"] = self._restricted_import
             g.update(context)
-            loc: Dict[str, Any] = {}
+            loc: dict[str, Any] = {}
             try:
                 stderr_buf = io.StringIO()
                 with _w.catch_warnings():
                     _w.simplefilter("ignore", SyntaxWarning)
-                    byte_code = compile_restricted(
-                        code, filename="<sandbox>", mode="exec"
-                    )
+                    byte_code = compile_restricted(code, filename="<sandbox>", mode="exec")
                 with redirect_stderr(stderr_buf):
-                    exec(byte_code, g, loc)  # noqa: S102
+                    exec(byte_code, g, loc)
                 # loc['_print'] is the PrintCollector instance; calling it returns text
                 collector = loc.get("_print")
                 stdout_text = collector() if collector is not None else ""
@@ -235,7 +235,7 @@ class CodeSandbox(AbstractTool):
             g.update(context)
             try:
                 with redirect_stdout(stdout_buf), redirect_stderr(stderr_buf):
-                    exec(compile(code, "<sandbox>", "exec"), g)  # noqa: S102
+                    exec(compile(code, "<sandbox>", "exec"), g)
                 return {
                     "stdout": stdout_buf.getvalue()[: self._max_out],
                     "stderr": stderr_buf.getvalue()[: self._max_out],
@@ -249,7 +249,7 @@ class CodeSandbox(AbstractTool):
         return __import__(name, *args, **kwargs)
 
     @staticmethod
-    def _stub_exec(code: str) -> Dict[str, str]:
+    def _stub_exec(code: str) -> dict[str, str]:
         first_print = ""
         for line in code.splitlines():
             line = line.strip()

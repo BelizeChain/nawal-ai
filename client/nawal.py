@@ -39,10 +39,10 @@ Examples:
         result = engine.generate("Write a Python function to validate SSN")
 """
 
+import logging
+
 import torch
 import torch.nn as nn
-from typing import Optional, Dict, Any, List
-import logging
 
 # Import pure Nawal architecture (NO external model dependencies)
 from nawal.architecture import NawalModelConfig, NawalTransformer
@@ -103,7 +103,7 @@ class Nawal(nn.Module):
 
     def __init__(
         self,
-        config: Optional[NawalModelConfig] = None,
+        config: NawalModelConfig | None = None,
         model_size: str = "small",
     ):
         """Initialize Nawal language model.
@@ -119,7 +119,7 @@ class Nawal(nn.Module):
             The model is initialized with random weights. Use `from_pretrained()` to load
             trained weights or train via federated learning with `NawalFederatedClient`.
         """
-        super(Nawal, self).__init__()
+        super().__init__()
 
         # Use custom config or create default based on model size
         if config is None:
@@ -164,9 +164,7 @@ class Nawal(nn.Module):
             TokenizerType,
         )
 
-        tokenizer = NawalTokenizerWrapper(
-            TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER)
-        )
+        tokenizer = NawalTokenizerWrapper(TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER))
 
         if self.config.belizean_vocab_extension:
             belizean_tokens = self._get_belizean_tokens()
@@ -175,7 +173,7 @@ class Nawal(nn.Module):
 
         return tokenizer
 
-    def _get_belizean_tokens(self) -> List[str]:
+    def _get_belizean_tokens(self) -> list[str]:
         """Get comprehensive list of Belizean-specific tokens"""
         return [
             # Currencies and Financial
@@ -235,12 +233,12 @@ class Nawal(nn.Module):
     def forward(
         self,
         input_ids: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
-        labels: Optional[torch.Tensor] = None,
-        past_key_values: Optional[List] = None,
-        use_cache: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
-    ) -> Dict[str, torch.Tensor]:
+        attention_mask: torch.Tensor | None = None,
+        labels: torch.Tensor | None = None,
+        past_key_values: list | None = None,
+        use_cache: bool | None = None,
+        return_dict: bool | None = None,
+    ) -> dict[str, torch.Tensor]:
         """
         Forward pass through Nawal transformer
 
@@ -276,7 +274,7 @@ class Nawal(nn.Module):
         num_return_sequences: int = 1,
         detect_language: bool = True,
         apply_compliance: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         """Generate text from prompt using nucleus sampling.
 
         Args:
@@ -349,7 +347,7 @@ class Nawal(nn.Module):
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             top_p=top_p,
-            do_sample=True if temperature > 0 else False,
+            do_sample=temperature > 0,
         )
 
         # Decode outputs
@@ -385,7 +383,7 @@ class Nawal(nn.Module):
             return cls(**kwargs)
 
     def save_to_belizechain(
-        self, version: str, save_directory: str = None, ipfs_node: str = None
+        self, version: str, save_directory: str | None = None, ipfs_node: str | None = None
     ):
         """
         Save model to local storage and optionally to BelizeChain's Pakit (IPFS/Arweave)
@@ -413,9 +411,7 @@ class Nawal(nn.Module):
                 # from pakit.storage import upload_to_ipfs
                 # ipfs_hash = upload_to_ipfs(save_directory, ipfs_node)
                 # logger.info(f"Uploaded to IPFS: {ipfs_hash}")
-                logger.warning(
-                    "Pakit upload requires pakit service - install pakit dependencies"
-                )
+                logger.warning("Pakit upload requires pakit service - install pakit dependencies")
             except Exception as e:
                 logger.warning(f"Pakit upload failed (optional): {e}")
 
@@ -423,7 +419,7 @@ class Nawal(nn.Module):
 class LanguageDetector:
     """Detect language of input text (English, Spanish, Kriol, Garifuna, Maya)"""
 
-    def __init__(self, supported_languages: List[str]):
+    def __init__(self, supported_languages: list[str]):
         self.supported_languages = supported_languages
 
         # Kriol-specific patterns
@@ -447,9 +443,7 @@ class LanguageDetector:
             return "bzj"  # Belizean Kriol
 
         # Check for Spanish
-        spanish_score = sum(
-            1 for marker in self.spanish_markers if marker in text_lower
-        )
+        spanish_score = sum(1 for marker in self.spanish_markers if marker in text_lower)
         if spanish_score >= 2:
             return "es"
 

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -34,12 +34,12 @@ class PerceptionWorldState:
         fused_embedding  : Multimodal fusion vector (set by SensoryHub).
     """
 
-    text_embedding: Optional[List[float]] = None
-    image_embedding: Optional[List[float]] = None
-    audio_embedding: Optional[List[float]] = None
-    raw_text: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    fused_embedding: Optional[List[float]] = None
+    text_embedding: list[float] | None = None
+    image_embedding: list[float] | None = None
+    audio_embedding: list[float] | None = None
+    raw_text: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    fused_embedding: list[float] | None = None
 
 
 # Backward-compatible alias — prefer PerceptionWorldState in new code.
@@ -55,7 +55,7 @@ class AbstractCortex(ABC):
     """
 
     @abstractmethod
-    def encode(self, raw_input: Any) -> List[float]:
+    def encode(self, raw_input: Any) -> list[float]:
         """
         Convert raw modality input into a dense embedding vector.
 
@@ -86,5 +86,5 @@ class AbstractCortex(ABC):
         return self._to_world_state(embedding, raw_input)
 
     @abstractmethod
-    def _to_world_state(self, embedding: List[float], raw_input: Any) -> WorldState:
+    def _to_world_state(self, embedding: list[float], raw_input: Any) -> WorldState:
         """Wrap an embedding in the correct WorldState field for this modality."""

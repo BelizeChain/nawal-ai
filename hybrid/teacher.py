@@ -11,10 +11,10 @@ Model: DeepSeek-Coder-33B-Instruct
 - Runs efficiently with vLLM on single GPU (A100/H100)
 """
 
-import torch
-from typing import Optional, List, Dict
 import logging
 from dataclasses import dataclass
+
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class DeepSeekConfig:
     temperature: float = 0.7
     top_p: float = 0.95
     tensor_parallel_size: int = 1  # Number of GPUs
-    quantization: Optional[str] = "awq"  # "awq", "gptq", "bitsandbytes", or None
+    quantization: str | None = "awq"  # "awq", "gptq", "bitsandbytes", or None
     gpu_memory_utilization: float = 0.9
     max_num_seqs: int = 64  # Bound vLLM queue to prevent unbounded growth
 
@@ -49,7 +49,7 @@ class DeepSeekTeacher:
     - Response caching for repeated queries
     """
 
-    def __init__(self, config: Optional[DeepSeekConfig] = None):
+    def __init__(self, config: DeepSeekConfig | None = None):
         self.config = config or DeepSeekConfig()
         self.model = None
         self.tokenizer = None
@@ -68,8 +68,8 @@ class DeepSeekTeacher:
         - Quantization for memory efficiency
         """
         try:
-            from vllm import LLM, SamplingParams
             from transformers import AutoTokenizer
+            from vllm import LLM
 
             # Load tokenizer
             self.tokenizer = AutoTokenizer.from_pretrained(
@@ -129,10 +129,10 @@ class DeepSeekTeacher:
     def generate(
         self,
         prompt: str,
-        max_tokens: Optional[int] = None,
-        temperature: Optional[float] = None,
+        max_tokens: int | None = None,
+        temperature: float | None = None,
         return_logits: bool = False,
-    ) -> Dict:
+    ) -> dict:
         """
         Generate response from DeepSeek
 
@@ -168,13 +168,9 @@ class DeepSeekTeacher:
             and hasattr(self.model, "__module__")
             and "vllm" in self.model.__module__
         ):
-            response = self._generate_vllm(
-                prompt, max_tokens, temperature, return_logits
-            )
+            response = self._generate_vllm(prompt, max_tokens, temperature, return_logits)
         else:
-            response = self._generate_transformers(
-                prompt, max_tokens, temperature, return_logits
-            )
+            response = self._generate_transformers(prompt, max_tokens, temperature, return_logits)
 
         # Cache response with LRU eviction
         response["cached"] = False
@@ -187,7 +183,7 @@ class DeepSeekTeacher:
 
     def _generate_vllm(
         self, prompt: str, max_tokens: int, temperature: float, return_logits: bool
-    ) -> Dict:
+    ) -> dict:
         """Generate using vLLM engine"""
         from vllm import SamplingParams
 
@@ -195,9 +191,7 @@ class DeepSeekTeacher:
             temperature=temperature,
             top_p=self.config.top_p,
             max_tokens=max_tokens,
-            logprobs=(
-                5 if return_logits else None
-            ),  # Return top-5 logprobs for distillation
+            logprobs=(5 if return_logits else None),  # Return top-5 logprobs for distillation
         )
 
         outputs = self.model.generate([prompt], sampling_params)
@@ -216,7 +210,7 @@ class DeepSeekTeacher:
 
     def _generate_transformers(
         self, prompt: str, max_tokens: int, temperature: float, return_logits: bool
-    ) -> Dict:
+    ) -> dict:
         """Generate using HuggingFace transformers"""
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
 
@@ -226,15 +220,13 @@ class DeepSeekTeacher:
                 max_new_tokens=max_tokens,
                 temperature=temperature,
                 top_p=self.config.top_p,
-                do_sample=True if temperature > 0 else False,
+                do_sample=temperature > 0,
                 output_scores=return_logits,
                 return_dict_in_generate=True,
             )
 
         generated_ids = outputs.sequences[:, inputs.input_ids.size(1) :]
-        generated_text = self.tokenizer.decode(
-            generated_ids[0], skip_special_tokens=True
-        )
+        generated_text = self.tokenizer.decode(generated_ids[0], skip_special_tokens=True)
 
         result = {
             "text": generated_text,
@@ -242,9 +234,7 @@ class DeepSeekTeacher:
 
         if return_logits:
             # Stack scores from all generation steps
-            result["logits"] = torch.stack(
-                outputs.scores, dim=1
-            )  # [batch, seq_len, vocab]
+            result["logits"] = torch.stack(outputs.scores, dim=1)  # [batch, seq_len, vocab]
             result["tokens"] = generated_ids
 
         return result
@@ -283,7 +273,7 @@ class DeepSeekTeacher:
 
 # Convenience function
 def create_deepseek_teacher(
-    quantization: Optional[str] = "awq",
+    quantization: str | None = "awq",
     num_gpus: int = 1,
 ) -> DeepSeekTeacher:
     """

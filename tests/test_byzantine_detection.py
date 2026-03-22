@@ -17,7 +17,7 @@ import pytest
 import torch
 import torch.nn as nn
 from nawal.client.genome_trainer import GenomeTrainer, TrainingConfig
-from nawal.genome import Genome, ArchitectureLayer, LayerType
+from nawal.genome import ArchitectureLayer, Genome, LayerType
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ async def test_honest_update_high_score(training_config, simple_genome):
 
     # Simulate normal training with small, consistent updates (establish baseline)
     with torch.no_grad():
-        for name, param in trainer.current_model.named_parameters():
+        for _name, param in trainer.current_model.named_parameters():
             param.data += torch.randn_like(param) * 0.001  # Small random update
 
     # First scored update - should be honest
@@ -81,7 +81,7 @@ async def test_honest_update_high_score(training_config, simple_genome):
 
     # Second update - should be better with more history
     with torch.no_grad():
-        for name, param in trainer.current_model.named_parameters():
+        for _name, param in trainer.current_model.named_parameters():
             param.data += torch.randn_like(param) * 0.001  # Small random update
 
     score2 = trainer._calculate_honesty_score()
@@ -99,7 +99,7 @@ async def test_large_gradient_low_score(training_config, simple_genome):
 
     # Simulate Byzantine behavior: huge gradient
     with torch.no_grad():
-        for name, param in trainer.current_model.named_parameters():
+        for _name, param in trainer.current_model.named_parameters():
             param.data += torch.randn_like(param) * 10.0  # 10x normal
 
     score = trainer._calculate_honesty_score()
@@ -342,7 +342,7 @@ async def test_variance_consistency_check():
     # Chaotic update (different magnitudes)
     with torch.no_grad():
         magnitudes = [0.001, 1.0, 0.0001]  # Very different
-        for param, mag in zip(model.parameters(), magnitudes):
+        for param, mag in zip(model.parameters(), magnitudes, strict=False):
             param.data += torch.randn_like(param) * mag
 
     weights = {name: param.data.clone() for name, param in model.named_parameters()}

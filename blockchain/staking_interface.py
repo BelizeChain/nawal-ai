@@ -19,14 +19,13 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, Optional, List
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
 from loguru import logger
 
-from .substrate_client import SubstrateClient, ExtrinsicReceipt
+from .substrate_client import ExtrinsicReceipt, SubstrateClient
 
 
 class ValidatorStatus(Enum):
@@ -63,7 +62,7 @@ class FitnessScore:
     timeliness: float
     honesty: float
     round: int
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
     def __post_init__(self):
         if self.timestamp is None:
@@ -80,7 +79,7 @@ class FitnessScore:
         """Calculate weighted total score."""
         return 0.4 * self.quality + 0.3 * self.timeliness + 0.3 * self.honesty
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for chain submission."""
         return {
             "quality": int(self.quality * 100),  # Convert to basis points
@@ -112,7 +111,7 @@ class ValidatorInfo:
     commission: float = 0.0
     total_score: float = 0.0
     rounds_participated: int = 0
-    last_fitness: Optional[FitnessScore] = None
+    last_fitness: FitnessScore | None = None
     reputation: float = 100.0
 
 
@@ -214,15 +213,14 @@ class StakingInterface:
 
         if receipt.success:
             logger.success(
-                f"Fitness score submitted successfully "
-                f"(block #{receipt.block_number})"
+                f"Fitness score submitted successfully " f"(block #{receipt.block_number})"
             )
         else:
             logger.error(f"Fitness submission failed: {receipt.error}")
 
         return receipt
 
-    def get_validator_info(self, address: str) -> Optional[ValidatorInfo]:
+    def get_validator_info(self, address: str) -> ValidatorInfo | None:
         """
         Get validator information.
 
@@ -262,7 +260,7 @@ class StakingInterface:
             logger.error(f"Failed to get validator info: {e}")
             return None
 
-    def get_stake_info(self, address: str) -> Optional[StakeInfo]:
+    def get_stake_info(self, address: str) -> StakeInfo | None:
         """
         Get validator stake information.
 
@@ -293,9 +291,7 @@ class StakingInterface:
                 min_required=min_stake,
             )
 
-            logger.debug(
-                f"Stake info: total={info.total}, " f"sufficient={info.is_sufficient}"
-            )
+            logger.debug(f"Stake info: total={info.total}, " f"sufficient={info.is_sufficient}")
 
             return info
 
@@ -451,7 +447,7 @@ class StakingInterface:
     def get_validator_rewards(
         self,
         address: str,
-        era: Optional[int] = None,
+        era: int | None = None,
     ) -> int:
         """
         Get validator rewards for an era.
@@ -477,7 +473,7 @@ class StakingInterface:
             logger.error(f"Failed to get rewards: {e}")
             return 0
 
-    def get_active_validators(self) -> List[str]:
+    def get_active_validators(self) -> list[str]:
         """
         Get list of active validator addresses.
 

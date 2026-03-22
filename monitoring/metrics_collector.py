@@ -3,13 +3,11 @@ Metrics collection for inference API
 Exports Prometheus-compatible metrics
 """
 
-import time
-from typing import Dict
 from prometheus_client import (
-    Counter,
-    Histogram,
-    Gauge,
     CollectorRegistry,
+    Counter,
+    Gauge,
+    Histogram,
     generate_latest,
 )
 
@@ -60,9 +58,7 @@ class InferenceMetricsCollector:
     ):
         """Log inference metrics"""
         self.requests_total.labels(user_id=user_id, status="success").inc()
-        self.inference_duration.observe(
-            inference_time / 1000.0
-        )  # Convert ms to seconds
+        self.inference_duration.observe(inference_time / 1000.0)  # Convert ms to seconds
         self.tokens_generated.inc(output_length)
 
     async def export_prometheus(self) -> bytes:

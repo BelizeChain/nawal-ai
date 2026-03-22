@@ -48,15 +48,15 @@ Phase 6d: connect ``fused_embedding`` to ``QuantumImagination`` for richer
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from loguru import logger
 
+from perception.auditory_cortex import AuditoryCortex
 from perception.interfaces import WorldState
+from perception.multimodal_cortex import MultimodalCortex
 from perception.text_cortex import TextCortex
 from perception.visual_cortex import VisualCortex
-from perception.auditory_cortex import AuditoryCortex
-from perception.multimodal_cortex import MultimodalCortex
 
 
 class SensoryHub:
@@ -76,10 +76,10 @@ class SensoryHub:
 
     def __init__(
         self,
-        text_cortex: Optional[TextCortex] = None,
-        visual_cortex: Optional[VisualCortex] = None,
-        auditory_cortex: Optional[AuditoryCortex] = None,
-        multimodal_cortex: Optional[MultimodalCortex] = None,
+        text_cortex: TextCortex | None = None,
+        visual_cortex: VisualCortex | None = None,
+        auditory_cortex: AuditoryCortex | None = None,
+        multimodal_cortex: MultimodalCortex | None = None,
         hidden_dim: int = 256,
         device: str = "auto",
         strict: bool = False,
@@ -90,9 +90,7 @@ class SensoryHub:
 
         self._text = text_cortex or TextCortex(embed_dim=hidden_dim)
         self._vis = visual_cortex or VisualCortex(embed_dim=hidden_dim, stub_mode=True)
-        self._aud = auditory_cortex or AuditoryCortex(
-            embed_dim=hidden_dim, stub_mode=True
-        )
+        self._aud = auditory_cortex or AuditoryCortex(embed_dim=hidden_dim, stub_mode=True)
         self._mm = multimodal_cortex or MultimodalCortex(
             hidden_dim=hidden_dim, fusion_strategy="weighted"
         )
@@ -109,10 +107,10 @@ class SensoryHub:
 
     def encode(
         self,
-        text: Optional[str] = None,
-        image: Optional[Any] = None,  # PIL Image, np.ndarray, path
-        audio: Optional[Any] = None,  # np.ndarray [samples] at 16 kHz
-        audio_path: Optional[str] = None,
+        text: str | None = None,
+        image: Any | None = None,  # PIL Image, np.ndarray, path
+        audio: Any | None = None,  # np.ndarray [samples] at 16 kHz
+        audio_path: str | None = None,
     ) -> WorldState:
         """
         Fuse any combination of modalities into a single WorldState.
@@ -175,10 +173,10 @@ class SensoryHub:
     # Alias: process() is a more intuitive name for multi-modal encoding
     def process(
         self,
-        text: Optional[str] = None,
-        image: Optional[Any] = None,
-        audio: Optional[Any] = None,
-        audio_path: Optional[str] = None,
+        text: str | None = None,
+        image: Any | None = None,
+        audio: Any | None = None,
+        audio_path: str | None = None,
     ) -> WorldState:
         """Alias for :meth:`encode` — fuse any combination of modalities."""
         return self.encode(text=text, image=image, audio=audio, audio_path=audio_path)
@@ -221,10 +219,7 @@ class SensoryHub:
         feats = ws.fused_embedding
         mean_v = sum(feats) / len(feats) if feats else 0.0
         mode = "stub" if self._vis.stub_mode else "clip"
-        return (
-            f"[Image encoded via {mode.upper()} · "
-            f"emb_dim={len(feats)} · mean={mean_v:.4f}]"
-        )
+        return f"[Image encoded via {mode.upper()} · " f"emb_dim={len(feats)} · mean={mean_v:.4f}]"
 
     # ------------------------------------------------------------------ #
     # Sub-system accessors                                                 #

@@ -35,25 +35,29 @@ spec:
               value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
             - name: ENVIRONMENT
               value: "production"
+            - name: WORKERS
+              value: "1"
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 30
+            timeoutSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 15
+            initialDelaySeconds: 30
             periodSeconds: 10
+            timeoutSeconds: 10
           resources:
             requests:
-              cpu: "100m"
-              memory: "256Mi"
+              cpu: "250m"
+              memory: "512Mi"
             limits:
-              cpu: "500m"
-              memory: "1Gi"
+              cpu: "1000m"
+              memory: "2Gi"
           volumeMounts:
             - name: checkpoints
               mountPath: /var/lib/nawal/checkpoints

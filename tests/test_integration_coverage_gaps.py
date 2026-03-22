@@ -22,25 +22,11 @@ Covers:
 """
 
 import asyncio
-import time
-import pytest
-import numpy as np
-import torch
-from unittest.mock import MagicMock, AsyncMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-# ---------------------------------------------------------------------------
-# Oracle pipeline imports
-# ---------------------------------------------------------------------------
-from integration.oracle_pipeline import (
-    OracleDataFetcher,
-    DataPreprocessor,
-    ModelInferenceRunner,
-    ResultSubmitter,
-    OraclePipeline,
-    IoTDataSubmission,
-    IoTDeviceInfo,
-    DeviceType,
-)
+import numpy as np
+import pytest
+import torch
 
 # ModelDomain used in oracle_pipeline
 from nawal.client.domain_models import ModelDomain
@@ -49,6 +35,20 @@ from nawal.client.domain_models import ModelDomain
 from integration.kinich_connector import (
     KinichQuantumConnector,
     QuantumEnhancedLayer,
+)
+
+# ---------------------------------------------------------------------------
+# Oracle pipeline imports
+# ---------------------------------------------------------------------------
+from integration.oracle_pipeline import (
+    DataPreprocessor,
+    DeviceType,
+    IoTDataSubmission,
+    IoTDeviceInfo,
+    ModelInferenceRunner,
+    OracleDataFetcher,
+    OraclePipeline,
+    ResultSubmitter,
 )
 
 # ===========================================================================
@@ -619,7 +619,6 @@ class TestOraclePipeline:
         call_count = 0
 
         # First call raises exception, second raises KeyboardInterrupt
-        original_method = pipeline.process_pending_submissions
 
         async def mock_process(*a, **kw):
             nonlocal call_count
@@ -763,9 +762,8 @@ class TestKinichQuantumConnector:
         features = np.random.randn(2, 16)
         with patch.object(
             conn, "_quantum_forward", side_effect=RuntimeError("quantum error")
-        ):
-            with pytest.raises(RuntimeError, match="quantum error"):
-                await conn.quantum_process(features)
+        ), pytest.raises(RuntimeError, match="quantum error"):
+            await conn.quantum_process(features)
 
     @pytest.mark.asyncio
     async def test_quantum_forward_aiohttp(self):
@@ -830,9 +828,8 @@ class TestKinichQuantumConnector:
                 __aenter__=AsyncMock(return_value=mock_session),
                 __aexit__=AsyncMock(return_value=False),
             ),
-        ):
-            with pytest.raises(RuntimeError, match="Kinich API error"):
-                await conn._quantum_forward(np.random.randn(2, 16), "vqc")
+        ), pytest.raises(RuntimeError, match="Kinich API error"):
+            await conn._quantum_forward(np.random.randn(2, 16), "vqc")
 
     @pytest.mark.asyncio
     @patch("urllib.request.urlopen")
@@ -847,7 +844,7 @@ class TestKinichQuantumConnector:
         with patch.object(
             conn, "_quantum_forward", new_callable=AsyncMock, return_value=features
         ) as mock_qf:
-            result = await conn._vqc_forward(features)
+            await conn._vqc_forward(features)
             mock_qf.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -876,7 +873,7 @@ class TestKinichQuantumConnector:
         with patch.object(
             conn, "_quantum_forward", new_callable=AsyncMock, return_value=features
         ) as mock_qf:
-            result = await conn._qnn_forward(features)
+            await conn._qnn_forward(features)
             mock_qf.assert_awaited_once()
 
     @patch("urllib.request.urlopen")

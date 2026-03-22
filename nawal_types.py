@@ -14,7 +14,7 @@ Usage::
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # --------------------------------------------------------------------------- #
 # Perception types                                                             #
@@ -36,13 +36,13 @@ class WorldState:
         metadata         : Arbitrary extra data.
     """
 
-    text: Optional[str] = None
-    image_embedding: Optional[List[float]] = None
-    audio_transcript: Optional[str] = None
-    fused_embedding: Optional[List[float]] = None
-    modalities: List[str] = field(default_factory=list)
+    text: str | None = None
+    image_embedding: list[float] | None = None
+    audio_transcript: str | None = None
+    fused_embedding: list[float] | None = None
+    modalities: list[str] = field(default_factory=list)
     timestamp: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def has_text(self) -> bool:
         return bool(self.text)
@@ -89,7 +89,7 @@ class GenerationResult:
     memory_context_used: bool = False
     critique_applied: bool = False
     safety_passed: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def is_complete(self) -> bool:
         return bool(self.response)
@@ -128,12 +128,12 @@ class FeedbackSignal:
     prompt: str = ""
     response: str = ""
     reward_score: float = 0.0
-    human_rating: Optional[float] = None
+    human_rating: float | None = None
     safety_score: float = 1.0
     consistency_score: float = 1.0
     novelty_score: float = 0.0
     memory_utilized: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def composite_reward(
         self,
@@ -157,7 +157,7 @@ class FeedbackSignal:
 # --------------------------------------------------------------------------- #
 
 __all__ = [
-    "WorldState",
-    "GenerationResult",
     "FeedbackSignal",
+    "GenerationResult",
+    "WorldState",
 ]

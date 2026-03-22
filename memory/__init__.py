@@ -18,20 +18,20 @@ Canonical imports::
     from nawal.memory.interfaces import AbstractMemory
 """
 
-from memory.interfaces import AbstractMemory, MemoryRecord
-from memory.working import WorkingMemory
 from memory.episodic import EpisodicMemory
-from memory.semantic import SemanticMemory
+from memory.interfaces import AbstractMemory, MemoryRecord
 from memory.manager import MemoryManager
+from memory.semantic import SemanticMemory
+from memory.working import WorkingMemory
 
 __all__ = [
     # Interfaces
     "AbstractMemory",
-    "MemoryRecord",
-    # Concrete stores
-    "WorkingMemory",
     "EpisodicMemory",
-    "SemanticMemory",
     # Unified facade
     "MemoryManager",
+    "MemoryRecord",
+    "SemanticMemory",
+    # Concrete stores
+    "WorkingMemory",
 ]

@@ -40,11 +40,8 @@ Phase 5: Replace ``_quantum_retrieve()`` body with live Kinich HTTP call
 
 from __future__ import annotations
 
-import math
-import random
 import time
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from loguru import logger
@@ -85,7 +82,7 @@ class QuantumMemory:
     def __init__(
         self,
         backing_store: AbstractMemory,
-        connector: Optional[Any] = None,
+        connector: Any | None = None,
         fallback_to_classical: bool = True,
         simulation_mode: bool = False,
         quantum_threshold: int = QUANTUM_THRESHOLD,
@@ -96,7 +93,7 @@ class QuantumMemory:
         self.simulation_mode = simulation_mode
         self.quantum_threshold = quantum_threshold
 
-        self.stats: Dict[str, int] = {
+        self.stats: dict[str, int] = {
             "quantum_calls": 0,
             "simulated_calls": 0,
             "classical_calls": 0,
@@ -119,10 +116,10 @@ class QuantumMemory:
 
     def retrieve(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[MemoryRecord]:
         """
         Retrieve the top-k most relevant records for *query_embedding*.
 
@@ -168,8 +165,8 @@ class QuantumMemory:
         self,
         query_vector: np.ndarray,
         top_k: int = 5,
-        corpus_vectors: Optional[np.ndarray] = None,
-    ) -> List[int]:
+        corpus_vectors: np.ndarray | None = None,
+    ) -> list[int]:
         """
         Low-level index search.  Returns integer indices.
 
@@ -200,19 +197,19 @@ class QuantumMemory:
 
     def _classical_retrieve(
         self,
-        query: List[float],
+        query: list[float],
         top_k: int,
-        filters: Optional[Dict[str, Any]],
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None,
+    ) -> list[MemoryRecord]:
         """Standard cosine-similarity top-k via backing store."""
         return self._store.retrieve(query_embedding=query, top_k=top_k, filters=filters)
 
     def _simulated_grover_retrieve(
         self,
-        query: List[float],
+        query: list[float],
         top_k: int,
-        filters: Optional[Dict[str, Any]],
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None,
+    ) -> list[MemoryRecord]:
         """
         Grover amplitude-amplification *simulation* (no hardware).
 
@@ -245,9 +242,7 @@ class QuantumMemory:
         for rec in candidates:
             if rec.embedding is not None:
                 v = np.asarray(rec.embedding, dtype=np.float32)
-                cos = float(
-                    np.dot(q, v) / (np.linalg.norm(q) * np.linalg.norm(v) + 1e-9)
-                )
+                cos = float(np.dot(q, v) / (np.linalg.norm(q) * np.linalg.norm(v) + 1e-9))
             else:
                 cos = 0.0
             # Oracle: high similarity → low amplitude (1 - similarity)
@@ -271,24 +266,20 @@ class QuantumMemory:
 
     def _quantum_retrieve(
         self,
-        query: List[float],
+        query: list[float],
         top_k: int,
-        filters: Optional[Dict[str, Any]],
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None,
+    ) -> list[MemoryRecord]:
         """
         Quantum path via Kinich connector.
 
         PhaseHook — Phase 5: implement real Kinich HTTP call here.
         For now, delegates to simulated Grover.
         """
-        if self._connector is not None and getattr(
-            self._connector, "kinich_available", False
-        ):
+        if self._connector is not None and getattr(self._connector, "kinich_available", False):
             # DESIGN NOTE (Phase 5): replace simulated Grover with
             # connector.quantum_process(query, top_k, filters) when Kinich is live.
-            logger.debug(
-                "QuantumMemory: Kinich connected — using simulated path (live TBD)"
-            )
+            logger.debug("QuantumMemory: Kinich connected — using simulated path (live TBD)")
         return self._simulated_grover_retrieve(query, top_k, filters)
 
     # ------------------------------------------------------------------ #
@@ -300,9 +291,7 @@ class QuantumMemory:
             return False
         if not getattr(self._connector, "kinich_available", False):
             return False
-        if corpus_size < self.quantum_threshold:
-            return False
-        return True
+        return not corpus_size < self.quantum_threshold
 
     def _corpus_size(self) -> int:
         """Best-effort corpus size estimate."""
@@ -315,7 +304,7 @@ class QuantumMemory:
     # Delegated AbstractMemory methods                                     #
     # ------------------------------------------------------------------ #
 
-    def get(self, key: str) -> Optional[MemoryRecord]:
+    def get(self, key: str) -> MemoryRecord | None:
         return self._store.get(key)
 
     def delete(self, key: str) -> bool:
@@ -327,12 +316,10 @@ class QuantumMemory:
     def __len__(self) -> int:
         return len(self._store)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         total = sum(self.stats.values())
         return {
             **self.stats,
             "total_calls": total,
-            "quantum_ratio": (
-                self.stats["quantum_calls"] / total if total > 0 else 0.0
-            ),
+            "quantum_ratio": (self.stats["quantum_calls"] / total if total > 0 else 0.0),
         }

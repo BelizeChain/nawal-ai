@@ -11,13 +11,9 @@ Checks:
 from __future__ import annotations
 
 import hashlib
-import json
 import os
-import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from storage.pakit_client import PakitClient
 
@@ -305,7 +301,7 @@ class TestC113MerkleProof:
     def test_submit_merkle_proof_exists(self):
         """PakitClient has submit_merkle_proof method."""
         assert hasattr(PakitClient, "submit_merkle_proof")
-        assert callable(getattr(PakitClient, "submit_merkle_proof"))
+        assert callable(PakitClient.submit_merkle_proof)
 
     def test_submit_merkle_proof_returns_none(self):
         """submit_merkle_proof returns None (stub, not yet fully implemented)."""

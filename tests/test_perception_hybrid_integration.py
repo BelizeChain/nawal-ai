@@ -10,15 +10,10 @@ Professional test suite covering:
 """
 
 import asyncio
-import hashlib
-import io
 import os
 import struct
-import sys
 import tempfile
-from dataclasses import fields
-from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -168,7 +163,6 @@ class TestAuditoryCortexStubMode:
         assert result is not None
 
     def test_to_world_state_returns_object(self, cortex):
-        from perception.auditory_cortex import AuditoryCortex
 
         emb = [0.1] * 512
         ws = cortex._to_world_state(emb, np.array([0.1] * 100))
@@ -211,7 +205,6 @@ class TestAuditoryCortexStubMode:
         assert len(r) == cortex.embed_dim
 
     def test_world_state_has_embedding(self, cortex):
-        from perception.auditory_cortex import AuditoryCortex
 
         emb = [float(i) for i in range(512)]
         ws = cortex._to_world_state(emb, b"audio")
@@ -221,7 +214,7 @@ class TestAuditoryCortexStubMode:
     def test_preprocess_string_path(self, cortex):
         # preprocess with a string path that doesn't exist should not crash
         try:
-            result = cortex.preprocess("/nonexistent/path.wav")
+            cortex.preprocess("/nonexistent/path.wav")
         except (FileNotFoundError, Exception):
             pass  # acceptable — just shouldn't raise AttributeError
 
@@ -278,8 +271,9 @@ class TestDeepSeekConfig:
         assert cfg.model_name == "some-model"
 
     def test_is_dataclass(self):
-        from hybrid.teacher import DeepSeekConfig
         import dataclasses
+
+        from hybrid.teacher import DeepSeekConfig
 
         assert dataclasses.is_dataclass(DeepSeekConfig)
 
@@ -315,14 +309,14 @@ class TestDeepSeekTeacherInit:
         assert t._cache_maxsize == 1024
 
     def test_custom_config(self):
-        from hybrid.teacher import DeepSeekTeacher, DeepSeekConfig
+        from hybrid.teacher import DeepSeekConfig, DeepSeekTeacher
 
         cfg = DeepSeekConfig(temperature=0.9)
         t = DeepSeekTeacher(config=cfg)
         assert t.config.temperature == 0.9
 
     def test_default_config_created(self):
-        from hybrid.teacher import DeepSeekTeacher, DeepSeekConfig
+        from hybrid.teacher import DeepSeekConfig, DeepSeekTeacher
 
         t = DeepSeekTeacher()
         assert isinstance(t.config, DeepSeekConfig)
@@ -815,20 +809,21 @@ class TestIoTDeviceInfo:
     """Tests for IoTDeviceInfo dataclass."""
 
     def _make_device(self, **kwargs):
-        from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
         from nawal.client.domain_models import ModelDomain
 
-        defaults = dict(
-            device_id=b"\x01\x02\x03",
-            device_type=DeviceType.SENSOR,
-            domain=ModelDomain.AGRITECH,
-            operator="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-            location=None,
-            reputation_score=100,
-            total_submissions=10,
-            is_verified=True,
-            registration_block=42,
-        )
+        from integration.oracle_pipeline import DeviceType, IoTDeviceInfo
+
+        defaults = {
+            "device_id": b"\x01\x02\x03",
+            "device_type": DeviceType.SENSOR,
+            "domain": ModelDomain.AGRITECH,
+            "operator": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "location": None,
+            "reputation_score": 100,
+            "total_submissions": 10,
+            "is_verified": True,
+            "registration_block": 42,
+        }
         defaults.update(kwargs)
         return IoTDeviceInfo(**defaults)
 
@@ -837,8 +832,8 @@ class TestIoTDeviceInfo:
         assert d.reputation_score == 100
 
     def test_fields_match(self):
-        from integration.oracle_pipeline import IoTDeviceInfo, DeviceType
-        from nawal.client.domain_models import ModelDomain
+
+        from integration.oracle_pipeline import DeviceType
 
         d = self._make_device(device_type=DeviceType.DRONE)
         assert d.device_type == DeviceType.DRONE
@@ -868,15 +863,15 @@ class TestIoTDataSubmission:
     def _make_submission(self, **kwargs):
         from integration.oracle_pipeline import IoTDataSubmission
 
-        defaults = dict(
-            device_id=b"\x01",
-            data=b"raw_data_here",
-            feed_type="sensor_reading",
-            location=None,
-            timestamp=1700000000,
-            quality_metrics={"accuracy": 95},
-            metadata=None,
-        )
+        defaults = {
+            "device_id": b"\x01",
+            "data": b"raw_data_here",
+            "feed_type": "sensor_reading",
+            "location": None,
+            "timestamp": 1700000000,
+            "quality_metrics": {"accuracy": 95},
+            "metadata": None,
+        }
         defaults.update(kwargs)
         return IoTDataSubmission(**defaults)
 
@@ -949,12 +944,13 @@ class TestDataPreprocessor:
             assert model is not None
 
     def test_preprocess_agritech_sensor(self, preprocessor):
-        from integration.oracle_pipeline import (
-            IoTDeviceInfo,
-            IoTDataSubmission,
-            DeviceType,
-        )
         from nawal.client.domain_models import ModelDomain
+
+        from integration.oracle_pipeline import (
+            DeviceType,
+            IoTDataSubmission,
+            IoTDeviceInfo,
+        )
 
         sensor_data = struct.pack("4f", 25.0, 60.0, 7.5, 1.2)
         sub = IoTDataSubmission(
@@ -977,16 +973,17 @@ class TestDataPreprocessor:
             is_verified=True,
             registration_block=1,
         )
-        tensor, model = preprocessor.preprocess(sub, dev)
+        tensor, _model = preprocessor.preprocess(sub, dev)
         assert tensor is not None
 
     def test_preprocess_marine_sensor(self, preprocessor):
-        from integration.oracle_pipeline import (
-            IoTDeviceInfo,
-            IoTDataSubmission,
-            DeviceType,
-        )
         from nawal.client.domain_models import ModelDomain
+
+        from integration.oracle_pipeline import (
+            DeviceType,
+            IoTDataSubmission,
+            IoTDeviceInfo,
+        )
 
         sensor_data = struct.pack("4f", 25.0, 35.0, 8.1, 2.0)
         sub = IoTDataSubmission(
@@ -1009,7 +1006,7 @@ class TestDataPreprocessor:
             is_verified=True,
             registration_block=1,
         )
-        tensor, model = preprocessor.preprocess(sub, dev)
+        tensor, _model = preprocessor.preprocess(sub, dev)
         assert tensor is not None
 
 
@@ -1149,7 +1146,7 @@ class TestSaveLoadVersionedCheckpoint:
     """Tests for save_versioned_checkpoint and load_versioned_checkpoint."""
 
     def test_save_and_load_roundtrip(self):
-        from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+        from client.model import load_versioned_checkpoint, save_versioned_checkpoint
 
         m = nn.Linear(4, 2)
         orig_state = {k: v.clone() for k, v in m.state_dict().items()}
@@ -1186,7 +1183,7 @@ class TestSaveLoadVersionedCheckpoint:
             load_versioned_checkpoint(m, "/nonexistent/path.pt")
 
     def test_save_with_no_metadata(self):
-        from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+        from client.model import load_versioned_checkpoint, save_versioned_checkpoint
 
         m = nn.Linear(4, 2)
         with tempfile.NamedTemporaryFile(suffix=".pt", delete=False) as f:
@@ -1208,7 +1205,7 @@ class TestCreateBelizechainModel:
 
         with patch("client.model.BelizeChainLLM") as MockLLM:
             MockLLM.return_value = MagicMock()
-            model = create_belizechain_model()
+            create_belizechain_model()
             MockLLM.assert_called_once()
 
     def test_quantized_returns_quantized_model(self):
@@ -1216,7 +1213,7 @@ class TestCreateBelizechainModel:
 
         with patch("client.model.QuantizedBelizeModel") as MockQ:
             MockQ.return_value = MagicMock()
-            model = create_belizechain_model(
+            create_belizechain_model(
                 model_type="quantized", quantization_bits=8
             )
             MockQ.assert_called_once()
@@ -1226,7 +1223,7 @@ class TestCreateBelizechainModel:
 
         with patch("client.model.BelizeanLanguageDetector") as MockLD:
             MockLD.return_value = MagicMock()
-            model = create_belizechain_model(
+            create_belizechain_model(
                 model_type="language_detector", model_name="test-model"
             )
             MockLD.assert_called_once()

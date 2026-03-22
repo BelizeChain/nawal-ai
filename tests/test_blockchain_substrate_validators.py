@@ -18,11 +18,7 @@ Focus areas:
 import asyncio
 import json
 import os
-import sys
-from datetime import datetime, timezone
-from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -86,7 +82,6 @@ class TestBelizeIDVerifierCache:
 
     def test_create_verifier_dev_in_production_env_raises(self):
         """create_verifier(mode='development') raises when NAWAL_ENV=production."""
-        import os
         import blockchain.identity_verifier as mod
 
         old_env = os.environ.get("NAWAL_ENV")
@@ -402,12 +397,12 @@ class TestStakingInterface:
 
 class TestValidatorIdentity:
     def test_to_dict_hashes_pii(self):
+
         from blockchain.validator_manager import (
-            ValidatorIdentity,
             KYCStatus,
+            ValidatorIdentity,
             ValidatorTier,
         )
-        import hashlib
 
         identity = ValidatorIdentity(
             address="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
@@ -542,7 +537,7 @@ class TestValidatorManager:
 
 class TestTrainingEvent:
     def test_str_representation(self):
-        from blockchain.events import TrainingEvent, EventType
+        from blockchain.events import EventType, TrainingEvent
 
         evt = TrainingEvent(
             event_type=EventType.TRAINING_ROUND_STARTED,
@@ -623,7 +618,7 @@ class TestBlockchainEventListenerMock:
         assert len(history) == 2
 
     def test_dispatch_event_calls_handler(self):
-        from blockchain.events import BlockchainEventListener, EventType, TrainingEvent
+        from blockchain.events import BlockchainEventListener, EventType
 
         listener = BlockchainEventListener(mock_mode=True)
         received = []
@@ -722,7 +717,7 @@ class TestCommunityConnectorMock:
 
     def test_record_federated_learning_contribution(self):
         cc = self._connector()
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             cc.record_federated_learning_contribution(
                 account_id="5Abc",
                 round_number=1,
@@ -805,6 +800,7 @@ class TestDataManagerCustomJSON:
 
     def test_load_unsupported_type_raises(self, tmp_path):
         from unittest.mock import patch
+
         from data.data_manager import DataManager, DatasetConfig, DatasetType
 
         cfg = DatasetConfig(
@@ -866,7 +862,7 @@ class TestGenomeToNawalAdapter:
         return g
 
     def _genome_with_attn_layers(self):
-        from genome.dna import Genome, ArchitectureLayer, LayerType
+        from genome.dna import ArchitectureLayer, Genome, LayerType
 
         layers = [
             ArchitectureLayer(
@@ -903,8 +899,9 @@ class TestGenomeToNawalAdapter:
         assert config.hidden_size == 256
 
     def test_build_model_returns_transformer(self):
-        from genome.nawal_adapter import GenomeToNawalAdapter
         from nawal.architecture import NawalTransformer
+
+        from genome.nawal_adapter import GenomeToNawalAdapter
 
         adapter = GenomeToNawalAdapter()
         g = self._genome_no_layers()
@@ -992,7 +989,6 @@ class TestNawalTokenizerWrapper:
         assert len(result["input_ids"]) == 10
 
     def test_call_returns_tensors_pt(self):
-        import torch
         from data.tokenizers import NawalTokenizerWrapper
 
         tok = NawalTokenizerWrapper()
@@ -1001,7 +997,6 @@ class TestNawalTokenizerWrapper:
         assert result["attention_mask"].shape == (1, 8)
 
     def test_attention_mask_has_zeros_for_padding(self):
-        import torch
         from data.tokenizers import NawalTokenizerWrapper
 
         tok = NawalTokenizerWrapper()

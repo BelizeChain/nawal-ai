@@ -17,38 +17,38 @@ Version: 1.0.0
 
 # Core encoding
 from .encoding import (
+    ArchitectureLayer,
     Genome,
     GenomeEncoder,
-    ArchitectureLayer,
-    LayerType,
     Hyperparameters,
+    LayerType,
 )
 
 # Fitness evaluation
 from .fitness import (
     FitnessEvaluator,
-    FitnessScore,
     FitnessMetric,
+    FitnessScore,
     PoUWAlignment,
 )
 
 # Evolution operators
 from .operators import (
-    MutationOperator,
-    MutationConfig,
-    CrossoverOperator,
     CrossoverConfig,
-    EvolutionStrategy,
-    EvolutionConfig,
-    MutationType,
+    CrossoverOperator,
     CrossoverType,
+    EvolutionConfig,
+    EvolutionStrategy,
+    MutationConfig,
+    MutationOperator,
+    MutationType,
     SelectionStrategy,
 )
 
 # Population management
 from .population import (
-    PopulationManager,
     PopulationConfig,
+    PopulationManager,
     PopulationStatistics,
 )
 
@@ -64,7 +64,7 @@ def select_parents(population, count: int):
 
 def crossover(parent1, parent2, generation: int = 0):
     """Crossover two genomes (stub - use CrossoverOperator.crossover)."""
-    from .operators import CrossoverOperator, CrossoverConfig
+    from .operators import CrossoverConfig, CrossoverOperator
 
     op = CrossoverOperator(CrossoverConfig())
     return op.crossover(parent1, parent2, generation)
@@ -72,7 +72,7 @@ def crossover(parent1, parent2, generation: int = 0):
 
 def mutate(genome, generation: int | None = None):
     """Mutate a genome (stub - use MutationOperator.mutate)."""
-    from .operators import MutationOperator, MutationConfig
+    from .operators import MutationConfig, MutationOperator
 
     op = MutationOperator(MutationConfig())
     gen = generation if generation is not None else genome.generation + 1
@@ -88,86 +88,86 @@ from .history import (
 
 # Model builder - now using full implementation
 from .model_builder import (
-    ModelBuilder,
     GenomeModel,
     LayerFactory,
+    ModelBuilder,
 )
 
 # Nawal-specific genome adapter (NEW - connects to pure Nawal architecture)
 from .nawal_adapter import (
     GenomeToNawalAdapter,
     NawalGenomeBuilder,
-    genome_to_nawal,
     create_baseline_nawal_genome,
+    genome_to_nawal,
 )
 
 __version__ = "1.0.0"
 __all__ = [
+    "ArchitectureLayer",
+    "CrossoverConfig",
+    "CrossoverConfig",
+    "CrossoverOperator",
+    "CrossoverOperator",
+    "CrossoverType",
+    "CrossoverType",
+    "EvolutionConfig",
+    "EvolutionConfig",
+    # History
+    "EvolutionHistory",
+    # History
+    "EvolutionHistory",
+    "EvolutionStrategy",
+    "EvolutionStrategy",
+    # Fitness
+    "FitnessEvaluator",
+    "FitnessMetric",
+    "FitnessMetric",
+    "FitnessScore",
+    "GenerationRecord",
+    "GenerationRecord",
     # Encoding
     "Genome",
     "GenomeEncoder",
-    "ArchitectureLayer",
-    "LayerType",
-    "Hyperparameters",
-    # Fitness
-    "FitnessEvaluator",
-    "FitnessScore",
-    "FitnessMetric",
-    "PoUWAlignment",
-    # Evolution
-    "MutationOperator",
-    "MutationConfig",
-    "CrossoverOperator",
-    "CrossoverConfig",
-    "EvolutionStrategy",
-    "EvolutionConfig",
-    "MutationType",
-    "CrossoverType",
-    "SelectionStrategy",
-    # Population
-    "PopulationManager",
-    "PopulationConfig",
-    "PopulationStatistics",
-    "Population",
-    # History
-    "EvolutionHistory",
-    "GenerationRecord",
     "GenomeLineage",
-    # Model Building
-    "ModelBuilder",
+    "GenomeLineage",
     "GenomeModel",
-    "LayerFactory",
+    "GenomeModel",
     # Nawal Integration (NEW)
     "GenomeToNawalAdapter",
-    "NawalGenomeBuilder",
-    "genome_to_nawal",
-    "create_baseline_nawal_genome",
-    # Stub functions
-    "select_parents",
-    "crossover",
-    "mutate",
-    "FitnessMetric",
-    "PoUWAlignment",
-    # Operators
-    "MutationOperator",
-    "MutationConfig",
-    "CrossoverOperator",
-    "CrossoverConfig",
-    "EvolutionStrategy",
-    "EvolutionConfig",
-    "MutationType",
-    "CrossoverType",
-    "SelectionStrategy",
-    # Population
-    "PopulationManager",
-    "PopulationConfig",
-    "PopulationStatistics",
-    # History
-    "EvolutionHistory",
-    "GenerationRecord",
-    "GenomeLineage",
+    "Hyperparameters",
+    "LayerFactory",
+    "LayerFactory",
+    "LayerType",
+    # Model Building
+    "ModelBuilder",
     # Model Builder
     "ModelBuilder",
-    "GenomeModel",
-    "LayerFactory",
+    "MutationConfig",
+    "MutationConfig",
+    # Evolution
+    "MutationOperator",
+    # Operators
+    "MutationOperator",
+    "MutationType",
+    "MutationType",
+    "NawalGenomeBuilder",
+    "PoUWAlignment",
+    "PoUWAlignment",
+    "Population",
+    "PopulationConfig",
+    "PopulationConfig",
+    # Population
+    "PopulationManager",
+    # Population
+    "PopulationManager",
+    "PopulationStatistics",
+    "PopulationStatistics",
+    "SelectionStrategy",
+    "SelectionStrategy",
+    "create_baseline_nawal_genome",
+    "crossover",
+    "genome_to_nawal",
+    "mutate",
+    # Stub functions
+    "select_parents",
 ]

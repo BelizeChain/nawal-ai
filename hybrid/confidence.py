@@ -8,11 +8,11 @@ Uses multiple signals to determine if Nawal can handle a query:
 - Language (which Belizean language is this)
 """
 
-import torch
-import torch.nn.functional as F
-from typing import Optional, Dict
 import logging
 import math
+
+import torch
+import torch.nn.functional as F
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +49,7 @@ class ConfidenceScorer:
         # Supported Belizean languages (higher confidence)
         self.native_languages = ["en", "es", "bzj", "cab", "mop"]
 
-        logger.info(
-            f"Initialized ConfidenceScorer with threshold={confidence_threshold}"
-        )
+        logger.info(f"Initialized ConfidenceScorer with threshold={confidence_threshold}")
 
     def compute_entropy(self, logits: torch.Tensor) -> float:
         """
@@ -90,7 +88,7 @@ class ConfidenceScorer:
         self,
         logits: torch.Tensor,
         target_ids: torch.Tensor,
-        attention_mask: Optional[torch.Tensor] = None,
+        attention_mask: torch.Tensor | None = None,
     ) -> float:
         """
         Compute perplexity of the sequence
@@ -136,9 +134,7 @@ class ConfidenceScorer:
 
         return confidence
 
-    def compute_length_confidence(
-        self, sequence_length: int, max_length: int = 1024
-    ) -> float:
+    def compute_length_confidence(self, sequence_length: int, max_length: int = 1024) -> float:
         """
         Compute confidence based on sequence length
 
@@ -179,9 +175,9 @@ class ConfidenceScorer:
     def compute_confidence(
         self,
         logits: torch.Tensor,
-        input_ids: Optional[torch.Tensor] = None,
+        input_ids: torch.Tensor | None = None,
         detected_language: str = "en",
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Compute overall confidence score using all factors
 
@@ -243,6 +239,4 @@ class ConfidenceScorer:
         """
         old_threshold = self.threshold
         self.threshold = max(0.0, min(1.0, new_threshold))
-        logger.info(
-            f"Updated confidence threshold: {old_threshold:.3f} -> {self.threshold:.3f}"
-        )
+        logger.info(f"Updated confidence threshold: {old_threshold:.3f} -> {self.threshold:.3f}")

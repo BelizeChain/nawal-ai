@@ -4,10 +4,9 @@ Ensures only KYC-verified citizens can participate in training
 """
 
 import asyncio
-import os
-from typing import Optional, Dict
-from datetime import datetime, timedelta, timezone
 import hashlib
+import os
+from datetime import UTC, datetime, timedelta
 
 try:
     from substrateinterface import SubstrateInterface
@@ -19,9 +18,7 @@ except ImportError:
 from loguru import logger
 
 if not SUBSTRATE_AVAILABLE:
-    logger.warning(
-        "py-substrate-interface not installed. Run: pip install substrate-interface"
-    )
+    logger.warning("py-substrate-interface not installed. Run: pip install substrate-interface")
 
 
 class BelizeIDVerifier:
@@ -41,9 +38,9 @@ class BelizeIDVerifier:
             )
 
         self.rpc_url = rpc_url
-        self.cache: Dict[str, tuple[bool, datetime]] = {}
+        self.cache: dict[str, tuple[bool, datetime]] = {}
         self.cache_ttl = timedelta(seconds=cache_ttl_seconds)
-        self.substrate: Optional[SubstrateInterface] = None
+        self.substrate: SubstrateInterface | None = None
 
     async def connect(self):
         """Connect to BelizeChain node"""
@@ -66,7 +63,7 @@ class BelizeIDVerifier:
         # Check cache first
         if belizeid in self.cache:
             is_valid, cached_at = self.cache[belizeid]
-            if datetime.now(timezone.utc) - cached_at < self.cache_ttl:
+            if datetime.now(UTC) - cached_at < self.cache_ttl:
                 return is_valid
 
         # Query blockchain
@@ -74,7 +71,7 @@ class BelizeIDVerifier:
             is_valid = await self._query_blockchain(belizeid)
 
             # Update cache
-            self.cache[belizeid] = (is_valid, datetime.now(timezone.utc))
+            self.cache[belizeid] = (is_valid, datetime.now(UTC))
 
             return is_valid
 
@@ -121,7 +118,7 @@ class BelizeIDVerifier:
         hash_bytes = hashlib.sha256(belizeid.encode()).digest()
         return int.from_bytes(hash_bytes[:16], byteorder="big")
 
-    async def get_identity_details(self, belizeid: str) -> Optional[Dict]:
+    async def get_identity_details(self, belizeid: str) -> dict | None:
         """
         Get full identity details for a BelizeID
 
@@ -183,7 +180,7 @@ class DummyBelizeIDVerifier:
         logger.debug(f"Dummy verification: {belizeid} -> APPROVED (dev mode)")
         return True
 
-    async def get_identity_details(self, belizeid: str) -> Optional[Dict]:
+    async def get_identity_details(self, belizeid: str) -> dict | None:
         return {"belizeId": belizeid, "kycApproved": True, "accountType": "Citizen"}
 
     async def check_rate_limits(self, belizeid: str) -> bool:

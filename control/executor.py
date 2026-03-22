@@ -33,9 +33,8 @@ from __future__ import annotations
 
 import asyncio
 import threading
-import time
-import uuid
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 from loguru import logger
 
@@ -57,13 +56,13 @@ class ToolExecutor(AbstractExecutor):
 
     def __init__(
         self,
-        memory: Optional[Any] = None,  # MemoryManager — avoid circular import
+        memory: Any | None = None,  # MemoryManager — avoid circular import
         timeout: float = 30.0,
     ) -> None:
         self._memory = memory
         self.timeout = timeout
-        self._tools: Dict[str, Callable] = {}
-        self._interrupt_flags: Dict[str, threading.Event] = {}
+        self._tools: dict[str, Callable] = {}
+        self._interrupt_flags: dict[str, threading.Event] = {}
 
         # Register built-in tools
         self._register_builtins()
@@ -88,7 +87,7 @@ class ToolExecutor(AbstractExecutor):
         self._tools[name] = fn
         logger.debug(f"ToolExecutor registered tool={name!r}")
 
-    def available_tools(self) -> List[str]:
+    def available_tools(self) -> list[str]:
         """Return list of registered tool names."""
         return list(self._tools.keys())
 
@@ -100,7 +99,7 @@ class ToolExecutor(AbstractExecutor):
         self,
         plan: Plan,
         dry_run: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute *plan* step-by-step.
 
@@ -115,8 +114,8 @@ class ToolExecutor(AbstractExecutor):
         flag = threading.Event()
         self._interrupt_flags[plan.plan_id] = flag
 
-        outputs: List[Dict[str, Any]] = []
-        error: Optional[str] = None
+        outputs: list[dict[str, Any]] = []
+        error: str | None = None
         status = "success"
 
         logger.info(
@@ -148,9 +147,7 @@ class ToolExecutor(AbstractExecutor):
             if tool_name not in self._tools:
                 msg = f"Unknown tool {tool_name!r} at step {idx}"
                 logger.warning(msg)
-                outputs.append(
-                    {"step": idx, "tool": tool_name, "result": None, "error": msg}
-                )
+                outputs.append({"step": idx, "tool": tool_name, "result": None, "error": msg})
                 if required:
                     status, error = "failed", msg
                     break
@@ -164,9 +161,7 @@ class ToolExecutor(AbstractExecutor):
             except Exception as exc:
                 msg = f"Step {idx} {tool_name!r} raised: {exc}"
                 logger.error(msg)
-                outputs.append(
-                    {"step": idx, "tool": tool_name, "result": None, "error": str(exc)}
-                )
+                outputs.append({"step": idx, "tool": tool_name, "result": None, "error": str(exc)})
                 if required:
                     status, error = "failed", msg
                     break
@@ -176,8 +171,7 @@ class ToolExecutor(AbstractExecutor):
         self._interrupt_flags.pop(plan.plan_id, None)
 
         logger.info(
-            f"ToolExecutor plan_id={plan.plan_id!r} status={status!r} "
-            f"steps_run={len(outputs)}"
+            f"ToolExecutor plan_id={plan.plan_id!r} status={status!r} " f"steps_run={len(outputs)}"
         )
         return {"status": status, "outputs": outputs, "error": error}
 
@@ -198,7 +192,7 @@ class ToolExecutor(AbstractExecutor):
     # Invocation                                                           #
     # ------------------------------------------------------------------ #
 
-    def _invoke(self, tool_name: str, args: Dict[str, Any]) -> Any:
+    def _invoke(self, tool_name: str, args: dict[str, Any]) -> Any:
         """Call the tool, handling both sync and async callables."""
         fn = self._tools[tool_name]
         if asyncio.iscoroutinefunction(fn):
@@ -230,16 +224,14 @@ class ToolExecutor(AbstractExecutor):
             getattr(logger, level, logger.info)(f"[tool:log] {message}") or {}
         )
 
-        def _memory_read(query: str = "", top_k: int = 5, **_) -> Dict:
+        def _memory_read(query: str = "", top_k: int = 5, **_) -> dict:
             if self._memory is None:
                 return {"records": []}
             emb = _text_to_mock_embedding(query)
             records = self._memory.retrieve(emb, top_k=top_k)
             return {"records": [{"key": r.key, "content": r.content} for r in records]}
 
-        def _memory_write(
-            content: str = "", metadata: Optional[Dict] = None, **_
-        ) -> Dict:
+        def _memory_write(content: str = "", metadata: dict | None = None, **_) -> dict:
             if self._memory is None:
                 return {"stored": False}
             rec = self._memory.store_text(
@@ -256,7 +248,7 @@ class ToolExecutor(AbstractExecutor):
         for stub in ("respond", "reason", "validate", "search", "execute"):
             _name = stub  # capture loop variable
 
-            def _stub(**kwargs: Any) -> Dict[str, Any]:
+            def _stub(**kwargs: Any) -> dict[str, Any]:
                 logger.debug(f"Stub tool {_name!r} called with {kwargs}")
                 return {"stub": _name, "kwargs": kwargs}
 
@@ -269,7 +261,7 @@ class ToolExecutor(AbstractExecutor):
 # --------------------------------------------------------------------------- #
 
 
-def _text_to_mock_embedding(text: str, dim: int = 768) -> List[float]:
+def _text_to_mock_embedding(text: str, dim: int = 768) -> list[float]:
     """
     Deterministic mock embedding from text hash.
     Replaced in Phase 3 with a real encoder call.

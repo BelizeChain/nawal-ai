@@ -5,15 +5,11 @@ Each test hits specific uncovered lines identified by coverage analysis.
 
 from __future__ import annotations
 
-import json
 import os
-import re
 import tempfile
 import time
-from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -100,8 +96,8 @@ class TestSelfRepairGaps2:
     """Covers L132-133 (alert callback), L165-169 (rollback), L250-251 (episodic log fail)."""
 
     def test_alert_callback_invoked(self):
-        from maintenance.self_repair import SelfRepair, RepairStrategy
         from maintenance.interfaces import DriftReport
+        from maintenance.self_repair import RepairStrategy, SelfRepair
 
         called = {}
 
@@ -121,8 +117,8 @@ class TestSelfRepairGaps2:
             assert called.get("invoked") is True
 
     def test_alert_callback_exception_handled(self):
-        from maintenance.self_repair import SelfRepair, RepairStrategy
         from maintenance.interfaces import DriftReport
+        from maintenance.self_repair import RepairStrategy, SelfRepair
 
         def bad_alert(report):
             raise ValueError("alert boom")
@@ -182,8 +178,8 @@ class TestSemanticMemoryGaps:
         assert results == []
 
     def test_retrieve_all_expired(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         sm = SemanticMemory()
         sm.store(
@@ -199,8 +195,8 @@ class TestSemanticMemoryGaps:
         assert results == []
 
     def test_get_expired_deletes(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         sm = SemanticMemory()
         sm.store(
@@ -216,8 +212,8 @@ class TestSemanticMemoryGaps:
         assert result is None
 
     def test_retrieve_no_embedding_yields_zero(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         sm = SemanticMemory()
         sm.store(
@@ -231,8 +227,8 @@ class TestSemanticMemoryGaps:
         assert len(results) == 1
 
     def test_add_relation_no_networkx(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         sm = SemanticMemory()
         sm.store(MemoryRecord(key="a", content="a", embedding=[1.0]))
@@ -252,8 +248,8 @@ class TestSemanticMemoryGaps:
             sm.add_relation("missing_src", "missing_tgt", "r")
 
     def test_neighbours(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         sm = SemanticMemory()
         sm.store(MemoryRecord(key="a", content="a", embedding=[1.0, 0.0]))
@@ -266,8 +262,8 @@ class TestSemanticMemoryGaps:
             pass  # nx not available
 
     def test_path_no_path(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         sm = SemanticMemory()
         sm.store(MemoryRecord(key="x", content="x", embedding=[1.0]))
@@ -283,8 +279,8 @@ class TestSemanticMemoryGaps:
         assert sm.concept_summary("nonexistent") == {}
 
     def test_save_load(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         with tempfile.TemporaryDirectory() as td:
             path = os.path.join(td, "sem.pkl")
@@ -317,16 +313,16 @@ class TestSemanticMemoryGaps:
         assert result == 0.0
 
     def test_meta_matches_with_filter(self):
-        from memory.semantic import _meta_matches
         from memory.interfaces import MemoryRecord
+        from memory.semantic import _meta_matches
 
         rec = MemoryRecord(key="k", content="c", metadata={"topic": "agriculture"})
         assert _meta_matches(rec, {"topic": "agriculture"}) is True
         assert _meta_matches(rec, {"topic": "finance"}) is False
 
     def test_meta_matches_no_filter(self):
-        from memory.semantic import _meta_matches
         from memory.interfaces import MemoryRecord
+        from memory.semantic import _meta_matches
 
         rec = MemoryRecord(key="k", content="c")
         assert _meta_matches(rec, None) is True
@@ -371,14 +367,14 @@ class TestIdentityModuleGaps:
     """Covers L154-158, L209, L294, L311-312, L339-341."""
 
     def test_update_profile_valid_field(self):
-        from metacognition.identity_module import IdentityModule, AgentProfile
+        from metacognition.identity_module import AgentProfile, IdentityModule
 
         im = IdentityModule(profile=AgentProfile(name="Test"))
         im.update_profile(name="Updated")
         assert im.profile.name == "Updated"
 
     def test_update_profile_unknown_field(self):
-        from metacognition.identity_module import IdentityModule, AgentProfile
+        from metacognition.identity_module import AgentProfile, IdentityModule
 
         im = IdentityModule(profile=AgentProfile())
         # Should log warning but not crash
@@ -408,7 +404,7 @@ class TestIdentityModuleGaps:
         assert len(im._history) == 3
 
     def test_save_and_load(self):
-        from metacognition.identity_module import IdentityModule, AgentProfile
+        from metacognition.identity_module import AgentProfile, IdentityModule
 
         with tempfile.TemporaryDirectory() as td:
             path = os.path.join(td, "identity.json")
@@ -599,8 +595,8 @@ class TestMultimodalCortexProjection:
         assert len(result) == 32
 
     def test_weighted_fuse(self):
-        from perception.multimodal_cortex import MultimodalCortex
         from perception.interfaces import WorldState
+        from perception.multimodal_cortex import MultimodalCortex
 
         mc = MultimodalCortex(
             hidden_dim=16, fusion_strategy="weighted", text_weight=2.0, image_weight=1.0
@@ -613,8 +609,8 @@ class TestMultimodalCortexProjection:
         assert len(result) == 16
 
     def test_fuse_no_embeddings(self):
-        from perception.multimodal_cortex import MultimodalCortex
         from perception.interfaces import WorldState
+        from perception.multimodal_cortex import MultimodalCortex
 
         mc = MultimodalCortex(hidden_dim=8)
         ws = WorldState()
@@ -668,8 +664,9 @@ class TestVisualCortexGaps:
 
     def _make_png_bytes(self):
         """Create a valid minimal PNG in memory."""
-        from PIL import Image
         import io
+
+        from PIL import Image
 
         img = Image.new("RGB", (4, 4), color=(128, 64, 32))
         buf = io.BytesIO()
@@ -867,7 +864,7 @@ class TestQuantumImaginationGaps:
         mock_sim.simulate.side_effect = RuntimeError("sim failed")
 
         qi = QuantumImagination(internal_simulator=mock_sim, simulation_mode=True)
-        traj, value = qi._simulate_one(
+        _traj, value = qi._simulate_one(
             {"state": "s0"},
             {"action": "go"},
             jitter=False,
@@ -979,8 +976,8 @@ class TestQuantumOptimizerGaps:
     """Covers L147-149, L239-240, L260-261, L284-290, L301."""
 
     def test_qaoa_rank_fallback(self):
-        from quantum.quantum_optimizer import QuantumPlanOptimizer
         from control.interfaces import Plan
+        from quantum.quantum_optimizer import QuantumPlanOptimizer
 
         connector = MagicMock()
         connector.kinich_available = True
@@ -994,8 +991,8 @@ class TestQuantumOptimizerGaps:
         assert len(ranked) == 2
 
     def test_composite_score_with_meta(self):
-        from quantum.quantum_optimizer import QuantumPlanOptimizer
         from control.interfaces import Plan
+        from quantum.quantum_optimizer import QuantumPlanOptimizer
 
         qpo = QuantumPlanOptimizer(simulation_mode=True)
         plan = Plan(
@@ -1009,8 +1006,8 @@ class TestQuantumOptimizerGaps:
         assert score > 0.5
 
     def test_composite_score_meta_non_numeric(self):
-        from quantum.quantum_optimizer import QuantumPlanOptimizer
         from control.interfaces import Plan
+        from quantum.quantum_optimizer import QuantumPlanOptimizer
 
         qpo = QuantumPlanOptimizer(simulation_mode=True)
         plan = Plan(
@@ -1087,7 +1084,6 @@ class TestExecutiveControllerGaps:
 
     def test_tick_planner_raises(self):
         from control.controller import ExecutiveController
-        from control.interfaces import GoalStatus
 
         ctrl = ExecutiveController()
         ctrl.add_goal("test goal", priority=5)
@@ -1310,8 +1306,8 @@ class TestPlannerGaps2:
     """Covers L162-166, L197, L233, L262-266."""
 
     def test_plan_for_completed_goal_returns_empty(self):
-        from control.planner import ClassicalPlanner
         from control.interfaces import Goal, GoalStatus
+        from control.planner import ClassicalPlanner
 
         planner = ClassicalPlanner()
         goal = Goal(goal_id="g1", description="already done", priority=5)
@@ -1320,8 +1316,8 @@ class TestPlannerGaps2:
         assert plans == []
 
     def test_select_plan_with_max_steps_constraint(self):
-        from control.planner import ClassicalPlanner
         from control.interfaces import Plan
+        from control.planner import ClassicalPlanner
 
         planner = ClassicalPlanner()
         plans = [
@@ -1332,8 +1328,8 @@ class TestPlannerGaps2:
         assert len(selected.steps) <= 3
 
     def test_select_plan_all_filtered_truncates(self):
-        from control.planner import ClassicalPlanner
         from control.interfaces import Plan
+        from control.planner import ClassicalPlanner
 
         planner = ClassicalPlanner()
         plans = [
@@ -1402,8 +1398,8 @@ class TestRewardModelGaps:
         assert 0.0 <= scores[0] <= 1.0
 
     def test_unregistered_drive_signal_skipped(self):
-        from valuation.reward import DriveBasedRewardModel
         from valuation.interfaces import DriveSignal
+        from valuation.reward import DriveBasedRewardModel
 
         rm = DriveBasedRewardModel()
         drives = [DriveSignal(name="nonexistent_drive", value=0.5, weight=1.0)]
@@ -1435,7 +1431,7 @@ class TestSafetyFilterGaps2:
 
         sf = BasicSafetyFilter(blocklist=[], extra_checks=[("bad", bad_check)])
         # Should not raise — exception is caught with warning
-        ok, reason = sf.check_with_reason("normal text")
+        ok, _reason = sf.check_with_reason("normal text")
         assert isinstance(ok, bool)
 
 
@@ -1472,8 +1468,8 @@ class TestCodeSandboxGaps:
         assert "3" in result.output.get("stdout", "")
 
     def test_plain_exec_error_caught(self):
-        from action.tools.code_sandbox import CodeSandbox
         from action.interfaces import ToolStatus
+        from action.tools.code_sandbox import CodeSandbox
 
         cs = CodeSandbox(use_stub=False)
         result = cs.run(code="raise ValueError('oops')")
@@ -1515,8 +1511,8 @@ class TestMemoryToolGaps:
         assert result.output is not None
 
     def test_read_error_handled(self):
-        from action.tools.memory_tool import MemoryReadTool
         from action.interfaces import ToolStatus
+        from action.tools.memory_tool import MemoryReadTool
 
         mm = MagicMock()
         mm.episodic = MagicMock()

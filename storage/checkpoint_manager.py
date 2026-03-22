@@ -4,13 +4,13 @@ Checkpoint Manager
 Manages Nawal model checkpoints with Pakit integration.
 """
 
-import os
-import json
 import hashlib
-from typing import Dict, Any, Optional, List
-from pathlib import Path
+import json
 import logging
+import os
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from nawal.storage.pakit_client import PakitClient
 
@@ -31,7 +31,7 @@ class CheckpointManager:
     def __init__(
         self,
         checkpoint_dir: str = "./checkpoints",
-        pakit_client: Optional[PakitClient] = None,
+        pakit_client: PakitClient | None = None,
         auto_upload: bool = False,
     ):
         """
@@ -54,9 +54,9 @@ class CheckpointManager:
 
     def save_checkpoint(
         self,
-        model_state: Dict[str, Any],
+        model_state: dict[str, Any],
         checkpoint_name: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """
         Save checkpoint locally and optionally to Pakit.
@@ -94,9 +94,7 @@ class CheckpointManager:
         # Upload to Pakit if enabled
         if self.auto_upload and self.pakit_client:
             try:
-                cid = self.pakit_client.upload_file(
-                    str(checkpoint_path), metadata=metadata
-                )
+                cid = self.pakit_client.upload_file(str(checkpoint_path), metadata=metadata)
                 checkpoint_info["pakit_cid"] = cid
                 logger.info(f"☁️  Uploaded to Pakit: {cid}")
             except Exception as e:
@@ -110,7 +108,7 @@ class CheckpointManager:
 
     def load_checkpoint(
         self, checkpoint_name: str, from_pakit: bool = False
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Load checkpoint from local or Pakit.
 
@@ -167,7 +165,7 @@ class CheckpointManager:
 
             return torch.load(checkpoint_path, weights_only=True)
 
-    def list_checkpoints(self) -> List[Dict[str, Any]]:
+    def list_checkpoints(self) -> list[dict[str, Any]]:
         """List all checkpoints."""
         return list(self.registry.values())
 
@@ -206,7 +204,7 @@ class CheckpointManager:
         return sha256.hexdigest()
 
     def _verify_checkpoint_integrity(
-        self, file_path: Path, checkpoint_info: Dict[str, Any]
+        self, file_path: Path, checkpoint_info: dict[str, Any]
     ) -> bool:
         """
         Verify checkpoint file integrity against stored hash.
@@ -238,7 +236,7 @@ class CheckpointManager:
         logger.debug(f"Checkpoint integrity verified: {expected_hash[:16]}...")
         return True
 
-    def _load_registry(self) -> Dict[str, Dict[str, Any]]:
+    def _load_registry(self) -> dict[str, dict[str, Any]]:
         """Load checkpoint registry."""
         if not self.registry_path.exists():
             return {}

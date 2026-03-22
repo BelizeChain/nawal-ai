@@ -7,17 +7,15 @@ Covers:
 - perception/auditory_cortex.py (59 miss lines)
 """
 
-import hashlib
 import math
-from unittest.mock import MagicMock, patch, PropertyMock
-from typing import List
+from unittest.mock import MagicMock, patch
 
-import pytest
 import numpy as np
+import pytest
 import torch
 
-from perception.text_cortex import TextCortex, _project, _l2_normalize
-from perception.visual_cortex import VisualCortex, _check_stub_hash
+from perception.text_cortex import TextCortex, _project
+from perception.visual_cortex import VisualCortex
 
 # ===========================================================================
 # text_cortex.py
@@ -158,29 +156,30 @@ class TestVisualCortexPreprocess:
             mock_img = MagicMock()
             mock_img.convert.return_value = mock_img
             mock_pil.open.return_value = mock_img
-            result = vc.preprocess("/fake/path.png")
+            vc.preprocess("/fake/path.png")
             mock_pil.open.assert_called_once_with("/fake/path.png")
 
     def test_preprocess_numpy_array(self):
         """numpy array → PIL.fromarray."""
         vc = VisualCortex(model_name=None, stub_mode=True)
         arr = np.random.randint(0, 255, (8, 8, 3), dtype=np.uint8)
-        result = vc.preprocess(arr)
+        vc.preprocess(arr)
         # Should return PIL Image (converted via fromarray)
 
     def test_preprocess_bytes(self):
         """bytes input → PIL.open(BytesIO)."""
         vc = VisualCortex(model_name=None, stub_mode=True)
         # Create a minimal valid PNG bytes
-        from PIL import Image as PILImage
         import io
+
+        from PIL import Image as PILImage
 
         img = PILImage.new("RGB", (8, 8))
         buf = io.BytesIO()
         img.save(buf, format="PNG")
         raw_bytes = buf.getvalue()
 
-        result = vc.preprocess(raw_bytes)
+        vc.preprocess(raw_bytes)
         # Should return PIL Image
 
     def test_preprocess_pil_image(self):
@@ -292,8 +291,8 @@ class TestAuditoryCortexPreprocess:
 
     def test_preprocess_bytes_soundfile(self):
         """Bytes input with soundfile available."""
-        from perception.auditory_cortex import AuditoryCortex
         import perception.auditory_cortex as ac_mod
+        from perception.auditory_cortex import AuditoryCortex
 
         ac = AuditoryCortex(model_name=None, stub_mode=True)
 
@@ -304,7 +303,7 @@ class TestAuditoryCortexPreprocess:
             patch.object(ac_mod, "sf", mock_sf, create=True),
         ):
             with patch.object(ac, "_resample", return_value=np.zeros(1000)):
-                result = ac.preprocess(b"\x00" * 100)
+                ac.preprocess(b"\x00" * 100)
 
     def test_preprocess_numpy_stereo(self):
         """Numpy 2D (stereo) → mean to mono."""
@@ -358,8 +357,9 @@ class TestAuditoryCortexTranscribe:
         assert "audio input" in result
 
     def test_transcribe_model_load_failure(self):
-        from perception.auditory_cortex import AuditoryCortex
         from transformers import WhisperProcessor as _WP
+
+        from perception.auditory_cortex import AuditoryCortex
 
         ac = AuditoryCortex(model_name="openai/whisper-base", stub_mode=False)
         # Force load failure by patching from_pretrained
@@ -457,8 +457,8 @@ class TestAuditoryCortexWhisperTranscribe:
 
 class TestAuditoryCortexAudioIO:
     def test_load_audio_file_soundfile(self):
-        from perception.auditory_cortex import AuditoryCortex
         import perception.auditory_cortex as ac_mod
+        from perception.auditory_cortex import AuditoryCortex
 
         ac = AuditoryCortex(model_name=None, stub_mode=True)
 
@@ -468,12 +468,12 @@ class TestAuditoryCortexAudioIO:
             patch.object(ac_mod, "SOUNDFILE_AVAILABLE", True),
             patch.object(ac_mod, "sf", mock_sf, create=True),
         ):
-            audio, sr = ac._load_audio_file("/fake/audio.wav")
+            _audio, sr = ac._load_audio_file("/fake/audio.wav")
             assert sr == 16000
 
     def test_load_audio_file_torchaudio(self):
-        from perception.auditory_cortex import AuditoryCortex
         import perception.auditory_cortex as ac_mod
+        from perception.auditory_cortex import AuditoryCortex
 
         ac = AuditoryCortex(model_name=None, stub_mode=True)
 
@@ -484,7 +484,7 @@ class TestAuditoryCortexAudioIO:
             patch.object(ac_mod, "TORCHAUDIO_AVAILABLE", True),
             patch.object(ac_mod, "torchaudio", mock_ta, create=True),
         ):
-            audio, sr = ac._load_audio_file("/fake/audio.wav")
+            _audio, sr = ac._load_audio_file("/fake/audio.wav")
             assert sr == 16000
 
     def test_load_audio_file_nothing_available(self):
@@ -517,8 +517,8 @@ class TestAuditoryCortexResample:
             assert len(result) > 0
 
     def test_resample_torchaudio(self):
-        from perception.auditory_cortex import AuditoryCortex
         import perception.auditory_cortex as ac_mod
+        from perception.auditory_cortex import AuditoryCortex
 
         audio = np.random.randn(1000).astype(np.float32)
         mock_ta = MagicMock()

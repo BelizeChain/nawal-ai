@@ -16,27 +16,27 @@ Covers:
 - estimate_flops (decoder layers path)
 """
 
+
+import pytest
 import torch
 import torch.nn as nn
-import pytest
-from unittest.mock import MagicMock, patch
-
-from genome.model_builder import (
-    MultiQueryAttention,
-    GroupedQueryAttention,
-    AttentionFactory,
-    MoELayer,
-    TransformerBlock,
-    LayerFactory,
-    GenomeModel,
-    ModelBuilder,
-    FeedForward,
-    NormalizationFactory,
-    ActivationFactory,
-    RMSNorm,
-)
-from genome.encoding import Genome, ArchitectureLayer, LayerType
 from nawal.genome.dna import DNA, LayerGene
+
+from genome.encoding import ArchitectureLayer, Genome, LayerType
+from genome.model_builder import (
+    ActivationFactory,
+    AttentionFactory,
+    FeedForward,
+    GenomeModel,
+    GroupedQueryAttention,
+    LayerFactory,
+    ModelBuilder,
+    MoELayer,
+    MultiQueryAttention,
+    NormalizationFactory,
+    RMSNorm,
+    TransformerBlock,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -17,37 +17,33 @@ Date: October 2025
 License: MIT
 """
 
-import asyncio
-import logging
 import os
+import time
 import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-import time
+from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, status, Request
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, field_validator
 from loguru import logger
+from nawal.blockchain.identity_verifier import create_verifier
 
 # Nawal imports
-from nawal.config import NawalConfig
 from nawal.blockchain.staking_connector import (
     StakingConnector,
-    ParticipantInfo,
     TrainingSubmission,
 )
-from nawal.blockchain.identity_verifier import create_verifier
 from nawal.maintenance.input_screener import InputScreener
-from nawal.maintenance.output_filter import OutputFilter
 from nawal.maintenance.interfaces import RiskLevel
-from nawal.server.aggregator import FederatedAggregator, AggregationStrategy
+from nawal.maintenance.output_filter import OutputFilter
+from nawal.server.aggregator import FederatedAggregator
+from pydantic import BaseModel, Field, field_validator
 
 # =============================================================================
 # Configuration
@@ -69,24 +65,16 @@ class ServerConfig(BaseModel):
     blockchain_rpc: str = Field(
         default="ws://localhost:9944", description="BelizeChain RPC endpoint"
     )
-    blockchain_enabled: bool = Field(
-        default=True, description="Enable blockchain integration"
-    )
+    blockchain_enabled: bool = Field(default=True, description="Enable blockchain integration")
 
     # FL configuration
-    min_participants: int = Field(
-        default=3, ge=1, description="Minimum FL participants"
-    )
-    max_participants: int = Field(
-        default=100, le=1000, description="Maximum FL participants"
-    )
+    min_participants: int = Field(default=3, ge=1, description="Minimum FL participants")
+    max_participants: int = Field(default=100, le=1000, description="Maximum FL participants")
     round_timeout: int = Field(default=3600, description="Round timeout in seconds")
 
     # Security
     enable_auth: bool = Field(default=False, description="Enable API authentication")
-    api_key: Optional[str] = Field(
-        default=None, description="API key for authentication"
-    )
+    api_key: str | None = Field(default=None, description="API key for authentication")
 
     # Storage
     checkpoint_dir: Path = Field(
@@ -113,12 +101,8 @@ class EnrollRequest(BaseModel):
         ..., max_length=256, description="Participant account ID (SS58 address)"
     )
     stake_amount: int = Field(..., ge=1000, description="Stake amount in Mahogany")
-    public_key: Optional[str] = Field(
-        None, max_length=512, description="Encryption public key"
-    )
-    belizeid: Optional[str] = Field(
-        None, max_length=64, description="BelizeID for KYC verification"
-    )
+    public_key: str | None = Field(None, max_length=512, description="Encryption public key")
+    belizeid: str | None = Field(None, max_length=64, description="BelizeID for KYC verification")
 
 
 class EnrollResponse(BaseModel):
@@ -136,11 +120,9 @@ class SubmitModelRequest(BaseModel):
     participant_id: str = Field(..., max_length=256, description="Participant ID")
     round_id: str = Field(..., max_length=256, description="FL round ID")
     model_cid: str = Field(..., max_length=512, description="IPFS CID of model delta")
-    quality_score: float = Field(
-        ..., ge=0.0, le=100.0, description="Model quality (0-100)"
-    )
+    quality_score: float = Field(..., ge=0.0, le=100.0, description="Model quality (0-100)")
     training_samples: int = Field(..., ge=1, description="Number of training samples")
-    privacy_proof: Optional[str] = Field(
+    privacy_proof: str | None = Field(
         None, max_length=2048, description="Zero-knowledge privacy proof"
     )
 
@@ -159,12 +141,8 @@ class StartRoundRequest(BaseModel):
     """Request to start FL round."""
 
     dataset_name: str = Field(..., max_length=256, description="Dataset identifier")
-    target_accuracy: float = Field(
-        default=0.85, ge=0.0, le=1.0, description="Target accuracy"
-    )
-    max_participants: int = Field(
-        default=10, ge=1, le=100, description="Max participants"
-    )
+    target_accuracy: float = Field(default=0.85, ge=0.0, le=1.0, description="Target accuracy")
+    max_participants: int = Field(default=10, ge=1, le=100, description="Max participants")
     timeout: int = Field(default=3600, ge=60, description="Round timeout (seconds)")
 
 
@@ -184,9 +162,9 @@ class RoundStatus(BaseModel):
     status: str  # "pending", "active", "completed", "failed"
     participants: int
     submissions_received: int
-    current_accuracy: Optional[float]
+    current_accuracy: float | None
     start_time: str
-    completion_time: Optional[str]
+    completion_time: str | None
 
 
 class ParticipantStats(BaseModel):
@@ -197,7 +175,7 @@ class ParticipantStats(BaseModel):
     successful_rounds: int
     total_rewards: int
     average_quality: float
-    last_submission: Optional[str]
+    last_submission: str | None
 
 
 class SystemMetrics(BaseModel):
@@ -217,7 +195,7 @@ class StatusResponse(BaseModel):
 
     service: str
     version: str
-    blockchain: Dict[str, Any]
+    blockchain: dict[str, Any]
     active_rounds: int
     total_rounds: int
 
@@ -231,21 +209,19 @@ class AppState:
     """Application state."""
 
     def __init__(self):
-        self.config: Optional[ServerConfig] = None
-        self.staking_connector: Optional[StakingConnector] = None
-        self.fl_aggregator: Optional[FederatedAggregator] = None
+        self.config: ServerConfig | None = None
+        self.staking_connector: StakingConnector | None = None
+        self.fl_aggregator: FederatedAggregator | None = None
         self.identity_verifier = None
-        self.input_screener: Optional[InputScreener] = None
-        self.output_filter: Optional[OutputFilter] = None
-        self.active_rounds: Dict[str, Dict[str, Any]] = {}
+        self.input_screener: InputScreener | None = None
+        self.output_filter: OutputFilter | None = None
+        self.active_rounds: dict[str, dict[str, Any]] = {}
         self.round_counter: int = 0
         # Metrics tracking
-        self.participant_submissions: Dict[str, float] = (
+        self.participant_submissions: dict[str, float] = (
             {}
         )  # account_id -> last_submission_timestamp
-        self.completed_rounds: List[Dict[str, Any]] = (
-            []
-        )  # Track completed rounds for stats
+        self.completed_rounds: list[dict[str, Any]] = []  # Track completed rounds for stats
 
     async def initialize(self, config: ServerConfig):
         """Initialize application state."""
@@ -396,7 +372,7 @@ class RateLimiter:
     def __init__(self, max_requests: int = 60, window_seconds: int = 60):
         self.max_requests = max_requests
         self.window = window_seconds
-        self._hits: Dict[str, List[float]] = defaultdict(list)
+        self._hits: dict[str, list[float]] = defaultdict(list)
 
     def is_allowed(self, key: str) -> bool:
         now = time.monotonic()
@@ -488,7 +464,7 @@ async def health_check():
         content={
             "status": "healthy" if is_healthy else "degraded",
             "service": "nawal-fl-api",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "blockchain_connected": blockchain_ok,
         },
         status_code=200 if is_healthy else 503,
@@ -520,9 +496,7 @@ async def get_status():
         service="Nawal Federated Learning",
         version="1.0.0",
         blockchain={
-            "enabled": (
-                app_state.config.blockchain_enabled if app_state.config else False
-            ),
+            "enabled": (app_state.config.blockchain_enabled if app_state.config else False),
             "connected": app_state.staking_connector is not None,
             "rpc_url": app_state.config.blockchain_rpc if app_state.config else "",
         },
@@ -556,7 +530,7 @@ async def start_fl_round(request: StartRoundRequest):
         app_state.round_counter += 1
 
         # Create round metadata
-        start_time = datetime.now(timezone.utc)
+        start_time = datetime.now(UTC)
         round_data = {
             "round_id": round_id,
             "dataset": request.dataset_name,
@@ -572,17 +546,13 @@ async def start_fl_round(request: StartRoundRequest):
 
         app_state.active_rounds[round_id] = round_data
 
-        logger.info(
-            "🚀 Started FL round {} for dataset '{}'", round_id, request.dataset_name
-        )
+        logger.info("🚀 Started FL round {} for dataset '{}'", round_id, request.dataset_name)
 
         return StartRoundResponse(
             round_id=round_id,
             status="pending",
             start_time=start_time.isoformat(),
-            expected_completion=(
-                start_time + timedelta(seconds=request.timeout)
-            ).isoformat(),
+            expected_completion=(start_time + timedelta(seconds=request.timeout)).isoformat(),
         )
 
     except Exception as e:
@@ -661,9 +631,7 @@ async def enroll_participant(request: EnrollRequest):
         )
 
         if not result["success"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail=result["message"]
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result["message"])
 
         logger.debug("Enrolled participant: {}", request.account_id)
 
@@ -671,7 +639,7 @@ async def enroll_participant(request: EnrollRequest):
             success=True,
             participant_id=request.account_id,
             message="Participant enrolled successfully",
-            enrollment_time=datetime.now(timezone.utc).isoformat(),
+            enrollment_time=datetime.now(UTC).isoformat(),
         )
 
     except HTTPException:
@@ -746,7 +714,7 @@ async def submit_model_delta(request: SubmitModelRequest):
                 "participant_id": request.participant_id,
                 "model_cid": request.model_cid,
                 "quality_score": request.quality_score,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
             }
         )
 
@@ -803,9 +771,7 @@ async def get_participant_stats(account_id: str):
         last_submission_ts = app_state.participant_submissions.get(account_id)
         last_submission_iso = None
         if last_submission_ts:
-            last_submission_iso = datetime.fromtimestamp(
-                last_submission_ts, tz=timezone.utc
-            ).isoformat()
+            last_submission_iso = datetime.fromtimestamp(last_submission_ts, tz=UTC).isoformat()
 
         return ParticipantStats(
             account_id=account_id,
@@ -859,9 +825,7 @@ async def get_system_metrics():
                     total_time += (end - start).total_seconds()
 
             if total_time > 0:
-                average_round_time_seconds = total_time / len(
-                    app_state.completed_rounds
-                )
+                average_round_time_seconds = total_time / len(app_state.completed_rounds)
 
         return SystemMetrics(
             total_rounds=app_state.round_counter,
@@ -935,17 +899,13 @@ def main():
     # Get configuration from environment
     # Priority: NAWAL_API_HOST → NAWAL_HOST → HOST → default
     # Default to 127.0.0.1 for security; set HOST=0.0.0.0 explicitly for Docker/cloud
-    host = os.getenv(
-        "NAWAL_API_HOST", os.getenv("NAWAL_HOST", os.getenv("HOST", "127.0.0.1"))
-    )
+    host = os.getenv("NAWAL_API_HOST", os.getenv("NAWAL_HOST", os.getenv("HOST", "127.0.0.1")))
     port = int(os.getenv("NAWAL_PORT", os.getenv("PORT", "8080")))
     reload = os.getenv("RELOAD", "false").lower() == "true"
     workers = int(os.getenv("WORKERS", "1"))
 
     logger.info("🚀 Starting Nawal FL API server on {}:{}", host, port)
-    logger.info(
-        "   Blockchain RPC: {}", os.getenv("BLOCKCHAIN_RPC", "ws://localhost:9944")
-    )
+    logger.info("   Blockchain RPC: {}", os.getenv("BLOCKCHAIN_RPC", "ws://localhost:9944"))
     logger.info("   Reload: {}", reload)
     logger.info("   Workers: {}", workers)
 

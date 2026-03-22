@@ -13,19 +13,19 @@ Python: 3.13+
 """
 
 from nawal.genome.model_builder import (
-    ModelBuilder,
     ActivationFactory,
-    NormalizationFactory,
     AttentionFactory,
-    LayerFactory,
     GenomeModel,
+    LayerFactory,
+    ModelBuilder,
+    NormalizationFactory,
 )
 
 __all__ = [
-    "ModelBuilder",
     "ActivationFactory",
-    "NormalizationFactory",
     "AttentionFactory",
-    "LayerFactory",
     "GenomeModel",
+    "LayerFactory",
+    "ModelBuilder",
+    "NormalizationFactory",
 ]

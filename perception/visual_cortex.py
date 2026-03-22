@@ -30,8 +30,7 @@ Dependency
 from __future__ import annotations
 
 import hashlib
-import math
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 import torch
 from loguru import logger
@@ -61,13 +60,13 @@ _CLIP_ATTEMPTED = False
 _CLIP_AVAILABLE = False
 
 
-def _check_stub_hash(pixel_data: bytes, dim: int) -> List[float]:
+def _check_stub_hash(pixel_data: bytes, dim: int) -> list[float]:
     """
     Produce a deterministic embedding from raw pixel bytes (stub mode).
     Not semantically meaningful — used only when no model is available.
     """
     digest = hashlib.sha256(pixel_data[:4096]).digest()
-    out: List[float] = []
+    out: list[float] = []
     for i in range(dim):
         byte_idx = (i * 4) % len(digest)
         val = int.from_bytes(digest[byte_idx : byte_idx + 4], "big", signed=True)
@@ -91,7 +90,7 @@ class VisualCortex(AbstractCortex):
 
     def __init__(
         self,
-        model_name: Optional[str] = DEFAULT_MODEL,
+        model_name: str | None = DEFAULT_MODEL,
         embed_dim: int = 512,
         device: str = "auto",
         stub_mode: bool = False,
@@ -100,9 +99,7 @@ class VisualCortex(AbstractCortex):
         self.embed_dim = embed_dim
         self.stub_mode = stub_mode or (model_name is None)
         self.device = (
-            ("cuda" if torch.cuda.is_available() else "cpu")
-            if device == "auto"
-            else device
+            ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else device
         )
 
         self._processor: Any = None
@@ -140,7 +137,7 @@ class VisualCortex(AbstractCortex):
         # Assume PIL Image already
         return raw_input
 
-    def encode(self, raw_input: Any) -> List[float]:
+    def encode(self, raw_input: Any) -> list[float]:
         """
         Encode an image to a 512-dim CLIP visual embedding.
 
@@ -161,7 +158,7 @@ class VisualCortex(AbstractCortex):
 
         return self._clip_embed(image)
 
-    def _to_world_state(self, embedding: List[float], raw_input: Any) -> WorldState:
+    def _to_world_state(self, embedding: list[float], raw_input: Any) -> WorldState:
         return WorldState(
             image_embedding=embedding,
             metadata={
@@ -187,12 +184,10 @@ class VisualCortex(AbstractCortex):
             self._model = CLIPModel.from_pretrained(self.model_name).to(self.device)
             self._model.eval()
         except Exception as exc:
-            logger.warning(
-                f"VisualCortex: CLIP load failed ({exc}). " "Activating stub mode."
-            )
+            logger.warning(f"VisualCortex: CLIP load failed ({exc}). " "Activating stub mode.")
             self.stub_mode = True
 
-    def _clip_embed(self, image: Any) -> List[float]:
+    def _clip_embed(self, image: Any) -> list[float]:
         """Run CLIP vision encoder and return the image embedding."""
         inputs = self._processor(images=image, return_tensors="pt").to(self.device)
         with torch.no_grad():
@@ -206,7 +201,7 @@ class VisualCortex(AbstractCortex):
     # Stub mode (no model)                                                 #
     # ------------------------------------------------------------------ #
 
-    def _stub_embed(self, image: Any) -> List[float]:
+    def _stub_embed(self, image: Any) -> list[float]:
         """
         Deterministic hash-pixel stub — produces a valid unit vector
         without any model weights.  Used in tests and offline deploys.

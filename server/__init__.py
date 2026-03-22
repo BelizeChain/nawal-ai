@@ -15,42 +15,40 @@ Python: 3.13+
 from __future__ import annotations
 
 from server.aggregator import (
-    FederatedAggregator,
-    AggregationStrategy,
-    FedAvgStrategy,
-    ByzantineRobustStrategy,
-    ModelUpdate,
     AggregationRound,
+    AggregationStrategy,
+    ByzantineRobustStrategy,
+    FedAvgStrategy,
+    FederatedAggregator,
+    ModelUpdate,
 )
-
-from server.participant_manager import (
-    ParticipantManager,
-    Participant,
-    ParticipantStatus,
-)
-
 from server.metrics_tracker import (
+    AggregatedMetrics,
     MetricsTracker,
     TrainingMetrics,
-    AggregatedMetrics,
+)
+from server.participant_manager import (
+    Participant,
+    ParticipantManager,
+    ParticipantStatus,
 )
 
 __version__ = "1.0.0"
 
 __all__ = [
+    "AggregatedMetrics",
+    "AggregationRound",
+    "AggregationStrategy",
+    "ByzantineRobustStrategy",
+    "FedAvgStrategy",
     # Aggregation
     "FederatedAggregator",
-    "AggregationStrategy",
-    "FedAvgStrategy",
-    "ByzantineRobustStrategy",
-    "ModelUpdate",
-    "AggregationRound",
-    # Participants
-    "ParticipantManager",
-    "Participant",
-    "ParticipantStatus",
     # Metrics
     "MetricsTracker",
+    "ModelUpdate",
+    "Participant",
+    # Participants
+    "ParticipantManager",
+    "ParticipantStatus",
     "TrainingMetrics",
-    "AggregatedMetrics",
 ]

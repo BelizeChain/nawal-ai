@@ -22,9 +22,10 @@ Covers:
 """
 
 import asyncio
+from datetime import UTC, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from datetime import timedelta
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +60,7 @@ def _mock_substrate():
 
 
 def _make_connected_substrate_client():
-    from blockchain.substrate_client import SubstrateClient, ChainConfig
+    from blockchain.substrate_client import ChainConfig, SubstrateClient
 
     client = SubstrateClient(ChainConfig.local())
     client.substrate = _mock_substrate()
@@ -71,6 +72,8 @@ def _make_connected_substrate_client():
 # blockchain/substrate_client.py — gaps
 # ===========================================================================
 
+import contextlib
+
 import blockchain.substrate_client as _sc_mod
 
 _FakeSubstrateExc = type("SubstrateRequestException", (Exception,), {})
@@ -80,7 +83,7 @@ class TestSubstrateClientAutoConnect:
     """Line 249 / 288 / 302 / 330 — auto-connect when is_connected is False."""
 
     def test_query_storage_auto_connects(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         client = SubstrateClient(ChainConfig.local())
         mock_sub = _mock_substrate()
@@ -95,7 +98,7 @@ class TestSubstrateClientAutoConnect:
         assert result == {"balance": 42}
 
     def test_query_map_auto_connects(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         client = SubstrateClient(ChainConfig.local())
         mock_sub = _mock_substrate()
@@ -133,10 +136,8 @@ class TestSubstrateClientExceptionPaths:
         _sc_mod.SubstrateRequestException = _FakeSubstrateExc
 
     def teardown_method(self):
-        try:
+        with contextlib.suppress(AttributeError):
             del _sc_mod.SubstrateRequestException
-        except AttributeError:
-            pass
 
     def test_query_storage_exception_reraises(self):
         client = _make_connected_substrate_client()
@@ -187,7 +188,7 @@ class TestSubstrateClientGetEvents:
         assert client.get_events() == []
 
     def test_get_events_auto_connect(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         client = SubstrateClient(ChainConfig.local())
         mock_sub = _mock_substrate()
@@ -221,7 +222,7 @@ class TestSubstrateClientGetExtrinsicEvents:
     """Covers _get_extrinsic_events with populated triggered_events."""
 
     def test_extrinsic_events_populated(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         client = SubstrateClient(ChainConfig.local())
         client.substrate = _mock_substrate()
@@ -254,7 +255,7 @@ class TestSubstrateClientGetExtrinsicEvents:
         assert receipt.events[0]["module"] == "Staking"
 
     def test_extrinsic_no_triggered_events_attr(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         client = SubstrateClient(ChainConfig.local())
         client.substrate = _mock_substrate()
@@ -308,7 +309,7 @@ class TestSubstrateClientHighLevel:
         assert balance == 5000
 
     def test_context_manager(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         client = SubstrateClient(ChainConfig.local())
         with patch("blockchain.substrate_client.SubstrateInterface") as mock_cls:
@@ -331,10 +332,8 @@ class TestSubstrateClientHighLevel:
             if orig_kp is not None:
                 _sc_mod.Keypair = orig_kp
             else:
-                try:
+                with contextlib.suppress(AttributeError):
                     del _sc_mod.Keypair
-                except AttributeError:
-                    pass
 
     def test_create_keypair_mnemonic(self):
         orig_kp = getattr(_sc_mod, "Keypair", None)
@@ -350,10 +349,8 @@ class TestSubstrateClientHighLevel:
             if orig_kp is not None:
                 _sc_mod.Keypair = orig_kp
             else:
-                try:
+                with contextlib.suppress(AttributeError):
                     del _sc_mod.Keypair
-                except AttributeError:
-                    pass
 
     def test_create_keypair_seed(self):
         orig_kp = getattr(_sc_mod, "Keypair", None)
@@ -369,10 +366,8 @@ class TestSubstrateClientHighLevel:
             if orig_kp is not None:
                 _sc_mod.Keypair = orig_kp
             else:
-                try:
+                with contextlib.suppress(AttributeError):
                     del _sc_mod.Keypair
-                except AttributeError:
-                    pass
 
     def test_create_keypair_generates_random(self):
         orig_kp = getattr(_sc_mod, "Keypair", None)
@@ -389,10 +384,8 @@ class TestSubstrateClientHighLevel:
             if orig_kp is not None:
                 _sc_mod.Keypair = orig_kp
             else:
-                try:
+                with contextlib.suppress(AttributeError):
                     del _sc_mod.Keypair
-                except AttributeError:
-                    pass
 
 
 # ===========================================================================
@@ -513,8 +506,8 @@ class TestStakingConnectorCommunityRecordOnSubmit:
 
     def test_submit_proof_records_community_participation(self):
         """Covers community tracking success path after proof submission."""
+
         from blockchain.staking_connector import StakingConnector, TrainingSubmission
-        from datetime import datetime, timezone
 
         conn = StakingConnector(mock_mode=False, enable_community_tracking=False)
         sub = _mock_substrate()
@@ -527,7 +520,6 @@ class TestStakingConnectorCommunityRecordOnSubmit:
         conn.keypair = MagicMock(ss58_address="5ADDR")
 
         # Enable community tracking after init so we can control the mock
-        from blockchain.community_connector import CommunityConnector
 
         mock_cc = MagicMock()
         mock_cc.record_federated_learning_contribution = AsyncMock(
@@ -554,8 +546,8 @@ class TestStakingConnectorCommunityRecordOnSubmit:
 
     def test_submit_proof_community_tracking_failure_continues(self):
         """Community tracking failure doesn't break submit."""
+
         from blockchain.staking_connector import StakingConnector, TrainingSubmission
-        from datetime import datetime, timezone
 
         conn = StakingConnector(mock_mode=False, enable_community_tracking=False)
         sub = _mock_substrate()
@@ -591,8 +583,8 @@ class TestStakingConnectorCommunityRecordOnSubmit:
 
     def test_submit_proof_community_tracking_returns_false(self):
         """Community tracking returns (False, '') — logs warning but continues."""
+
         from blockchain.staking_connector import StakingConnector, TrainingSubmission
-        from datetime import datetime, timezone
 
         conn = StakingConnector(mock_mode=False, enable_community_tracking=False)
         sub = _mock_substrate()
@@ -740,7 +732,7 @@ class TestCommunityConnectorRealRecordParticipation:
     def test_real_record_participation_exception_returns_false(self):
         conn = self._make_real_conn()
         conn.substrate.compose_call.side_effect = Exception("tx error")
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             conn.record_participation(
                 account_id="5ALICE",
                 activity_type="EducationModule",
@@ -754,7 +746,7 @@ class TestCommunityConnectorRealRecordParticipation:
         conn = CommunityConnector(mock_mode=False)
         conn._connected = False
         conn.keypair = MagicMock(ss58_address="5SIGNER")
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             conn.record_participation(
                 account_id="5ALICE",
                 activity_type="FederatedLearning",
@@ -901,12 +893,13 @@ class TestCreateTrainingRoundHandler:
     """Lines 436-437 / 450-470 — create_training_round_handler convenience fn."""
 
     def test_all_callbacks(self):
+        from datetime import datetime
+
         from blockchain.events import (
-            create_training_round_handler,
             EventType,
             TrainingEvent,
+            create_training_round_handler,
         )
-        from datetime import datetime, timezone
 
         started_calls, proof_calls, completed_calls = [], [], []
 
@@ -930,7 +923,7 @@ class TestCreateTrainingRoundHandler:
         assert EventType.TRAINING_PROOF_SUBMITTED in handlers
         assert EventType.TRAINING_ROUND_COMPLETED in handlers
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         # Drive handler for started
         _run(
@@ -1005,8 +998,9 @@ class TestPayrollConnectorNotConnectedRaises:
     """Lines 311, 314 — RuntimeError when not connected / no keypair."""
 
     def _make_entry(self):
-        from blockchain.payroll_connector import PayrollEntry, EmployeeType
         import hashlib
+
+        from blockchain.payroll_connector import EmployeeType, PayrollEntry
 
         return PayrollEntry(
             employee_id="5E001",
@@ -1067,8 +1061,9 @@ class TestPayrollConnectorRealSubmit:
     """Lines 349, 382-388 — real-mode submit_payroll success."""
 
     def _make_entry(self, eid="5E001"):
-        from blockchain.payroll_connector import PayrollEntry, EmployeeType
         import hashlib
+
+        from blockchain.payroll_connector import EmployeeType, PayrollEntry
 
         return PayrollEntry(
             employee_id=eid,
@@ -1099,7 +1094,7 @@ class TestPayrollConnectorRealSubmit:
         assert submission.status == PayrollStatus.VERIFIED
 
     def test_real_submit_payroll_blockchain_failure(self):
-        from blockchain.payroll_connector import PayrollConnector, PayrollStatus
+        from blockchain.payroll_connector import PayrollConnector
 
         conn = PayrollConnector(mock_mode=False)
         sub = _mock_substrate()
@@ -1138,10 +1133,8 @@ class TestPayrollConnectorRealSubmit:
             if orig_exc is not None:
                 _pc_mod.SubstrateRequestException = orig_exc
             else:
-                try:
+                with contextlib.suppress(AttributeError):
                     del _pc_mod.SubstrateRequestException
-                except AttributeError:
-                    pass
 
 
 class TestPayrollConnectorVerifyReal:
@@ -1149,7 +1142,10 @@ class TestPayrollConnectorVerifyReal:
 
     def _submission_data(self):
         """Return dict with valid PayrollProof commitment data."""
-        import json, hashlib, secrets, hmac as hmac_mod
+        import hashlib
+        import hmac as hmac_mod
+        import json
+        import secrets
 
         merkle_root = "0xdeadbeef1234"
         nonce = secrets.token_hex(32)
@@ -1249,7 +1245,7 @@ class TestPayrollConnectorGetPaystub:
             _run(conn.get_employee_paystub("E001", "2026-01"))
 
     def test_mock_paystub_returns_object(self):
-        from blockchain.payroll_connector import PayrollConnector, EmployeePaystub
+        from blockchain.payroll_connector import EmployeePaystub, PayrollConnector
 
         conn = PayrollConnector(mock_mode=True)
         conn._connected = True
@@ -1269,7 +1265,7 @@ class TestPayrollConnectorGetPaystub:
         assert result is None
 
     def test_real_paystub_returns_object_when_data_found(self):
-        from blockchain.payroll_connector import PayrollConnector, EmployeePaystub
+        from blockchain.payroll_connector import EmployeePaystub, PayrollConnector
 
         conn = PayrollConnector(mock_mode=False)
         sub = _mock_substrate()
@@ -1353,7 +1349,7 @@ class TestPayrollConnectorGetStatsReal:
 
 
 def _make_validator_manager():
-    from blockchain.substrate_client import SubstrateClient, ChainConfig
+    from blockchain.substrate_client import ChainConfig, SubstrateClient
     from blockchain.validator_manager import ValidatorManager
 
     client = SubstrateClient(ChainConfig.local())
@@ -1451,7 +1447,7 @@ class TestValidatorManagerGaps:
 
     def test_get_all_validators_returns_list(self):
         """Lines 403-418 — get_all_validators with data."""
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
         from blockchain.validator_manager import ValidatorManager
 
         client = SubstrateClient(ChainConfig.local())
@@ -1495,7 +1491,7 @@ class TestValidatorManagerGaps:
 
     def test_get_all_validators_partial_parse_error(self):
         """One entry fails to parse — warning logged, others continue."""
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
         from blockchain.validator_manager import ValidatorManager
 
         client = SubstrateClient(ChainConfig.local())
@@ -1541,7 +1537,6 @@ class TestValidatorManagerGaps:
 # blockchain/identity_verifier.py — gaps
 # ===========================================================================
 
-import blockchain.identity_verifier as _iv_mod
 
 
 class TestBelizeIDVerifierMocked:
@@ -1571,19 +1566,19 @@ class TestBelizeIDVerifierMocked:
         assert id1 == id2
 
     def test_verify_belizeid_uses_cache(self):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         verifier = self._make_verifier()
-        verifier.cache["BZ-CACHED"] = (True, datetime.now(timezone.utc))
+        verifier.cache["BZ-CACHED"] = (True, datetime.now(UTC))
         result = _run(verifier.verify("BZ-CACHED"))
         assert result is True
 
     def test_verify_belizeid_cache_expired_re_queries(self):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         verifier = self._make_verifier()
         # Put stale entry in cache
-        verifier.cache["BZ-OLD"] = (True, datetime(2000, 1, 1, tzinfo=timezone.utc))
+        verifier.cache["BZ-OLD"] = (True, datetime(2000, 1, 1, tzinfo=UTC))
         with patch.object(
             verifier, "_query_blockchain", new=AsyncMock(return_value=False)
         ):
@@ -1699,10 +1694,10 @@ class TestBelizeIDVerifierMocked:
         assert result is True
 
     def test_clear_cache(self):
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         verifier = self._make_verifier()
-        verifier.cache["BZ-X"] = (True, datetime.now(timezone.utc))
+        verifier.cache["BZ-X"] = (True, datetime.now(UTC))
         verifier.clear_cache()
         assert verifier.cache == {}
 

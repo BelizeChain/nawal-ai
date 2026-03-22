@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import threading
 import uuid
-from typing import Dict, List, Optional
 
 from loguru import logger
 
@@ -46,8 +45,8 @@ class GoalStack:
 
     def __init__(self, max_active_goals: int = 16) -> None:
         self.max_active_goals = max_active_goals
-        self._goals: Dict[str, Goal] = {}  # live goals
-        self._history: List[Goal] = []  # completed / failed
+        self._goals: dict[str, Goal] = {}  # live goals
+        self._history: list[Goal] = []  # completed / failed
         self._lock = threading.RLock()
 
     # ------------------------------------------------------------------ #
@@ -58,9 +57,9 @@ class GoalStack:
         self,
         goal_or_description,
         priority: float = 1.0,
-        context: Optional[Dict] = None,
-        goal_id: Optional[str] = None,
-        sub_goals: Optional[List[Goal]] = None,
+        context: dict | None = None,
+        goal_id: str | None = None,
+        sub_goals: list[Goal] | None = None,
     ) -> Goal:
         """
         Queue a goal.
@@ -130,9 +129,7 @@ class GoalStack:
                 if g.status == GoalStatus.ACTIVE:
                     g.status = GoalStatus.PENDING
             goal.status = GoalStatus.ACTIVE
-        logger.info(
-            f"GoalStack activated goal_id={goal_id!r} desc={goal.description!r}"
-        )
+        logger.info(f"GoalStack activated goal_id={goal_id!r} desc={goal.description!r}")
         return True
 
     def complete(self, goal_id: str) -> Goal:
@@ -162,8 +159,7 @@ class GoalStack:
             goal = self._require(goal_id)
             goal.priority = priority
         logger.debug(
-            f"GoalStack updated priority goal_id={goal_id!r} "
-            f"new_priority={priority:.2f}"
+            f"GoalStack updated priority goal_id={goal_id!r} " f"new_priority={priority:.2f}"
         )
         return goal
 
@@ -171,7 +167,7 @@ class GoalStack:
     # Read API                                                             #
     # ------------------------------------------------------------------ #
 
-    def active(self) -> Optional[Goal]:
+    def active(self) -> Goal | None:
         """Return the currently ACTIVE goal, or None."""
         with self._lock:
             for g in self._sorted():
@@ -179,7 +175,7 @@ class GoalStack:
                     return g
         return None
 
-    def next_pending(self) -> Optional[Goal]:
+    def next_pending(self) -> Goal | None:
         """Return the highest-priority PENDING goal without activating it."""
         with self._lock:
             for g in self._sorted():
@@ -187,7 +183,7 @@ class GoalStack:
                     return g
         return None
 
-    def peek(self) -> Optional[Goal]:
+    def peek(self) -> Goal | None:
         """
         Return the highest-priority actionable goal (ACTIVE first,
         then PENDING) without modifying state.
@@ -198,17 +194,17 @@ class GoalStack:
                     return g
         return None
 
-    def get(self, goal_id: str) -> Optional[Goal]:
+    def get(self, goal_id: str) -> Goal | None:
         """Return a live goal by ID, or None if not found."""
         with self._lock:
             return self._goals.get(goal_id)
 
-    def all_live(self) -> List[Goal]:
+    def all_live(self) -> list[Goal]:
         """Return all non-terminated goals, sorted by descending priority."""
         with self._lock:
             return self._sorted()
 
-    def history(self, last_n: int = 50) -> List[Goal]:
+    def history(self, last_n: int = 50) -> list[Goal]:
         """Return the most-recent completed/failed goals (newest first)."""
         with self._lock:
             return list(reversed(self._history[-last_n:]))
@@ -227,7 +223,7 @@ class GoalStack:
     # Internals                                                            #
     # ------------------------------------------------------------------ #
 
-    def _sorted(self) -> List[Goal]:
+    def _sorted(self) -> list[Goal]:
         """Return live goals sorted by descending priority (caller holds lock)."""
         return sorted(self._goals.values(), key=lambda g: g.priority, reverse=True)
 
@@ -245,8 +241,5 @@ class GoalStack:
             goal.status = status
             del self._goals[goal_id]
             self._history.append(goal)
-        logger.info(
-            f"GoalStack {status.value} goal_id={goal_id!r} "
-            f"desc={goal.description!r}"
-        )
+        logger.info(f"GoalStack {status.value} goal_id={goal_id!r} " f"desc={goal.description!r}")
         return goal

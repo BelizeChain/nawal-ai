@@ -51,16 +51,15 @@ Usage::
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 from loguru import logger
 
-from memory.interfaces import AbstractMemory, MemoryRecord
-from memory.working import WorkingMemory
 from memory.episodic import EpisodicMemory
+from memory.interfaces import AbstractMemory, MemoryRecord
 from memory.semantic import SemanticMemory
+from memory.working import WorkingMemory
 
 # --------------------------------------------------------------------------- #
 # MemoryManager                                                                #
@@ -91,11 +90,11 @@ class MemoryManager:
     def __init__(
         self,
         working_max_size: int = 256,
-        episodic_persist_path: Optional[str] = "./data/episodic_db",
-        semantic_persist_path: Optional[str] = None,
+        episodic_persist_path: str | None = "./data/episodic_db",
+        semantic_persist_path: str | None = None,
         consolidation_age: float = 300.0,
         embedding_dim: int = 768,
-        qdrant_url: Optional[str] = None,
+        qdrant_url: str | None = None,
     ) -> None:
         if consolidation_age < 0:
             raise ValueError("consolidation_age must be ≥ 0")
@@ -123,7 +122,7 @@ class MemoryManager:
     # Write API                                                            #
     # ------------------------------------------------------------------ #
 
-    def store(self, record: MemoryRecord, store: Optional[str] = None) -> None:
+    def store(self, record: MemoryRecord, store: str | None = None) -> None:
         """
         Store *record* in the appropriate memory subsystem(s).
 
@@ -152,11 +151,11 @@ class MemoryManager:
     def store_text(
         self,
         content: str,
-        embedding: Optional[List[float]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        embedding: list[float] | None = None,
+        metadata: dict[str, Any] | None = None,
         store: str = STORE_WORKING,
-        ttl: Optional[float] = None,
-        key: Optional[str] = None,
+        ttl: float | None = None,
+        key: str | None = None,
     ) -> MemoryRecord:
         """
         Convenience wrapper — wrap a text string in a MemoryRecord and store it.
@@ -179,12 +178,12 @@ class MemoryManager:
 
     def retrieve(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 10,
-        stores: Optional[List[str]] = None,
-        filters: Optional[Dict[str, Any]] = None,
+        stores: list[str] | None = None,
+        filters: dict[str, Any] | None = None,
         dedup: bool = True,
-    ) -> List[MemoryRecord]:
+    ) -> list[MemoryRecord]:
         """
         Query one or more memory stores and merge results.
 
@@ -202,19 +201,15 @@ class MemoryManager:
             stores = [self.STORE_WORKING, self.STORE_EPISODIC, self.STORE_SEMANTIC]
 
         q = np.asarray(query_embedding, dtype=np.float32)
-        gathered: List[Tuple[float, MemoryRecord]] = []
+        gathered: list[tuple[float, MemoryRecord]] = []
         seen_keys: set[str] = set()
 
         for store_name in stores:
             store_obj: AbstractMemory = self._store_by_name(store_name)
             try:
-                results = store_obj.retrieve(
-                    query_embedding, top_k=top_k, filters=filters
-                )
+                results = store_obj.retrieve(query_embedding, top_k=top_k, filters=filters)
             except Exception as exc:
-                logger.warning(
-                    f"MemoryManager retrieve error from {store_name!r}: {exc}"
-                )
+                logger.warning(f"MemoryManager retrieve error from {store_name!r}: {exc}")
                 continue
             for rec in results:
                 if dedup and rec.key in seen_keys:
@@ -229,7 +224,7 @@ class MemoryManager:
         gathered.sort(key=lambda x: x[0], reverse=True)
         return [r for _, r in gathered[:top_k]]
 
-    def get(self, key: str) -> Optional[MemoryRecord]:
+    def get(self, key: str) -> MemoryRecord | None:
         """Exact-key lookup — checks working, then episodic, then semantic."""
         for store in (self.working, self.episodic, self.semantic):
             rec = store.get(key)
@@ -239,11 +234,11 @@ class MemoryManager:
 
     def context_window(
         self,
-        query_embedding: Optional[List[float]] = None,
+        query_embedding: list[float] | None = None,
         n_recent: int = 8,
         n_episodic: int = 4,
         n_semantic: int = 3,
-    ) -> List[MemoryRecord]:
+    ) -> list[MemoryRecord]:
         """
         Build a combined context window for the Core Cortex.
 
@@ -259,7 +254,7 @@ class MemoryManager:
             n_episodic      : Episodic memories to retrieve.
             n_semantic      : Semantic facts to retrieve.
         """
-        context: List[MemoryRecord] = []
+        context: list[MemoryRecord] = []
 
         # 1. Most-recent working memory
         context.extend(self.working.recent(n_recent))
@@ -297,7 +292,7 @@ class MemoryManager:
         import time
 
         now = time.time()
-        to_consolidate: List[MemoryRecord] = []
+        to_consolidate: list[MemoryRecord] = []
 
         for rec in self.working.snapshot():
             age = now - rec.timestamp
@@ -319,7 +314,7 @@ class MemoryManager:
     # Stats                                                                #
     # ------------------------------------------------------------------ #
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self) -> dict[str, Any]:
         """Return a summary of all memory store sizes."""
         return {
             "working": len(self.working),
@@ -339,9 +334,7 @@ class MemoryManager:
             self.STORE_SEMANTIC: self.semantic,
         }
         if name not in mapping:
-            raise ValueError(
-                f"Unknown store {name!r}. " f"Valid options: {list(mapping.keys())}"
-            )
+            raise ValueError(f"Unknown store {name!r}. " f"Valid options: {list(mapping.keys())}")
         return mapping[name]
 
     def __repr__(self) -> str:
@@ -359,7 +352,7 @@ class MemoryManager:
 # --------------------------------------------------------------------------- #
 
 
-def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     norm_a = float(np.linalg.norm(a))
     norm_b = float(np.linalg.norm(b))
     if norm_a == 0.0 or norm_b == 0.0:

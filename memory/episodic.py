@@ -30,9 +30,8 @@ Usage::
 from __future__ import annotations
 
 import json
-import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 from loguru import logger
@@ -55,11 +54,11 @@ try:
     from qdrant_client import QdrantClient
     from qdrant_client.models import (
         Distance,
+        FieldCondition,
+        Filter,
+        MatchValue,
         PointStruct,
         VectorParams,
-        Filter,
-        FieldCondition,
-        MatchValue,
     )
 
     QDRANT_AVAILABLE = True
@@ -76,17 +75,17 @@ class _NumpyStore:
     """Pure-numpy in-memory vector store used when no DB is installed."""
 
     def __init__(self) -> None:
-        self._records: Dict[str, MemoryRecord] = {}
+        self._records: dict[str, MemoryRecord] = {}
 
     def upsert(self, record: MemoryRecord) -> None:
         self._records[record.key] = record
 
     def query(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int,
-        filters: Optional[Dict[str, Any]],
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None,
+    ) -> list[MemoryRecord]:
         q = np.asarray(query_embedding, dtype=np.float32)
         results: list[tuple[float, MemoryRecord]] = []
         for rec in self._records.values():
@@ -102,7 +101,7 @@ class _NumpyStore:
         results.sort(key=lambda x: x[0], reverse=True)
         return [r for _, r in results[:top_k]]
 
-    def get(self, key: str) -> Optional[MemoryRecord]:
+    def get(self, key: str) -> MemoryRecord | None:
         return self._records.get(key)
 
     def delete(self, key: str) -> bool:
@@ -143,18 +142,18 @@ class EpisodicMemory(AbstractMemory):
 
     def __init__(
         self,
-        persist_path: Optional[str] = "./data/episodic_db",
+        persist_path: str | None = "./data/episodic_db",
         collection_name: str = COLLECTION,
         embedding_dim: int = 768,
-        qdrant_url: Optional[str] = None,
-        qdrant_api_key: Optional[str] = None,
+        qdrant_url: str | None = None,
+        qdrant_api_key: str | None = None,
     ) -> None:
         self.collection_name = collection_name
         self.embedding_dim = embedding_dim
         self._backend: str  # "chroma" | "qdrant" | "numpy"
         self._chroma_col = None
-        self._qdrant: Optional["QdrantClient"] = None
-        self._numpy_store: Optional[_NumpyStore] = None
+        self._qdrant: QdrantClient | None = None
+        self._numpy_store: _NumpyStore | None = None
 
         if qdrant_url and QDRANT_AVAILABLE:
             self._init_qdrant(qdrant_url, qdrant_api_key)
@@ -184,7 +183,7 @@ class EpisodicMemory(AbstractMemory):
         )
         self._backend = "chroma"
 
-    def _init_qdrant(self, url: str, api_key: Optional[str]) -> None:
+    def _init_qdrant(self, url: str, api_key: str | None) -> None:
         self._qdrant = QdrantClient(url=url, api_key=api_key)
         collections = [c.name for c in self._qdrant.get_collections().collections]
         if self.collection_name not in collections:
@@ -216,16 +215,14 @@ class EpisodicMemory(AbstractMemory):
             self._qdrant_upsert(record)
         else:
             self._numpy_store.upsert(record)  # type: ignore[union-attr]
-        logger.debug(
-            f"EpisodicMemory stored key={record.key!r} backend={self._backend}"
-        )
+        logger.debug(f"EpisodicMemory stored key={record.key!r} backend={self._backend}")
 
     def retrieve(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[MemoryRecord]:
         if self._backend == "chroma":
             return self._chroma_query(query_embedding, top_k, filters)
         elif self._backend == "qdrant":
@@ -233,7 +230,7 @@ class EpisodicMemory(AbstractMemory):
         else:
             return self._numpy_store.query(query_embedding, top_k, filters)  # type: ignore[union-attr]
 
-    def get(self, key: str) -> Optional[MemoryRecord]:
+    def get(self, key: str) -> MemoryRecord | None:
         if self._backend == "chroma":
             return self._chroma_get(key)
         elif self._backend == "qdrant":
@@ -311,16 +308,16 @@ class EpisodicMemory(AbstractMemory):
 
     def _chroma_query(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int,
-        filters: Optional[Dict[str, Any]],
-    ) -> List[MemoryRecord]:
-        where: Optional[Dict] = None
+        filters: dict[str, Any] | None,
+    ) -> list[MemoryRecord]:
+        where: dict | None = None
         if filters:
             conditions = [{"$and": [{k: {"$eq": v}} for k, v in filters.items()]}]
             where = conditions[0] if len(conditions) == 1 else {"$and": conditions}
 
-        kwargs: Dict[str, Any] = {
+        kwargs: dict[str, Any] = {
             "n_results": top_k,
             "include": ["metadatas", "documents", "embeddings", "distances"],
         }
@@ -329,7 +326,7 @@ class EpisodicMemory(AbstractMemory):
 
         results = self._chroma_col.query(query_embeddings=[query_embedding], **kwargs)  # type: ignore[union-attr]
 
-        records: List[MemoryRecord] = []
+        records: list[MemoryRecord] = []
         ids = results.get("ids", [[]])[0]
         metas = results.get("metadatas", [[]])[0]
         docs = results.get("documents", [[]])[0]
@@ -355,15 +352,13 @@ class EpisodicMemory(AbstractMemory):
                 records.append(rec)
         return records
 
-    def _chroma_get(self, key: str) -> Optional[MemoryRecord]:
+    def _chroma_get(self, key: str) -> MemoryRecord | None:
         result = self._chroma_col.get(ids=[key], include=["metadatas", "documents", "embeddings"])  # type: ignore[union-attr]
         ids = result.get("ids", [])
         if not ids:
             return None
         meta = dict(result["metadatas"][0])
-        content = meta.pop(
-            "_content", result["documents"][0] if result.get("documents") else ""
-        )
+        content = meta.pop("_content", result["documents"][0] if result.get("documents") else "")
         timestamp = float(meta.pop("_timestamp", 0.0))
         ttl_raw = meta.pop("_ttl", -1.0)
         ttl = float(ttl_raw) if ttl_raw != -1.0 else None
@@ -396,16 +391,13 @@ class EpisodicMemory(AbstractMemory):
 
     def _qdrant_query(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int,
-        filters: Optional[Dict[str, Any]],
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None,
+    ) -> list[MemoryRecord]:
         qdrant_filter = None
         if filters:
-            must = [
-                FieldCondition(key=k, match=MatchValue(value=v))
-                for k, v in filters.items()
-            ]
+            must = [FieldCondition(key=k, match=MatchValue(value=v)) for k, v in filters.items()]
             qdrant_filter = Filter(must=must)
 
         hits = self._qdrant.search(  # type: ignore[union-attr]
@@ -416,7 +408,7 @@ class EpisodicMemory(AbstractMemory):
             with_payload=True,
             with_vectors=True,
         )
-        records: List[MemoryRecord] = []
+        records: list[MemoryRecord] = []
         for hit in hits:
             payload = dict(hit.payload or {})
             content = payload.pop("_content", "")
@@ -435,7 +427,7 @@ class EpisodicMemory(AbstractMemory):
                 records.append(rec)
         return records
 
-    def _qdrant_get(self, key: str) -> Optional[MemoryRecord]:
+    def _qdrant_get(self, key: str) -> MemoryRecord | None:
         results = self._qdrant.retrieve(  # type: ignore[union-attr]
             collection_name=self.collection_name,
             ids=[key],
@@ -477,7 +469,7 @@ class EpisodicMemory(AbstractMemory):
 # --------------------------------------------------------------------------- #
 
 
-def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
+def _cosine(a: np.ndarray, b: np.ndarray) -> float:
     norm_a = float(np.linalg.norm(a))
     norm_b = float(np.linalg.norm(b))
     if norm_a == 0.0 or norm_b == 0.0:
@@ -485,7 +477,7 @@ def _cosine(a: "np.ndarray", b: "np.ndarray") -> float:
     return float(np.dot(a, b) / (norm_a * norm_b))
 
 
-def _meta_matches(record: MemoryRecord, filters: Optional[Dict[str, Any]]) -> bool:
+def _meta_matches(record: MemoryRecord, filters: dict[str, Any] | None) -> bool:
     if not filters:
         return True
     return all(record.metadata.get(k) == v for k, v in filters.items())

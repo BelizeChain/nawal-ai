@@ -5,18 +5,18 @@ This module handles data loading and preprocessing for BelizeChain's federated l
 system with built-in compliance filtering and data sovereignty protection.
 """
 
-import torch
-from torch.utils.data import Dataset, DataLoader, random_split
-import pandas as pd
-import numpy as np
-from typing import Dict, List, Optional, Union, Any, Tuple
+import hashlib
+import json
 import logging
 import os
-import json
-from pathlib import Path
-import hashlib
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+import torch
+from torch.utils.data import DataLoader, Dataset, random_split
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class ComplianceDataFilter:
 
         logger.info("Initialized compliance data filter")
 
-    def _load_sensitive_patterns(self) -> List[str]:
+    def _load_sensitive_patterns(self) -> list[str]:
         """Load patterns that require special handling under Belize law"""
         return [
             # Financial sensitive information
@@ -76,9 +76,7 @@ class ComplianceDataFilter:
             r"\b\+?501[-.\s]?\d{3}[-.\s]?\d{4}\b",  # Belize phone numbers
         ]
 
-    def filter_batch(
-        self, batch: Dict[str, torch.Tensor]
-    ) -> Optional[Dict[str, torch.Tensor]]:
+    def filter_batch(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor] | None:
         """
         Filter a batch for compliance violations
 
@@ -93,9 +91,7 @@ class ComplianceDataFilter:
         # Convert tokens back to text for analysis
         if "text" not in batch and hasattr(self, "tokenizer"):
             # Reconstruct text from token IDs for analysis
-            texts = self.tokenizer.batch_decode(
-                batch["input_ids"], skip_special_tokens=True
-            )
+            texts = self.tokenizer.batch_decode(batch["input_ids"], skip_special_tokens=True)
         else:
             texts = batch.get("text", [])
 
@@ -136,10 +132,7 @@ class ComplianceDataFilter:
                 return False
 
         # Additional Belizean-specific compliance checks
-        if self._contains_restricted_content(text):
-            return False
-
-        return True
+        return not self._contains_restricted_content(text)
 
     def _contains_restricted_content(self, text: str) -> bool:
         """Check for content restricted under Belize law"""
@@ -154,19 +147,14 @@ class ComplianceDataFilter:
         ]
 
         text_lower = text.lower()
-        for term in restricted_terms:
-            if term in text_lower:
-                return True
+        return any(term in text_lower for term in restricted_terms)
 
-        return False
-
-    def get_stats(self) -> Dict[str, int]:
+    def get_stats(self) -> dict[str, int]:
         """Get filtering statistics"""
         return {
             "total_processed": self.total_processed,
             "filtered_count": self.filtered_count,
-            "compliance_rate": 1.0
-            - (self.filtered_count / max(self.total_processed, 1)),
+            "compliance_rate": 1.0 - (self.filtered_count / max(self.total_processed, 1)),
         }
 
 
@@ -182,7 +170,7 @@ class BelizeDataset(Dataset):
         data_path: str,
         tokenizer,  # NawalTokenizerWrapper or HuggingFace-compatible tokenizer
         max_length: int = 512,
-        compliance_metadata: Optional[ComplianceMetadata] = None,
+        compliance_metadata: ComplianceMetadata | None = None,
     ):
         self.data_path = Path(data_path)
         self.tokenizer = tokenizer
@@ -196,27 +184,25 @@ class BelizeDataset(Dataset):
 
         logger.info(f"Loaded {len(self.data)} samples from {data_path}")
 
-    def _load_data(self) -> List[Dict[str, Any]]:
+    def _load_data(self) -> list[dict[str, Any]]:
         """Load data from various formats"""
         if self.data_path.suffix == ".json":
-            with open(self.data_path, "r", encoding="utf-8") as f:
+            with open(self.data_path, encoding="utf-8") as f:
                 return json.load(f)
         elif self.data_path.suffix == ".csv":
             df = pd.read_csv(self.data_path)
             return df.to_dict("records")
         else:
             # Load text files
-            with open(self.data_path, "r", encoding="utf-8") as f:
+            with open(self.data_path, encoding="utf-8") as f:
                 lines = f.readlines()
 
-            return [
-                {"text": line.strip(), "label": 0} for line in lines if line.strip()
-            ]
+            return [{"text": line.strip(), "label": 0} for line in lines if line.strip()]
 
     def __len__(self) -> int:
         return len(self.data)
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         """Get a single data item"""
         item = self.data[idx]
 
@@ -255,7 +241,7 @@ class BelizeDataLoader:
         batch_size: int = 32,
         max_length: int = 512,
         train_split: float = 0.8,
-        compliance_filter: Optional[ComplianceDataFilter] = None,
+        compliance_filter: ComplianceDataFilter | None = None,
         data_sovereignty_check: bool = True,
     ):
         self.participant_id = participant_id
@@ -273,9 +259,7 @@ class BelizeDataLoader:
         )
 
         self.tokenizer = NawalTokenizerWrapper(
-            TokenizerConfig(
-                tokenizer_type=TokenizerType.CHARACTER, max_length=max_length
-            )
+            TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER, max_length=max_length)
         )
 
         # Set reference to tokenizer in compliance filter
@@ -309,9 +293,7 @@ class BelizeDataLoader:
         # Load training data
         train_file = data_dir / "train.json"
         if train_file.exists():
-            self.dataset = BelizeDataset(
-                str(train_file), self.tokenizer, self.max_length
-            )
+            self.dataset = BelizeDataset(str(train_file), self.tokenizer, self.max_length)
         else:
             # Create minimal dataset
             self.dataset = self._create_minimal_dataset()
@@ -320,9 +302,7 @@ class BelizeDataLoader:
         train_size = int(self.train_split * len(self.dataset))
         val_size = len(self.dataset) - train_size
 
-        self.train_dataset, self.val_dataset = random_split(
-            self.dataset, [train_size, val_size]
-        )
+        self.train_dataset, self.val_dataset = random_split(self.dataset, [train_size, val_size])
 
     def _create_synthetic_data(self, data_dir: Path):
         """Create synthetic training data for testing"""
@@ -407,13 +387,11 @@ class BelizeDataLoader:
             collate_fn=self._collate_fn,
         )
 
-    def _collate_fn(
-        self, batch: List[Dict[str, torch.Tensor]]
-    ) -> Dict[str, torch.Tensor]:
+    def _collate_fn(self, batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tensor]:
         """Custom collate function with compliance filtering"""
         # Standard collation
         collated = {}
-        for key in batch[0].keys():
+        for key in batch[0]:
             if key == "text":
                 collated[key] = [item[key] for item in batch]
             else:
@@ -428,7 +406,7 @@ class BelizeDataLoader:
 
 def create_belizean_data_splits(
     data_path: str, num_participants: int = 3, output_dir: str = "data/federated"
-) -> List[str]:
+) -> list[str]:
     """
     Create federated data splits for multiple BelizeChain participants
 
@@ -444,7 +422,7 @@ def create_belizean_data_splits(
     output_path.mkdir(parents=True, exist_ok=True)
 
     # Load original data
-    with open(data_path, "r") as f:
+    with open(data_path) as f:
         if data_path.endswith(".json"):
             data = json.load(f)
         else:
@@ -461,11 +439,7 @@ def create_belizean_data_splits(
 
         # Get participant's data slice
         start_idx = i * samples_per_participant
-        end_idx = (
-            start_idx + samples_per_participant
-            if i < num_participants - 1
-            else len(data)
-        )
+        end_idx = start_idx + samples_per_participant if i < num_participants - 1 else len(data)
         participant_data = data[start_idx:end_idx]
 
         # Save participant data
@@ -473,9 +447,7 @@ def create_belizean_data_splits(
             json.dump(participant_data, f, indent=2)
 
         participant_dirs.append(str(participant_dir))
-        logger.info(
-            f"Created data for {participant_id}: {len(participant_data)} samples"
-        )
+        logger.info(f"Created data for {participant_id}: {len(participant_data)} samples")
 
     return participant_dirs
 

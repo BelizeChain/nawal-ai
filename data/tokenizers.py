@@ -13,9 +13,8 @@ Supported Tokenizers:
 Author: BelizeChain Team
 License: MIT"""
 
-from typing import Dict, List, Optional, Union
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 
 import torch
@@ -23,11 +22,7 @@ from loguru import logger
 
 # Optional transformers library
 try:
-    from transformers import (
-        AutoTokenizer,
-        GPT2Tokenizer,
-        BertTokenizer,
-    )
+    from transformers import AutoTokenizer
 
     TRANSFORMERS_AVAILABLE = True
 except ImportError:
@@ -65,12 +60,12 @@ class TokenizerConfig:
     """
 
     tokenizer_type: TokenizerType
-    vocab_size: Optional[int] = None
+    vocab_size: int | None = None
     max_length: int = 512
     padding: str = "max_length"
     truncation: bool = True
     add_special_tokens: bool = True
-    cache_dir: Optional[Path] = None
+    cache_dir: Path | None = None
 
 
 class TextTokenizer:
@@ -144,7 +139,7 @@ class TextTokenizer:
         self,
         text: str,
         return_tensors: str = "pt",
-    ) -> Union[List[int], torch.Tensor]:
+    ) -> list[int] | torch.Tensor:
         """
         Encode text to token IDs.
 
@@ -175,9 +170,9 @@ class TextTokenizer:
 
     def encode_batch(
         self,
-        texts: List[str],
+        texts: list[str],
         return_tensors: str = "pt",
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Encode batch of texts.
 
@@ -207,7 +202,7 @@ class TextTokenizer:
 
     def decode(
         self,
-        token_ids: Union[List[int], torch.Tensor],
+        token_ids: list[int] | torch.Tensor,
         skip_special_tokens: bool = True,
     ) -> str:
         """
@@ -236,9 +231,9 @@ class TextTokenizer:
 
     def decode_batch(
         self,
-        token_ids: Union[List[List[int]], torch.Tensor],
+        token_ids: list[list[int]] | torch.Tensor,
         skip_special_tokens: bool = True,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Decode batch of token IDs.
 
@@ -285,7 +280,7 @@ class TextTokenizer:
             return self.vocab_size - 1
 
     @staticmethod
-    def _get_hf_tokenizers() -> List[TokenizerType]:
+    def _get_hf_tokenizers() -> list[TokenizerType]:
         """Get list of HuggingFace tokenizers."""
         return [
             TokenizerType.GPT2,
@@ -317,7 +312,7 @@ class CharacterTokenizer:
 
         logger.info(f"CharacterTokenizer: vocab_size={len(self.vocab)}")
 
-    def encode(self, text: str) -> List[int]:
+    def encode(self, text: str) -> list[int]:
         """Encode text to character IDs."""
         ids = [self.vocab.get(c, self.vocab["<UNK>"]) for c in text]
 
@@ -329,7 +324,7 @@ class CharacterTokenizer:
 
         return ids
 
-    def decode(self, token_ids: List[int]) -> str:
+    def decode(self, token_ids: list[int]) -> str:
         """Decode character IDs to text."""
         chars = [self.id_to_char.get(i, "<UNK>") for i in token_ids]
         text = "".join(chars)
@@ -359,7 +354,7 @@ class WordTokenizer:
 
         logger.info("WordTokenizer initialized (build vocab with .build_vocab())")
 
-    def build_vocab(self, texts: List[str], min_freq: int = 2) -> None:
+    def build_vocab(self, texts: list[str], min_freq: int = 2) -> None:
         """
         Build vocabulary from texts.
 
@@ -386,24 +381,21 @@ class WordTokenizer:
         if self.config.vocab_size is not None:
             # Keep top-k most frequent words
             top_words = [
-                word
-                for word, count in word_counts.most_common(self.config.vocab_size - 4)
+                word for word, count in word_counts.most_common(self.config.vocab_size - 4)
             ]
-            self.vocab = {
-                k: v for k, v in self.vocab.items() if k in top_words or v < 4
-            }
+            self.vocab = {k: v for k, v in self.vocab.items() if k in top_words or v < 4}
             self.id_to_word = {v: k for k, v in self.vocab.items()}
 
         logger.success(f"Vocabulary built: {len(self.vocab)} words")
 
-    def encode(self, text: str) -> List[int]:
+    def encode(self, text: str) -> list[int]:
         """Encode text to word IDs."""
         words = text.lower().split()
         ids = [self.vocab.get(w, self.vocab["<UNK>"]) for w in words]
 
         # Add BOS/EOS if configured
         if self.config.add_special_tokens:
-            ids = [self.vocab["<BOS>"]] + ids + [self.vocab["<EOS>"]]
+            ids = [self.vocab["<BOS>"], *ids, self.vocab["<EOS>"]]
 
         # Pad or truncate
         if len(ids) < self.config.max_length:
@@ -413,7 +405,7 @@ class WordTokenizer:
 
         return ids
 
-    def decode(self, token_ids: List[int]) -> str:
+    def decode(self, token_ids: list[int]) -> str:
         """Decode word IDs to text."""
         words = [self.id_to_word.get(i, "<UNK>") for i in token_ids]
         text = " ".join(words)
@@ -451,7 +443,7 @@ class NawalTokenizerWrapper:
     without pulling in the ``transformers`` library.
     """
 
-    def __init__(self, config: Optional[TokenizerConfig] = None):
+    def __init__(self, config: TokenizerConfig | None = None):
         if config is None:
             config = TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER)
         self._tokenizer = CharacterTokenizer(config)
@@ -482,7 +474,7 @@ class NawalTokenizerWrapper:
     # Vocabulary management
     # ------------------------------------------------------------------
 
-    def add_tokens(self, new_tokens: List[str]) -> int:
+    def add_tokens(self, new_tokens: list[str]) -> int:
         """Extend vocabulary with new tokens (e.g. Belizean-specific terms)."""
         added = 0
         for token in new_tokens:
@@ -504,10 +496,10 @@ class NawalTokenizerWrapper:
         text: str,
         truncation: bool = True,
         padding: str = "max_length",
-        max_length: Optional[int] = None,
-        return_tensors: Optional[str] = None,
+        max_length: int | None = None,
+        return_tensors: str | None = None,
         **kwargs,
-    ) -> Dict:
+    ) -> dict:
         """HuggingFace-compatible tokenizer call — returns input_ids + attention_mask."""
         effective_max = max_length or self._config.max_length
 
@@ -529,7 +521,7 @@ class NawalTokenizerWrapper:
             }
         return {"input_ids": ids, "attention_mask": attention_mask}
 
-    def encode(self, text: str) -> List[int]:
+    def encode(self, text: str) -> list[int]:
         return self._tokenizer.encode(text)
 
     def decode(

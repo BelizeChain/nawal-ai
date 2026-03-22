@@ -16,19 +16,16 @@ Python: 3.13+
 from __future__ import annotations
 
 import copy
-import hashlib
 import random
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Protocol, Any
+
 from loguru import logger
 
 from .encoding import (
-    Genome,
-    GenomeEncoder,
     ArchitectureLayer,
+    Genome,
     LayerType,
-    Hyperparameters,
 )
 
 # =============================================================================
@@ -400,18 +397,14 @@ class MutationOperator:
             new_hidden = max(64, min(4096, int(layer.hidden_size * multiplier)))
             # Ensure hidden_size is divisible by num_heads
             if layer.num_heads:
-                new_hidden = max(
-                    layer.num_heads, (new_hidden // layer.num_heads) * layer.num_heads
-                )
+                new_hidden = max(layer.num_heads, (new_hidden // layer.num_heads) * layer.num_heads)
             layer.hidden_size = new_hidden
 
         # Modify type-specific parameters
         if hasattr(layer, "num_heads") and layer.num_heads:
             # Pick num_heads that evenly divides hidden_size
             candidates = [
-                h
-                for h in [4, 8, 12, 16]
-                if layer.hidden_size and layer.hidden_size % h == 0
+                h for h in [4, 8, 12, 16] if layer.hidden_size and layer.hidden_size % h == 0
             ]
             if candidates:
                 layer.num_heads = random.choice(candidates)
@@ -454,7 +447,7 @@ class MutationOperator:
 
     def _mutate_add_attention(self, genome: Genome) -> None:
         """Add attention mechanism to a layer."""
-        from nawal.genome import LayerType, ArchitectureLayer
+        from nawal.genome import ArchitectureLayer, LayerType
 
         total_layers = len(genome.encoder_layers) + len(genome.decoder_layers)
         if total_layers >= self.config.max_layers:
@@ -476,7 +469,7 @@ class MutationOperator:
 
     def _mutate_add_moe(self, genome: Genome) -> None:
         """Add Mixture of Experts layer."""
-        from nawal.genome import LayerType, ArchitectureLayer
+        from nawal.genome import ArchitectureLayer, LayerType
 
         total_layers = len(genome.encoder_layers) + len(genome.decoder_layers)
         if total_layers >= self.config.max_layers:
@@ -494,7 +487,7 @@ class MutationOperator:
 
     def _mutate_add_ssm(self, genome: Genome) -> None:
         """Add State Space Model layer."""
-        from nawal.genome import LayerType, ArchitectureLayer
+        from nawal.genome import ArchitectureLayer, LayerType
 
         total_layers = len(genome.encoder_layers) + len(genome.decoder_layers)
         if total_layers >= self.config.max_layers:
@@ -693,8 +686,7 @@ class CrossoverOperator:
                 0, min(len(parent1.encoder_layers), len(parent2.encoder_layers))
             )
             child.encoder_layers = (
-                parent1.encoder_layers[:split_point]
-                + parent2.encoder_layers[split_point:]
+                parent1.encoder_layers[:split_point] + parent2.encoder_layers[split_point:]
             )
 
         # Split decoder layers (same logic)
@@ -703,8 +695,7 @@ class CrossoverOperator:
                 0, min(len(parent1.decoder_layers), len(parent2.decoder_layers))
             )
             child.decoder_layers = (
-                parent1.decoder_layers[:split_point]
-                + parent2.decoder_layers[split_point:]
+                parent1.decoder_layers[:split_point] + parent2.decoder_layers[split_point:]
             )
         elif parent2.decoder_layers:
             child.decoder_layers = copy.deepcopy(parent2.decoder_layers)
@@ -765,15 +756,11 @@ class CrossoverOperator:
     def _hyperparameter_crossover(self, parent1: Genome, parent2: Genome) -> Genome:
         """Crossover only hyperparameters, keep architecture from one parent."""
         # Choose which parent's architecture to keep
-        if random.random() < 0.5:
-            child = parent1.clone()
-        else:
-            child = parent2.clone()
+        child = parent1.clone() if random.random() < 0.5 else parent2.clone()
 
         # Mix hyperparameters
         child.hyperparameters.learning_rate = (
-            parent1.hyperparameters.learning_rate
-            + parent2.hyperparameters.learning_rate
+            parent1.hyperparameters.learning_rate + parent2.hyperparameters.learning_rate
         ) / 2
 
         child.hyperparameters.batch_size = random.choice(
@@ -901,13 +888,13 @@ class EvolutionStrategy:
 # =============================================================================
 
 __all__ = [
-    "MutationType",
-    "CrossoverType",
-    "SelectionStrategy",
-    "MutationConfig",
-    "MutationOperator",
     "CrossoverConfig",
     "CrossoverOperator",
+    "CrossoverType",
     "EvolutionConfig",
     "EvolutionStrategy",
+    "MutationConfig",
+    "MutationOperator",
+    "MutationType",
+    "SelectionStrategy",
 ]

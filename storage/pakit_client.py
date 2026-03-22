@@ -4,14 +4,15 @@ Pakit Client for Nawal
 Uploads Nawal AI models and datasets to Pakit DAG-based storage.
 """
 
-import os
-import json
 import hashlib
+import json
+import logging
+import os
 import re
 import shutil
-from typing import Callable, Dict, Any, Optional, List
+from collections.abc import Callable
 from pathlib import Path
-import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,10 @@ class PakitClient:
         dag_gateway_url: str = "http://localhost:8081",
         compression: str = "zstd",
         pakit_enabled: bool = True,
-        fallback_dir: Optional[str] = None,
-        pre_compress_fn: Optional[Callable[[bytes], bytes]] = None,
-        azure_blob_connection_string: Optional[str] = None,
-        azure_blob_container: Optional[str] = None,
+        fallback_dir: str | None = None,
+        pre_compress_fn: Callable[[bytes], bytes] | None = None,
+        azure_blob_connection_string: str | None = None,
+        azure_blob_container: str | None = None,
     ):
         """
         Initialize Pakit client.
@@ -88,8 +89,7 @@ class PakitClient:
             pakit_api_url=os.getenv("PAKIT_API_URL", "http://localhost:8080"),
             dag_gateway_url=os.getenv("PAKIT_DAG_GATEWAY_URL", "http://localhost:8081"),
             compression=os.getenv("PAKIT_COMPRESSION", "zstd"),
-            pakit_enabled=os.getenv("PAKIT_ENABLED", "true").lower()
-            in ("true", "1", "yes"),
+            pakit_enabled=os.getenv("PAKIT_ENABLED", "true").lower() in ("true", "1", "yes"),
             fallback_dir=os.getenv("PAKIT_FALLBACK_DIR"),
             azure_blob_connection_string=os.getenv("AZURE_BLOB_CONNECTION_STRING"),
             azure_blob_container=os.getenv("AZURE_BLOB_CONTAINER"),
@@ -100,9 +100,7 @@ class PakitClient:
         """Validate that content_hash is a plausible hex CID."""
         return bool(content_hash and PakitClient._CID_PATTERN.match(content_hash))
 
-    def upload_file(
-        self, file_path: str, metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def upload_file(self, file_path: str, metadata: dict[str, Any] | None = None) -> str:
         """
         Upload single file to Pakit DAG storage.
 
@@ -131,9 +129,7 @@ class PakitClient:
                 try:
                     content = self.pre_compress_fn(content)
                 except Exception as e:
-                    logger.warning(
-                        f"Pre-compression hook failed, using raw content: {e}"
-                    )
+                    logger.warning(f"Pre-compression hook failed, using raw content: {e}")
 
             # Upload via Pakit DAG gateway
             # Note: cannot mix files= and json= in requests; send metadata as form data
@@ -159,17 +155,13 @@ class PakitClient:
                 return content_hash
             else:
                 logger.error(f"Upload failed: {response.status_code} - {response.text}")
-                raise RuntimeError(
-                    f"Pakit upload failed with status {response.status_code}"
-                )
+                raise RuntimeError(f"Pakit upload failed with status {response.status_code}")
 
         except requests.RequestException as e:
             logger.error(f"Upload network error: {e}")
             raise RuntimeError(f"Pakit upload failed: {e}") from e
 
-    def upload_directory(
-        self, dir_path: str, metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
+    def upload_directory(self, dir_path: str, metadata: dict[str, Any] | None = None) -> str:
         """
         Upload entire directory to Pakit.
 
@@ -276,15 +268,13 @@ class PakitClient:
             return True  # Mock success
 
         try:
-            response = requests.post(
-                f"{self.dag_gateway_url}/api/v1/pin/{content_hash}"
-            )
+            response = requests.post(f"{self.dag_gateway_url}/api/v1/pin/{content_hash}")
             return response.status_code == 200
         except Exception as e:
             logger.error(f"Pin error: {e}")
             return False
 
-    def get_metadata(self, content_hash: str) -> Optional[Dict[str, Any]]:
+    def get_metadata(self, content_hash: str) -> dict[str, Any] | None:
         """
         Get metadata for stored content.
 
@@ -302,9 +292,7 @@ class PakitClient:
             return None
 
         try:
-            response = requests.get(
-                f"{self.dag_gateway_url}/api/v1/metadata/{content_hash}"
-            )
+            response = requests.get(f"{self.dag_gateway_url}/api/v1/metadata/{content_hash}")
 
             if response.status_code == 200:
                 return response.json()
@@ -323,7 +311,7 @@ class PakitClient:
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    def submit_merkle_proof(self, content_hash: str) -> Optional[str]:
+    def submit_merkle_proof(self, content_hash: str) -> str | None:
         """Submit a Merkle proof for the given content hash.
 
         Placeholder for future on-chain proof submission.
@@ -343,7 +331,7 @@ class PakitClient:
     def _fallback_upload(
         self,
         file_path: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Store file when Pakit is disabled — tries Azure Blob, then local."""
         content_hash = self._compute_file_hash(file_path)
@@ -382,7 +370,7 @@ class PakitClient:
     def _azure_blob_upload(self, file_path: str, content_hash: str) -> bool:
         """Upload file to Azure Blob Storage."""
         try:
-            from azure.storage.blob import BlobServiceClient  # noqa: F811
+            from azure.storage.blob import BlobServiceClient
         except ImportError:
             logger.warning("azure-storage-blob not installed, skipping Azure fallback")
             return False
@@ -403,7 +391,7 @@ class PakitClient:
     def _azure_blob_download(self, content_hash: str, output_path: str) -> bool:
         """Download file from Azure Blob Storage."""
         try:
-            from azure.storage.blob import BlobServiceClient  # noqa: F811
+            from azure.storage.blob import BlobServiceClient
         except ImportError:
             logger.warning("azure-storage-blob not installed, skipping Azure fallback")
             return False
@@ -422,7 +410,7 @@ class PakitClient:
             logger.warning(f"Azure Blob download failed: {e}")
             return False
 
-    def _mock_upload(self, path: str, metadata: Optional[Dict[str, Any]] = None) -> str:
+    def _mock_upload(self, path: str, metadata: dict[str, Any] | None = None) -> str:
         """Mock upload when Pakit API unavailable."""
         # Generate deterministic hash
         hasher = hashlib.sha256()

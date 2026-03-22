@@ -8,22 +8,22 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Callable, Dict, List, Optional
+from enum import StrEnum
+from typing import Any
 
 # --------------------------------------------------------------------------- #
 # Enumerations                                                                  #
 # --------------------------------------------------------------------------- #
 
 
-class ToolStatus(str, Enum):
+class ToolStatus(StrEnum):
     SUCCESS = "success"
     FAILURE = "failure"
     TIMEOUT = "timeout"
     BLOCKED = "blocked"  # Safety filter prevented execution
 
 
-class ToolCategory(str, Enum):
+class ToolCategory(StrEnum):
     WEB_SEARCH = "web_search"
     CODE_EXEC = "code_execution"
     MEMORY = "memory"
@@ -54,8 +54,8 @@ class ToolResult:
     tool_name: str
     status: ToolStatus = ToolStatus.SUCCESS
     output: Any = None
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    error: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     cost: float = 0.0
 
 
@@ -74,7 +74,7 @@ class ToolSpec:
 
     name: str
     description: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
     category: ToolCategory = ToolCategory.CUSTOM
     safe: bool = True
 
@@ -108,11 +108,11 @@ class AbstractToolRegistry(ABC):
         """Add *tool* to the registry."""
 
     @abstractmethod
-    def get(self, name: str) -> Optional[AbstractTool]:
+    def get(self, name: str) -> AbstractTool | None:
         """Return tool by name, or None."""
 
     @abstractmethod
-    def list_tools(self) -> List[ToolSpec]:
+    def list_tools(self) -> list[ToolSpec]:
         """Return specs of all registered tools."""
 
     @abstractmethod
@@ -128,5 +128,5 @@ class AbstractActionLayer(ABC):
         """Execute a named tool action."""
 
     @abstractmethod
-    def available_tools(self) -> List[ToolSpec]:
+    def available_tools(self) -> list[ToolSpec]:
         """List all available tools."""

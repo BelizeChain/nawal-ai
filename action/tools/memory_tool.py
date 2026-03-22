@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -68,7 +68,7 @@ class MemoryReadTool(AbstractTool):
 
     def __init__(
         self,
-        memory_manager: Optional[Any] = None,
+        memory_manager: Any | None = None,
         top_k: int = 5,
     ) -> None:
         self._mm = memory_manager
@@ -105,9 +105,7 @@ class MemoryReadTool(AbstractTool):
 
         try:
             k = top_k or self._top_k
-            store_obj = getattr(self._mm, store, None) or getattr(
-                self._mm, "episodic", None
-            )
+            store_obj = getattr(self._mm, store, None) or getattr(self._mm, "episodic", None)
             if store_obj is None:
                 raise AttributeError(f"memory_manager has no store '{store}'")
             # EpisodicMemory.retrieve() takes query_embedding as first positional arg.
@@ -152,9 +150,7 @@ class MemoryWriteTool(AbstractTool):
 
     _SPEC = ToolSpec(
         name="memory_write",
-        description=(
-            "Store a new memory (text + optional metadata) into the episodic memory."
-        ),
+        description=("Store a new memory (text + optional metadata) into the episodic memory."),
         parameters={
             "content": {
                 "type": "string",
@@ -176,7 +172,7 @@ class MemoryWriteTool(AbstractTool):
         safe=True,
     )
 
-    def __init__(self, memory_manager: Optional[Any] = None) -> None:
+    def __init__(self, memory_manager: Any | None = None) -> None:
         self._mm = memory_manager
 
     @property
@@ -186,8 +182,8 @@ class MemoryWriteTool(AbstractTool):
     def run(
         self,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        tags: Optional[List[str]] = None,
+        metadata: dict[str, Any] | None = None,
+        tags: list[str] | None = None,
         **_: Any,
     ) -> ToolResult:
         if not content:

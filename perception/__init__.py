@@ -17,22 +17,22 @@ Canonical import:
     from nawal.perception import SensoryHub
 """
 
-from perception.interfaces import AbstractCortex, WorldState
-from perception.text_cortex import TextCortex
-from perception.visual_cortex import VisualCortex
 from perception.auditory_cortex import AuditoryCortex
+from perception.interfaces import AbstractCortex, WorldState
 from perception.multimodal_cortex import MultimodalCortex
 from perception.sensory_hub import SensoryHub
+from perception.text_cortex import TextCortex
+from perception.visual_cortex import VisualCortex
 
 __all__ = [
     # interfaces
     "AbstractCortex",
-    "WorldState",
-    # cortices
-    "TextCortex",
-    "VisualCortex",
     "AuditoryCortex",
     "MultimodalCortex",
     # hub
     "SensoryHub",
+    # cortices
+    "TextCortex",
+    "VisualCortex",
+    "WorldState",
 ]

@@ -42,8 +42,8 @@ Usage::
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 from loguru import logger
 
@@ -57,7 +57,7 @@ from metacognition.interfaces import (
 # Check helpers                                                                #
 # --------------------------------------------------------------------------- #
 
-CheckFn = Callable[[str, Dict[str, Any]], Optional[str]]
+CheckFn = Callable[[str, dict[str, Any]], str | None]
 """
 A check function takes (response_text, context) and returns:
   - None   → check passed
@@ -66,7 +66,7 @@ A check function takes (response_text, context) and returns:
 
 
 def _check_min_length(min_words: int = 3) -> CheckFn:
-    def _check(text: str, _ctx: Dict) -> Optional[str]:
+    def _check(text: str, _ctx: dict) -> str | None:
         words = text.split()
         if len(words) < min_words:
             return f"Response too short ({len(words)} words, minimum {min_words})"
@@ -76,7 +76,7 @@ def _check_min_length(min_words: int = 3) -> CheckFn:
 
 
 def _check_max_length(max_words: int = 2048) -> CheckFn:
-    def _check(text: str, _ctx: Dict) -> Optional[str]:
+    def _check(text: str, _ctx: dict) -> str | None:
         words = text.split()
         if len(words) > max_words:
             return f"Response too long ({len(words)} words, maximum {max_words})"
@@ -86,7 +86,7 @@ def _check_max_length(max_words: int = 2048) -> CheckFn:
 
 
 def _check_not_empty() -> CheckFn:
-    def _check(text: str, _ctx: Dict) -> Optional[str]:
+    def _check(text: str, _ctx: dict) -> str | None:
         if not text or not text.strip():
             return "Response is empty"
         return None
@@ -100,7 +100,7 @@ def _check_goal_alignment(min_overlap: float = 0.0) -> CheckFn:
     ``min_overlap=0.0`` disables this check by default — enable by passing > 0.
     """
 
-    def _check(text: str, ctx: Dict) -> Optional[str]:
+    def _check(text: str, ctx: dict) -> str | None:
         if min_overlap <= 0.0:
             return None
         goal = str(ctx.get("goal", ctx.get("description", "")))
@@ -131,13 +131,10 @@ def _check_no_hallucination_markers() -> CheckFn:
     ]
     compiled = [re.compile(p, re.IGNORECASE) for p in _PATTERNS]
 
-    def _check(text: str, _ctx: Dict) -> Optional[str]:
+    def _check(text: str, _ctx: dict) -> str | None:
         for pat in compiled:
             if pat.search(text):
-                return (
-                    f"Response contains possible hallucination marker: "
-                    f"{pat.pattern!r}"
-                )
+                return f"Response contains possible hallucination marker: " f"{pat.pattern!r}"
         return None
 
     return _check
@@ -155,7 +152,7 @@ def _check_no_bare_refusal() -> CheckFn:
     ]
     compiled = [re.compile(p, re.IGNORECASE | re.MULTILINE) for p in _REFUSALS]
 
-    def _check(text: str, _ctx: Dict) -> Optional[str]:
+    def _check(text: str, _ctx: dict) -> str | None:
         stripped = text.strip()
         for pat in compiled:
             if pat.match(stripped):
@@ -171,7 +168,7 @@ def _check_coherence() -> CheckFn:
     punctuation mark if it's longer than 10 words.
     """
 
-    def _check(text: str, _ctx: Dict) -> Optional[str]:
+    def _check(text: str, _ctx: dict) -> str | None:
         if len(text.split()) < 10:
             return None
         if not re.search(r"[.!?]", text):
@@ -240,7 +237,7 @@ _STOPWORDS = frozenset(
 )
 
 # Default check registry
-_DEFAULT_CHECKS: List[Tuple[str, CheckFn]] = [
+_DEFAULT_CHECKS: list[tuple[str, CheckFn]] = [
     ("not_empty", _check_not_empty()),
     ("min_length", _check_min_length(min_words=2)),
     ("max_length", _check_max_length(max_words=2048)),
@@ -272,7 +269,7 @@ class SelfCritic(AbstractCritic):
 
     def __init__(
         self,
-        checks: Optional[List[Tuple[str, CheckFn]]] = None,
+        checks: list[tuple[str, CheckFn]] | None = None,
         fail_threshold: int = 1,
         auto_revise: bool = True,
     ) -> None:
@@ -287,7 +284,7 @@ class SelfCritic(AbstractCritic):
     def critique(
         self,
         response: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> CritiqueResult:
         """
         Run all registered checks against *response*.
@@ -297,7 +294,7 @@ class SelfCritic(AbstractCritic):
           - list of issue strings for each failed check.
           - optional revised_response if auto_revise is enabled.
         """
-        issues: List[str] = []
+        issues: list[str] = []
 
         for check_name, check_fn in self._checks:
             try:
@@ -311,7 +308,7 @@ class SelfCritic(AbstractCritic):
 
         approved = len(issues) < self._fail_threshold
 
-        revised: Optional[str] = None
+        revised: str | None = None
         if not approved and self._auto_revise:
             revised = self._auto_fix(response, issues)
 
@@ -331,7 +328,7 @@ class SelfCritic(AbstractCritic):
     def estimate_confidence(
         self,
         response: str,
-        context: Dict[str, Any],
+        context: dict[str, Any],
     ) -> ConfidenceScore:
         """
         Estimate confidence as a function of check pass-rate.
@@ -366,14 +363,14 @@ class SelfCritic(AbstractCritic):
         """Remove a check by name."""
         self._checks = [(n, f) for n, f in self._checks if n != name]
 
-    def check_names(self) -> List[str]:
+    def check_names(self) -> list[str]:
         return [n for n, _ in self._checks]
 
     # ------------------------------------------------------------------ #
     # Internals                                                            #
     # ------------------------------------------------------------------ #
 
-    def _auto_fix(self, response: str, issues: List[str]) -> str:
+    def _auto_fix(self, response: str, issues: list[str]) -> str:
         """
         Apply simple deterministic fixes for common issues.
         Returns revised text (may still have issues — requires re-critique).
@@ -392,9 +389,7 @@ class SelfCritic(AbstractCritic):
 
         return revised if revised != response.strip() else response
 
-    def _compute_critique_confidence(
-        self, response: str, issues: List[str]
-    ) -> ConfidenceScore:
+    def _compute_critique_confidence(self, response: str, issues: list[str]) -> ConfidenceScore:
         n = max(len(self._checks), 1)
         ratio = max(0.0, 1.0 - len(issues) / n)
         return ConfidenceScore(

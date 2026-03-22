@@ -12,8 +12,6 @@ Covers:
 
 from __future__ import annotations
 
-from typing import Dict, List
-
 import pytest
 import torch
 
@@ -29,7 +27,7 @@ from security.byzantine_detection import (
 # ---------------------------------------------------------------------------
 
 
-def _make_update(seed: int = 0, size: int = 6) -> Dict[str, torch.Tensor]:
+def _make_update(seed: int = 0, size: int = 6) -> dict[str, torch.Tensor]:
     torch.manual_seed(seed)
     return {
         "fc.weight": torch.randn(size, size),
@@ -37,7 +35,7 @@ def _make_update(seed: int = 0, size: int = 6) -> Dict[str, torch.Tensor]:
     }
 
 
-def _make_updates(n: int) -> List[Dict[str, torch.Tensor]]:
+def _make_updates(n: int) -> list[dict[str, torch.Tensor]]:
     return [_make_update(seed=i) for i in range(n)]
 
 
@@ -377,7 +375,7 @@ class TestDetectAnomalies:
             "fc.weight": torch.full((6, 6), 1e5),
             "fc.bias": torch.full((6,), 1e5),
         }
-        anomalies = d.detect_anomalies(normal + [poison])
+        anomalies = d.detect_anomalies([*normal, poison])
         assert anomalies[-1] is True
 
     def test_custom_thresholds_accepted(self):

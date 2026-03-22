@@ -16,33 +16,41 @@ TestQuantumLayer         — integration: orchestrator wires all 4 modules
 
 from __future__ import annotations
 
-import math
-from typing import Any, Dict, List
+from typing import Any
 from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
+# ── shared helpers ────────────────────────────────────────────────────────────
+from control.interfaces import Plan
+from memory.interfaces import MemoryRecord
+from quantum import (
+    HybridQuantumClassicalLLM,
+    KinichQuantumConnector,
+    QuantumEnhancedLayer,
+)
+from quantum import (
+    QuantumAnomalyDetector as QAnom,
+)
+from quantum import (
+    QuantumImagination as QImag,
+)
+from quantum import (
+    QuantumMemory as QMem,
+)
+from quantum import (
+    QuantumPlanOptimizer as QPlan,
+)
+from quantum import (
+    SimulatedState as SS,
+)
+from quantum.quantum_anomaly import QuantumAnomalyDetector
+from quantum.quantum_imagination import QuantumImagination, SimulatedState
+
 # ── module under test ────────────────────────────────────────────────────────
 from quantum.quantum_memory import QuantumMemory
 from quantum.quantum_optimizer import QuantumPlanOptimizer
-from quantum.quantum_anomaly import QuantumAnomalyDetector
-from quantum.quantum_imagination import QuantumImagination, SimulatedState
-from quantum import (
-    KinichQuantumConnector,
-    QuantumEnhancedLayer,
-    HybridQuantumClassicalLLM,
-    QuantumMemory as QMem,
-    QuantumPlanOptimizer as QPlan,
-    QuantumAnomalyDetector as QAnom,
-    QuantumImagination as QImag,
-    SimulatedState as SS,
-)
-
-# ── shared helpers ────────────────────────────────────────────────────────────
-from control.interfaces import Plan
-from memory.episodic import EpisodicMemory
-from memory.interfaces import MemoryRecord
 
 
 def _make_plan(plan_id: str, score: float, **meta) -> Plan:
@@ -55,7 +63,7 @@ def _make_plan(plan_id: str, score: float, **meta) -> Plan:
     )
 
 
-def _make_records(n: int, dim: int = 8) -> List[MemoryRecord]:
+def _make_records(n: int, dim: int = 8) -> list[MemoryRecord]:
     rng = np.random.default_rng(0)
     records = []
     for i in range(n):
@@ -71,7 +79,7 @@ def _make_records(n: int, dim: int = 8) -> List[MemoryRecord]:
     return records
 
 
-def _mock_episodic(records: List[MemoryRecord]) -> MagicMock:
+def _mock_episodic(records: list[MemoryRecord]) -> MagicMock:
     """Return a mock EpisodicMemory that holds given records."""
     mock = MagicMock()
     mock.__len__ = MagicMock(return_value=len(records))
@@ -397,10 +405,10 @@ class TestQuantumAnomalyDetector:
 class TestQuantumImagination:
     """QuantumImagination — future trajectory sampling."""
 
-    def _state(self) -> Dict[str, Any]:
+    def _state(self) -> dict[str, Any]:
         return {"task": "summarise", "tokens": 512}
 
-    def _actions(self) -> List[Dict[str, Any]]:
+    def _actions(self) -> list[dict[str, Any]]:
         return [
             {"model": "fast", "speed": True, "accuracy": False},
             {"model": "best", "speed": False, "accuracy": True, "safety": True},

@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import json
-import math
-import os
 import random
 import struct
-import tempfile
 import time
 from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
@@ -214,7 +208,7 @@ class TestGenomeDNA:
         from genome.dna import DNA
 
         with pytest.warns(DeprecationWarning):
-            dna = DNA(input_size=32, output_size=10)
+            DNA(input_size=32, output_size=10)
 
     def test_dna_add_remove_layer(self):
         from genome.dna import DNA, LayerGene
@@ -280,7 +274,7 @@ class TestGenomeOperators:
         from genome.operators import MutationConfig
 
         cfg = MutationConfig()
-        ok, errors = cfg.validate()
+        ok, _errors = cfg.validate()
         assert ok
 
     def test_mutation_operator_mutate(self):
@@ -296,7 +290,7 @@ class TestGenomeOperators:
         from genome.operators import CrossoverConfig
 
         cfg = CrossoverConfig()
-        ok, errors = cfg.validate()
+        ok, _errors = cfg.validate()
         assert ok
 
     def test_crossover_operator(self):
@@ -473,7 +467,7 @@ class TestGenomePopulation:
         from genome.population import PopulationConfig
 
         cfg = PopulationConfig(target_size=5, min_size=2, max_size=10)
-        ok, errs = cfg.validate()
+        ok, _errs = cfg.validate()
         assert ok
 
     def test_calculate_diversity(self):
@@ -651,7 +645,6 @@ class TestGenomeEncodingGaps:
         assert g2.genome_id == g.genome_id
 
     def test_genome_clone(self):
-        from genome.encoding import Genome
 
         g = _make_genome()
         c = g.clone()
@@ -823,7 +816,7 @@ class TestArchitectureAttention:
         cfg = _small_nawal_config()
         attn = MultiHeadAttention(cfg)
         x = torch.randn(2, 16, cfg.hidden_size)
-        out, kv = attn(x)
+        out, _kv = attn(x)
         assert out.shape == x.shape
 
     def test_multihead_attention_with_cache(self):
@@ -832,7 +825,7 @@ class TestArchitectureAttention:
         cfg = _small_nawal_config()
         attn = MultiHeadAttention(cfg)
         x = torch.randn(2, 16, cfg.hidden_size)
-        out, kv = attn(x, use_cache=True)
+        _out, kv = attn(x, use_cache=True)
         assert kv is not None
 
     def test_causal_mask(self):
@@ -872,7 +865,7 @@ class TestArchitectureTransformer:
         cfg = _small_nawal_config()
         block = NawalTransformerBlock(cfg)
         x = torch.randn(2, 16, cfg.hidden_size)
-        out, kv = block(x)
+        out, _kv = block(x)
         assert out.shape == x.shape
 
     def test_transformer_forward(self):
@@ -1116,7 +1109,7 @@ class TestStakingConnector:
         sc = StakingConnector(mock_mode=True)
         _run(sc.connect())
         _run(sc.enroll_participant("acc1", 5000))
-        success, amount = _run(sc.claim_rewards("acc1"))
+        success, _amount = _run(sc.claim_rewards("acc1"))
         assert isinstance(success, bool)
 
     def test_mock_get_total_staked(self):
@@ -1182,7 +1175,7 @@ class TestCommunityConnector:
 
         cc = CommunityConnector(mock_mode=True)
         _run(cc.connect())
-        success, tx = _run(
+        success, _tx = _run(
             cc.record_participation("acc1", "training", quality_score=0.9)
         )
         assert success
@@ -1192,7 +1185,7 @@ class TestCommunityConnector:
 
         cc = CommunityConnector(mock_mode=True)
         _run(cc.connect())
-        success, tx = _run(
+        success, _tx = _run(
             cc.record_federated_learning_contribution("acc1", 1, 0.9, 500, 120)
         )
         assert success
@@ -1202,7 +1195,7 @@ class TestCommunityConnector:
 
         cc = CommunityConnector(mock_mode=True)
         _run(cc.connect())
-        success, tx = _run(cc.record_education_completion("acc1", 1, 0.95))
+        success, _tx = _run(cc.record_education_completion("acc1", 1, 0.95))
         assert success
 
     def test_mock_record_green_project(self):
@@ -1210,7 +1203,7 @@ class TestCommunityConnector:
 
         cc = CommunityConnector(mock_mode=True)
         _run(cc.connect())
-        success, tx = _run(cc.record_green_project_contribution("acc1", 1, 100.0))
+        success, _tx = _run(cc.record_green_project_contribution("acc1", 1, 100.0))
         assert success
 
     def test_get_tier_name(self):
@@ -1769,7 +1762,7 @@ class TestHybridTeacher:
 
         teacher = DeepSeekTeacher()
         teacher.load_model()
-        assert mock_load.called or teacher.model is not None or True
+        assert True
 
     def test_clear_cache(self):
         from hybrid.teacher import DeepSeekTeacher
@@ -1865,6 +1858,7 @@ class TestCLICommands:
     def test_cli_group_help(self):
         try:
             from click.testing import CliRunner
+
             from cli.commands import cli
 
             runner = CliRunner()
@@ -1876,6 +1870,7 @@ class TestCLICommands:
     def test_config_command_show(self):
         try:
             from click.testing import CliRunner
+
             from cli.commands import cli
 
             runner = CliRunner()
@@ -1887,6 +1882,7 @@ class TestCLICommands:
     def test_config_command_init(self):
         try:
             from click.testing import CliRunner
+
             from cli.commands import cli
 
             runner = CliRunner()
@@ -2256,7 +2252,7 @@ class TestKinichConnector:
         from integration.kinich_connector import QuantumEnhancedLayer
 
         layer = QuantumEnhancedLayer(classical_dim=64, quantum_dim=8)
-        x = torch.randn(2, 64)
+        torch.randn(2, 64)
         # forward may call async quantum — just test it doesn't crash on creation
         assert layer.extra_repr() is not None or True
 
@@ -2272,8 +2268,8 @@ class TestOraclePipeline:
         assert DeviceType.SENSOR.value == 2
 
     def test_iot_device_info(self):
-        from integration.oracle_pipeline import DeviceType, IoTDeviceInfo
         from client.domain_models import ModelDomain
+        from integration.oracle_pipeline import DeviceType, IoTDeviceInfo
 
         info = IoTDeviceInfo(
             device_id=b"dev1",
@@ -2412,7 +2408,6 @@ class TestGenomeTrainer:
         assert cfg.learning_rate == 1e-4
 
     def test_calculate_fitness(self):
-        from client.genome_trainer import GenomeTrainer
 
         trainer = self._make_trainer()
         score = trainer.calculate_fitness(
@@ -2572,7 +2567,6 @@ class TestGenomeModelBuilder:
             assert attn is not None
 
     def test_feedforward_module(self):
-        from genome.encoding import LayerType
         from genome.model_builder import FeedForward
 
         ff = FeedForward(hidden_size=64, intermediate_size=128)

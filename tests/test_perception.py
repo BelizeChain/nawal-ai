@@ -12,12 +12,14 @@ Covers:
 from __future__ import annotations
 
 import math
-from typing import Any, List, Optional
 
 import numpy as np
 import pytest
 
+from perception.auditory_cortex import _STUB_TRANSCRIPTION, AuditoryCortex
 from perception.interfaces import WorldState
+from perception.multimodal_cortex import MultimodalCortex
+from perception.sensory_hub import SensoryHub
 from perception.text_cortex import (
     TextCortex,
     _hash_token,
@@ -25,9 +27,6 @@ from perception.text_cortex import (
     _project,
 )
 from perception.visual_cortex import VisualCortex
-from perception.auditory_cortex import AuditoryCortex, _STUB_TRANSCRIPTION
-from perception.multimodal_cortex import MultimodalCortex
-from perception.sensory_hub import SensoryHub
 
 try:
     from PIL import Image as PILImage
@@ -42,7 +41,7 @@ except ImportError:
 # =========================================================================== #
 
 
-def _unit_vec_check(vec: List[float], tol: float = 1e-5) -> bool:
+def _unit_vec_check(vec: list[float], tol: float = 1e-5) -> bool:
     """Return True if vec is approximately L2-normalised."""
     mag = math.sqrt(sum(x * x for x in vec))
     return abs(mag - 1.0) < tol or mag < tol  # also accept zero vec

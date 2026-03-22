@@ -15,8 +15,10 @@ Targets:
 """
 
 import asyncio
+import contextlib
 import os
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 # ---------------------------------------------------------------------------
@@ -336,7 +338,7 @@ class TestStakingConnectorRealModeClaimRewards:
 
         conn = StakingConnector(mock_mode=False, enable_community_tracking=False)
         conn.is_connected = False
-        success, amount = _run(
+        success, _amount = _run(
             conn.claim_rewards("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")
         )
         assert success is False
@@ -345,7 +347,7 @@ class TestStakingConnectorRealModeClaimRewards:
         conn = self._make_real_conn()
         conn.substrate.query.return_value.value = {"pending_rewards": 500}
         conn.substrate.submit_extrinsic.return_value = _mock_receipt(success=True)
-        success, amount = _run(
+        success, _amount = _run(
             conn.claim_rewards("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")
         )
         assert isinstance(success, bool)
@@ -353,7 +355,7 @@ class TestStakingConnectorRealModeClaimRewards:
     def test_claim_real_exception(self):
         conn = self._make_real_conn()
         conn.substrate.compose_call.side_effect = Exception("network error")
-        success, amount = _run(
+        success, _amount = _run(
             conn.claim_rewards("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY")
         )
         assert success is False
@@ -434,10 +436,8 @@ class TestSubstrateClientConnect:
         client = SubstrateClient(self._make_config())
         with patch("blockchain.substrate_client.SubstrateInterface") as mock_cls:
             mock_cls.side_effect = Exception("refused")
-            try:
+            with contextlib.suppress(Exception):
                 client.connect(max_retries=1, base_delay=0)
-            except Exception:
-                pass
         assert client.is_connected() is False
 
     def test_disconnect(self):
@@ -539,7 +539,6 @@ class TestSubstrateClientSubmit:
         assert receipt.success is True
 
     def test_submit_extrinsic_failure(self):
-        from blockchain.substrate_client import ExtrinsicReceipt
 
         client = self._make_connected()
         mock_result = MagicMock()
@@ -622,7 +621,7 @@ class TestCommunityConnectorRealMode:
 
         conn = CommunityConnector(mock_mode=True)
         _run(conn.connect())
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             conn.record_participation(
                 account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
                 activity_type="FederatedLearning",
@@ -665,7 +664,7 @@ class TestCommunityConnectorRealMode:
 
         conn = CommunityConnector(mock_mode=True)
         _run(conn.connect())
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             conn.record_federated_learning_contribution(
                 account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
                 round_number=1,
@@ -681,7 +680,7 @@ class TestCommunityConnectorRealMode:
 
         conn = CommunityConnector(mock_mode=True)
         _run(conn.connect())
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             conn.record_education_completion(
                 account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
                 module_id=101,
@@ -695,7 +694,7 @@ class TestCommunityConnectorRealMode:
 
         conn = CommunityConnector(mock_mode=True)
         _run(conn.connect())
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             conn.record_green_project_contribution(
                 account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
                 project_id=1,
@@ -721,7 +720,7 @@ class TestCommunityConnectorRealMode:
 
         conn = CommunityConnector(mock_mode=False)
         conn._connected = False
-        success, tx_hash = _run(
+        success, _tx_hash = _run(
             conn.record_participation(
                 account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
                 activity_type="FederatedLearning",
@@ -739,7 +738,7 @@ class TestCommunityConnectorRealMode:
 class TestPayrollConnectorDataClasses:
 
     def _make_entry(self):
-        from blockchain.payroll_connector import PayrollEntry, EmployeeType
+        from blockchain.payroll_connector import EmployeeType, PayrollEntry
 
         gross = 5_000_000_000_000
         tax = 750_000_000_000
@@ -769,8 +768,9 @@ class TestPayrollConnectorDataClasses:
         )
 
     def test_payroll_entry_negative_gross_raises(self):
-        from blockchain.payroll_connector import PayrollEntry, EmployeeType
         import pytest
+
+        from blockchain.payroll_connector import EmployeeType, PayrollEntry
 
         with pytest.raises(ValueError):
             PayrollEntry(
@@ -786,7 +786,7 @@ class TestPayrollConnectorDataClasses:
             )
 
     def test_payroll_submission_validate_valid(self):
-        from blockchain.payroll_connector import PayrollSubmission, PayrollStatus
+        from blockchain.payroll_connector import PayrollStatus, PayrollSubmission
 
         entry = self._make_entry()
         sub = PayrollSubmission(
@@ -856,7 +856,7 @@ class TestPayrollConnectorRealMode:
         _run(conn.disconnect())
 
     def _make_entry(self):
-        from blockchain.payroll_connector import PayrollEntry, EmployeeType
+        from blockchain.payroll_connector import EmployeeType, PayrollEntry
 
         gross = 5_000_000_000_000
         tax = 750_000_000_000
@@ -1003,7 +1003,7 @@ class TestBlockchainEventsParse:
         assert result is None
 
     def test_parse_all_known_event_types(self):
-        from blockchain.events import BlockchainEventListener, EventType
+        from blockchain.events import BlockchainEventListener
 
         listener = BlockchainEventListener(mock_mode=True)
         event_map = [
@@ -1184,7 +1184,7 @@ class TestDummyBelizeIDVerifier:
 class TestCreateVerifier:
 
     def test_development_mode_returns_dummy(self):
-        from blockchain.identity_verifier import create_verifier, DummyBelizeIDVerifier
+        from blockchain.identity_verifier import DummyBelizeIDVerifier, create_verifier
 
         os.environ["NAWAL_ENV"] = "development"
         try:
@@ -1218,12 +1218,11 @@ class TestCreateVerifier:
 class TestValidatorManagerMocked:
 
     def _make_manager(self):
-        from blockchain.validator_manager import ValidatorManager
         from blockchain.substrate_client import (
-            SubstrateClient,
-            ChainConfig,
             ExtrinsicReceipt,
+            SubstrateClient,
         )
+        from blockchain.validator_manager import ValidatorManager
 
         client = MagicMock(spec=SubstrateClient)
         client.submit_extrinsic.return_value = ExtrinsicReceipt(
@@ -1254,7 +1253,7 @@ class TestValidatorManagerMocked:
         assert manager is not None
 
     def test_register_identity_success(self):
-        manager, client = self._make_manager()
+        manager, _client = self._make_manager()
         identity = self._make_identity()
         keypair = MagicMock()
         receipt = manager.register_identity(keypair, identity)
@@ -1297,7 +1296,7 @@ class TestValidatorManagerMocked:
         assert result is not None
 
     def test_submit_kyc_calls_extrinsic(self):
-        manager, client = self._make_manager()
+        manager, _client = self._make_manager()
         receipt = manager.submit_kyc(
             keypair=MagicMock(),
             documents={"passport": "0xHASH", "proof_of_address": "0xHASH2"},
@@ -1330,7 +1329,7 @@ class TestValidatorManagerMocked:
     def test_calculate_tier(self):
         from blockchain.validator_manager import ValidatorTier
 
-        manager, client = self._make_manager()
+        manager, _client = self._make_manager()
         tier = manager.calculate_tier(
             stake=10_000_000_000_000,
             reputation=90.0,
@@ -1368,7 +1367,7 @@ class TestValidatorManagerMocked:
     def test_update_tier(self):
         from blockchain.validator_manager import ValidatorTier
 
-        manager, client = self._make_manager()
+        manager, _client = self._make_manager()
         result = manager.update_tier(
             keypair=MagicMock(),
             new_tier=ValidatorTier.GOLD,

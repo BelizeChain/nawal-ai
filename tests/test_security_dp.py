@@ -13,7 +13,6 @@ Covers:
 from __future__ import annotations
 
 import math
-from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -21,8 +20,8 @@ import torch.nn as nn
 import torch.optim as optim
 
 from security.differential_privacy import (
-    DPOptimizer,
     DifferentialPrivacy,
+    DPOptimizer,
     PrivacyAccountant,
     PrivacyBudget,
     PrivacyBudgetExhaustedError,

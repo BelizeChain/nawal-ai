@@ -15,12 +15,10 @@ from __future__ import annotations
 import asyncio
 import io
 import json
-import os
 import struct
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, AsyncMock, patch, PropertyMock
-from dataclasses import dataclass
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -43,19 +41,19 @@ def _run(coro):
 
 def _make_trainer(**overrides):
     """Create a GenomeTrainer with sane defaults and optional overrides."""
-    from client.genome_trainer import TrainingConfig, GenomeTrainer
+    from client.genome_trainer import GenomeTrainer, TrainingConfig
 
-    defaults = dict(
-        participant_id="test_p1",
-        validator_address="5Grw",
-        staking_account="5Grw",
-        device="cpu",
-        mixed_precision=False,
-        local_epochs=1,
-        submission_deadline=300.0,
-        training_timeout=3600.0,
-        gradient_accumulation_steps=1,
-    )
+    defaults = {
+        "participant_id": "test_p1",
+        "validator_address": "5Grw",
+        "staking_account": "5Grw",
+        "device": "cpu",
+        "mixed_precision": False,
+        "local_epochs": 1,
+        "submission_deadline": 300.0,
+        "training_timeout": 3600.0,
+        "gradient_accumulation_steps": 1,
+    }
     defaults.update(overrides)
     cfg = TrainingConfig(**defaults)
     trainer = GenomeTrainer(cfg)
@@ -253,7 +251,7 @@ class TestTrainEpochOutputHandling:
 
     def test_train_epoch_tensor_3d_classification(self):
         """Plain tensor output, 3D for classification."""
-        model = nn.Sequential(nn.Linear(8, 20))  # outputs (batch, 20)
+        nn.Sequential(nn.Linear(8, 20))  # outputs (batch, 20)
 
         class Wrapper(nn.Module):
             def __init__(self):
@@ -435,7 +433,7 @@ class TestTrainGenomeAsync:
         batch = self._make_batch()
         train_loader = [batch]
 
-        weights, metrics = _run(trainer.train_genome(genome, train_loader))
+        _weights, metrics = _run(trainer.train_genome(genome, train_loader))
         assert metrics.participant_id == "test_p1"
         assert metrics.genome_id == "genome_1"
         assert metrics.samples_trained > 0
@@ -453,7 +451,7 @@ class TestTrainGenomeAsync:
         genome.genome_id = "genome_2"
 
         batch = self._make_batch()
-        weights, metrics = _run(
+        _weights, metrics = _run(
             trainer.train_genome(genome, [batch], val_loader=[batch])
         )
         assert metrics.val_loss is not None
@@ -484,7 +482,7 @@ class TestTrainGenomeAsync:
 
         # Multiple batches
         train_loader = [self._make_batch() for _ in range(100)]
-        weights, metrics = _run(trainer.train_genome(genome, train_loader))
+        _weights, metrics = _run(trainer.train_genome(genome, train_loader))
         # Should complete but with limited batches
         assert metrics.training_time > 0
 
@@ -503,7 +501,7 @@ class TestTrainGenomeAsync:
             "input_ids": torch.randint(0, 100, (4, 16)),
             "labels": torch.randint(0, 100, (4, 16)),
         }
-        weights, metrics = _run(trainer.train_genome(genome, [batch]))
+        _weights, metrics = _run(trainer.train_genome(genome, [batch]))
         assert metrics.samples_trained == 4
 
     def test_train_genome_with_global_weights(self):
@@ -520,7 +518,7 @@ class TestTrainGenomeAsync:
         batch = self._make_batch()
         # Use a matching state_dict shape for global_weights
         global_w = real_model.state_dict()
-        weights, metrics = _run(
+        _weights, metrics = _run(
             trainer.train_genome(genome, [batch], global_weights=global_w)
         )
         assert metrics.samples_trained > 0
@@ -558,7 +556,6 @@ class TestSubmitUpdate:
     """Cover lines 1078-1098: async submit_update."""
 
     def test_submit_update_creates_model_update(self):
-        from client.genome_trainer import TrainingConfig, GenomeTrainer
         from nawal.server import ModelUpdate, TrainingMetrics
 
         trainer = _make_trainer()
@@ -1378,7 +1375,7 @@ class TestModelVersioning:
         assert Path(path).exists()
 
     def test_load_versioned_checkpoint(self, tmp_path):
-        from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+        from client.model import load_versioned_checkpoint, save_versioned_checkpoint
 
         model = nn.Linear(8, 4)
         model.version = "1.0.0"
@@ -1398,7 +1395,7 @@ class TestModelVersioning:
         assert meta["round"] == 3
 
     def test_load_versioned_checkpoint_version_mismatch(self, tmp_path):
-        from client.model import save_versioned_checkpoint, load_versioned_checkpoint
+        from client.model import load_versioned_checkpoint, save_versioned_checkpoint
 
         model = nn.Linear(8, 4)
         model.version = "1.0.0"
@@ -1430,7 +1427,7 @@ class TestBelizeChainFederatedClient:
     @patch("client.train.BelizeDataLoader")
     @patch("client.train.QuantizedBelizeModel")
     def test_init_quantized(self, mock_qmodel, mock_loader):
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         mock_model_inst = MagicMock()
         mock_model_inst.to.return_value = mock_model_inst
@@ -1445,7 +1442,7 @@ class TestBelizeChainFederatedClient:
     @patch("client.train.BelizeDataLoader")
     @patch("client.train.BelizeChainLLM")
     def test_init_full_precision(self, mock_llm, mock_loader):
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         mock_model_inst = MagicMock()
         mock_model_inst.to.return_value = mock_model_inst
@@ -1453,13 +1450,13 @@ class TestBelizeChainFederatedClient:
         mock_loader.return_value = MagicMock()
 
         config = BelizeTrainingConfig(participant_id="p1", quantization_bits=16)
-        client = BelizeChainFederatedClient(config)
+        BelizeChainFederatedClient(config)
         mock_llm.assert_called_once()
 
     @patch("client.train.BelizeDataLoader")
     @patch("client.train.QuantizedBelizeModel")
     def test_set_parameters_nan_rejected(self, mock_qmodel, mock_loader):
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         mock_model_inst = MagicMock()
         mock_model_inst.to.return_value = mock_model_inst
@@ -1477,7 +1474,7 @@ class TestBelizeChainFederatedClient:
     @patch("client.train.BelizeDataLoader")
     @patch("client.train.QuantizedBelizeModel")
     def test_set_parameters_extreme_magnitude_warns(self, mock_qmodel, mock_loader):
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         mock_model_inst = MagicMock()
         mock_model_inst.to.return_value = mock_model_inst
@@ -1495,7 +1492,7 @@ class TestBelizeChainFederatedClient:
     @patch("client.train.BelizeDataLoader")
     @patch("client.train.QuantizedBelizeModel")
     def test_fit_training_loop(self, mock_qmodel, mock_loader):
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         # Setup model
         real_model = nn.Linear(8, 4)
@@ -1533,14 +1530,14 @@ class TestBelizeChainFederatedClient:
         client.compliance_filter = compliance
 
         params = [v.cpu().numpy() for v in real_model.state_dict().values()]
-        updated, num, metrics = client.fit(params, {})
+        _updated, num, metrics = client.fit(params, {})
         assert num >= 0
         assert "loss" in metrics
 
     @patch("client.train.BelizeDataLoader")
     @patch("client.train.QuantizedBelizeModel")
     def test_evaluate(self, mock_qmodel, mock_loader):
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         real_model = nn.Linear(8, 4)
         mock_model_inst = MagicMock()
@@ -1575,7 +1572,7 @@ class TestBelizeChainFederatedClient:
         client.compliance_filter = compliance
 
         params = [v.cpu().numpy() for v in real_model.state_dict().values()]
-        loss, num, metrics = client.evaluate(params, {})
+        loss, _num, metrics = client.evaluate(params, {})
         assert loss >= 0
         assert "accuracy" in metrics
 
@@ -1808,7 +1805,7 @@ class TestBelizeDataLoader:
     def test_collate_fn_with_compliance(self):
         from client.data_loader import ComplianceDataFilter
 
-        loader = object.__new__(type("Loader", (), {}))
+        object.__new__(type("Loader", (), {}))
         # Test the collate pattern manually
         f = ComplianceDataFilter()
         batch = [
@@ -1827,7 +1824,7 @@ class TestBelizeDataLoader:
         ]
         # Collate manually
         collated = {}
-        for key in batch[0].keys():
+        for key in batch[0]:
             if key == "text":
                 collated[key] = [item[key] for item in batch]
             else:
@@ -1926,7 +1923,7 @@ class TestNawalModel:
             mock_tok_cls.return_value = mock_tok
 
             model = Nawal(model_size="small")
-            result = model(input_ids=torch.randint(0, 256, (1, 10)))
+            model(input_ids=torch.randint(0, 256, (1, 10)))
             mock_transformer.assert_called_once()
 
     @patch("client.nawal.NawalTransformer")
@@ -2089,7 +2086,7 @@ class TestDomainModelGenomeBuild:
 
     def test_build_model_from_genome_layers(self):
         from client.domain_models import AgriTechModel
-        from genome.encoding import Genome, ArchitectureLayer, LayerType
+        from genome.encoding import ArchitectureLayer, LayerType
 
         # Build genome with layers
         layer1 = ArchitectureLayer(

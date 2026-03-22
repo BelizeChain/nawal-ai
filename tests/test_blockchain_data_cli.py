@@ -13,14 +13,10 @@ Professional test suite covering:
 
 import asyncio
 import json
-import os
 import tempfile
 import time
-from dataclasses import dataclass, fields
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
@@ -38,14 +34,14 @@ class TestParticipantInfo:
     def _make(self, **kwargs):
         from blockchain.staking_connector import ParticipantInfo
 
-        defaults = dict(
-            account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-            stake_amount=1000,
-            is_enrolled=True,
-            training_rounds_completed=5,
-            total_samples_trained=5000,
-            avg_fitness_score=85.0,
-        )
+        defaults = {
+            "account_id": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "stake_amount": 1000,
+            "is_enrolled": True,
+            "training_rounds_completed": 5,
+            "total_samples_trained": 5000,
+            "avg_fitness_score": 85.0,
+        }
         defaults.update(kwargs)
         return ParticipantInfo(**defaults)
 
@@ -107,18 +103,18 @@ class TestTrainingSubmission:
     def _make(self, **kwargs):
         from blockchain.staking_connector import TrainingSubmission
 
-        defaults = dict(
-            participant_id="5G...",
-            round_number=1,
-            genome_id="genome_001",
-            samples_trained=1000,
-            training_time=60.0,
-            quality_score=80.0,
-            timeliness_score=90.0,
-            honesty_score=95.0,
-            fitness_score=87.5,
-            model_hash="abc123def456",
-        )
+        defaults = {
+            "participant_id": "5G...",
+            "round_number": 1,
+            "genome_id": "genome_001",
+            "samples_trained": 1000,
+            "training_time": 60.0,
+            "quality_score": 80.0,
+            "timeliness_score": 90.0,
+            "honesty_score": 95.0,
+            "fitness_score": 87.5,
+            "model_hash": "abc123def456",
+        }
         defaults.update(kwargs)
         return TrainingSubmission(**defaults)
 
@@ -266,13 +262,13 @@ class TestPeerInfo:
     def _make(self, **kwargs):
         from blockchain.mesh_network import PeerInfo
 
-        defaults = dict(
-            peer_id="peer_abc123",
-            account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-            multiaddr="/ip4/127.0.0.1/tcp/9090",
-            public_key="deadbeefdeadbeef",
-            last_seen=time.time(),
-        )
+        defaults = {
+            "peer_id": "peer_abc123",
+            "account_id": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "multiaddr": "/ip4/127.0.0.1/tcp/9090",
+            "public_key": "deadbeefdeadbeef",
+            "last_seen": time.time(),
+        }
         defaults.update(kwargs)
         return PeerInfo(**defaults)
 
@@ -315,13 +311,13 @@ class TestMeshMessage:
     def _make(self, **kwargs):
         from blockchain.mesh_network import MeshMessage, MessageType
 
-        defaults = dict(
-            message_id="msg_001",
-            message_type=MessageType.HEARTBEAT,
-            sender_id="peer_abc",
-            timestamp=1700000000.0,
-            payload={"data": "hello"},
-        )
+        defaults = {
+            "message_id": "msg_001",
+            "message_type": MessageType.HEARTBEAT,
+            "sender_id": "peer_abc",
+            "timestamp": 1700000000.0,
+            "payload": {"data": "hello"},
+        }
         defaults.update(kwargs)
         return MeshMessage(**defaults)
 
@@ -353,7 +349,7 @@ class TestMeshMessage:
         assert isinstance(d["message_type"], str)
 
     def test_from_dict_roundtrip(self):
-        from blockchain.mesh_network import MeshMessage, MessageType
+        from blockchain.mesh_network import MeshMessage
 
         m = self._make()
         d = m.to_dict()
@@ -488,15 +484,15 @@ class TestTrainingEvent:
     """Tests for TrainingEvent dataclass."""
 
     def _make(self, **kwargs):
-        from blockchain.events import TrainingEvent, EventType
+        from blockchain.events import EventType, TrainingEvent
 
-        defaults = dict(
-            event_type=EventType.TRAINING_ROUND_STARTED,
-            block_number=100,
-            block_hash="0xdeadbeef",
-            timestamp="2024-01-01T00:00:00+00:00",
-            data={"round": 1},
-        )
+        defaults = {
+            "event_type": EventType.TRAINING_ROUND_STARTED,
+            "block_number": 100,
+            "block_hash": "0xdeadbeef",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "data": {"round": 1},
+        }
         defaults.update(kwargs)
         return TrainingEvent(**defaults)
 
@@ -1077,7 +1073,7 @@ class TestBelizeChainFederatedClient:
     """Tests for BelizeChainFederatedClient with mocked dependencies."""
 
     def _make_client(self, quantization_bits=8):
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         with (
             patch("client.train.QuantizedBelizeModel") as MockQ,
@@ -1145,12 +1141,12 @@ class TestBelizeChainFederatedClient:
         client = self._make_client()
         params = client.get_parameters({})
         result = client._apply_differential_privacy(params, epsilon=5.0)
-        for original, noised in zip(params, result):
+        for original, noised in zip(params, result, strict=False):
             assert original.shape == noised.shape
 
     def test_full_precision_model_path(self):
         # quantization_bits >= 16 → uses BelizeChainLLM
-        from client.train import BelizeTrainingConfig, BelizeChainFederatedClient
+        from client.train import BelizeChainFederatedClient, BelizeTrainingConfig
 
         with (
             patch("client.train.QuantizedBelizeModel") as MockQ,
@@ -1165,7 +1161,7 @@ class TestBelizeChainFederatedClient:
             MockLoader.return_value = MagicMock()
 
             cfg = BelizeTrainingConfig(participant_id="p_fp", quantization_bits=16)
-            client = BelizeChainFederatedClient(cfg)
+            BelizeChainFederatedClient(cfg)
 
             MockLLM.assert_called_once()
             MockQ.assert_not_called()

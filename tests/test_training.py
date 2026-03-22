@@ -12,13 +12,11 @@ Author: BelizeChain Team
 License: MIT
 """
 
+
 import pytest
 import torch
 import torch.nn as nn
-from pathlib import Path
-
 from nawal.client.genome_trainer import GenomeTrainer
-from nawal.genome.dna import DNA
 
 # ============================================================================
 # GenomeTrainer Tests
@@ -115,7 +113,7 @@ class TestGenomeTrainer:
         trainer.set_model(sample_model)
 
         # Train and check gradients are clipped
-        metrics = trainer.train_epoch(sample_dataloader)
+        trainer.train_epoch(sample_dataloader)
 
         for param in sample_model.parameters():
             if param.grad is not None:
@@ -316,7 +314,7 @@ class TestLossFunctions:
         try:
             metrics = trainer.train_epoch(sample_dataloader)
             assert "loss" in metrics
-        except (ValueError, RuntimeError, KeyError, TypeError) as e:
+        except (ValueError, RuntimeError, KeyError, TypeError):
             # Expected if target format doesn't match
             pass  # This is expected for MSE with classification data
 

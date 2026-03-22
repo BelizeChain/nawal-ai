@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -29,10 +29,10 @@ class MemoryRecord:
 
     key: str
     content: Any
-    embedding: Optional[List[float]] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    embedding: list[float] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
     timestamp: float = field(default_factory=time.time)
-    ttl: Optional[float] = None  # seconds; None = permanent
+    ttl: float | None = None  # seconds; None = permanent
 
     def is_expired(self) -> bool:
         """Return True if this record has exceeded its TTL."""
@@ -69,10 +69,10 @@ class AbstractMemory(ABC):
     @abstractmethod
     def retrieve(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryRecord]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[MemoryRecord]:
         """
         Return the top-k most relevant MemoryRecords for *query_embedding*.
 
@@ -86,7 +86,7 @@ class AbstractMemory(ABC):
         """
 
     @abstractmethod
-    def get(self, key: str) -> Optional[MemoryRecord]:
+    def get(self, key: str) -> MemoryRecord | None:
         """Exact-key lookup. Returns None if not found."""
 
     # ------------------------------------------------------------------ #

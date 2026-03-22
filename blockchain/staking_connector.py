@@ -17,13 +17,12 @@ from __future__ import annotations
 import asyncio
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
+
 from loguru import logger
 
 try:
-    from substrateinterface import SubstrateInterface, Keypair
-    from substrateinterface.exceptions import SubstrateRequestException
+    from substrateinterface import Keypair, SubstrateInterface
 
     SUBSTRATE_AVAILABLE = True
 except ImportError:
@@ -79,9 +78,7 @@ class TrainingSubmission:
     honesty_score: float  # 0-100
     fitness_score: float  # Weighted average
     model_hash: str  # Hash of model weights
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def validate(self) -> list[str]:
         """Validate submission data."""
@@ -152,16 +149,12 @@ class StakingConnector:
             )
         self.mock_mode = mock_mode
         if self.mock_mode:
-            logger.warning(
-                "StakingConnector running in MOCK MODE — no real blockchain interaction"
-            )
+            logger.warning("StakingConnector running in MOCK MODE — no real blockchain interaction")
         self.substrate: SubstrateInterface | None = None
         self.is_connected = False
 
         # Community pallet integration
-        self.enable_community_tracking = (
-            enable_community_tracking and COMMUNITY_AVAILABLE
-        )
+        self.enable_community_tracking = enable_community_tracking and COMMUNITY_AVAILABLE
         self.community_connector: CommunityConnector | None = None
 
         if self.enable_community_tracking:
@@ -461,9 +454,7 @@ class StakingConnector:
             return None
 
         except Exception as e:
-            logger.error(
-                "Failed to get participant info", account_id=account_id, error=str(e)
-            )
+            logger.error("Failed to get participant info", account_id=account_id, error=str(e))
             return None
 
     async def submit_training_proof(
@@ -500,9 +491,7 @@ class StakingConnector:
         if self.mock_mode:
             # Check if participant is enrolled
             if submission.participant_id not in self._mock_participants:
-                logger.error(
-                    "Participant not enrolled", participant_id=submission.participant_id
-                )
+                logger.error("Participant not enrolled", participant_id=submission.participant_id)
                 return False
 
             # Mock submission
@@ -543,9 +532,7 @@ class StakingConnector:
                     "round_number": submission.round_number,
                     "genome_id": submission.genome_id,
                     "samples_trained": submission.samples_trained,
-                    "training_time": int(
-                        submission.training_time * 1000
-                    ),  # Convert to ms
+                    "training_time": int(submission.training_time * 1000),  # Convert to ms
                     "quality_score": int(submission.quality_score * 100),  # Fixed point
                     "timeliness_score": int(submission.timeliness_score * 100),
                     "honesty_score": int(submission.honesty_score * 100),
@@ -598,9 +585,7 @@ class StakingConnector:
                             )
 
                     except Exception as e:
-                        logger.error(
-                            f"Community tracking error (continuing anyway): {e}"
-                        )
+                        logger.error(f"Community tracking error (continuing anyway): {e}")
 
                 return True
             else:
@@ -769,6 +754,6 @@ class StakingConnector:
 
 __all__ = [
     "ParticipantInfo",
-    "TrainingSubmission",
     "StakingConnector",
+    "TrainingSubmission",
 ]

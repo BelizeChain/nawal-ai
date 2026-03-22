@@ -18,35 +18,23 @@ Targets (by miss count):
 
 import asyncio
 import json
-import hashlib
-import pickle
-import time
 import random
-import copy
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock, mock_open, call
-from datetime import datetime, timezone
-from dataclasses import dataclass, field
-from collections import OrderedDict
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import torch
-import torch.nn as nn
-import numpy as np
+from cryptography.hazmat.primitives.asymmetric import ed25519
 
 # ============================================================================
 # MESH NETWORK
 # ============================================================================
-
 from blockchain.mesh_network import (
-    MeshNetworkClient,
     MeshMessage,
+    MeshNetworkClient,
     MessageType,
     PeerInfo,
-    FLRoundAnnouncement,
 )
-from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives import serialization
 
 
 @pytest.fixture
@@ -70,7 +58,7 @@ def peer_info():
         account_id="5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
         multiaddr="/ip4/127.0.0.1/tcp/9091",
         public_key="aa" * 32,
-        last_seen=datetime.now(timezone.utc).timestamp(),
+        last_seen=datetime.now(UTC).timestamp(),
         is_validator=True,
     )
 
@@ -395,7 +383,7 @@ class TestMeshNetworkHandleIncoming:
             account_id="test",
             multiaddr="/ip4/127.0.0.1/tcp/9090",
             public_key=mesh_client.public_key_hex,
-            last_seen=datetime.now(timezone.utc).timestamp(),
+            last_seen=datetime.now(UTC).timestamp(),
         )
         mesh_client.peers[mesh_client.peer_id] = peer
 
@@ -412,7 +400,7 @@ class TestMeshNetworkHandleIncoming:
     async def test_handle_incoming_duplicate(self, mesh_client):
         """Duplicate message → 200 duplicate."""
         mesh_client.seen_messages["existing_id"] = 1.0
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         msg_dict = {
             "message_id": "existing_id",
             "message_type": "heartbeat",
@@ -430,7 +418,7 @@ class TestMeshNetworkHandleIncoming:
     @pytest.mark.asyncio
     async def test_handle_incoming_invalid_signature(self, mesh_client):
         """Message with missing/invalid signature → 403."""
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         msg_dict = {
             "message_id": "new_id",
             "message_type": "heartbeat",
@@ -449,7 +437,7 @@ class TestMeshNetworkHandleIncoming:
     async def test_handle_incoming_rate_limited(self, mesh_client):
         """Exceed rate limit → 429."""
         mesh_client._rate_limit_max = 1
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         mesh_client._rate_limits["127.0.0.1"] = [now]
 
         request = AsyncMock()
@@ -498,7 +486,6 @@ class TestMeshNetworkBackgroundLoops:
     @pytest.mark.asyncio
     async def test_heartbeat_loop_one_iteration(self, mesh_client):
         call_count = 0
-        original_running = True
 
         async def fake_sleep(t):
             nonlocal call_count
@@ -604,8 +591,8 @@ from data.data_manager import (
     DataManager,
     DatasetConfig,
     DatasetType,
-    SplitConfig,
     ListDataset,
+    SplitConfig,
 )
 
 
@@ -760,7 +747,7 @@ class TestDataManagerDataloaders:
             batch_size=10,
         )
         dm = DataManager(config)
-        train_dl, val_dl, test_dl = dm.get_dataloaders()
+        train_dl, _val_dl, _test_dl = dm.get_dataloaders()
         assert len(train_dl) > 0
 
 
@@ -826,7 +813,7 @@ class TestSplitConfig:
 # HYBRID TEACHER
 # ============================================================================
 
-from hybrid.teacher import DeepSeekTeacher, DeepSeekConfig, create_deepseek_teacher
+from hybrid.teacher import DeepSeekConfig, DeepSeekTeacher, create_deepseek_teacher
 
 
 class TestDeepSeekTeacher:
@@ -990,7 +977,7 @@ class TestDeepSeekTeacher:
         mock_tokenizer.decode.return_value = "cc"
         teacher.tokenizer = mock_tokenizer
 
-        result = teacher.generate("c", max_tokens=5, temperature=0.5)
+        teacher.generate("c", max_tokens=5, temperature=0.5)
         assert len(teacher.cache) <= 2
 
     def test_get_soft_targets_with_logits(self):
@@ -1025,17 +1012,17 @@ class TestCreateDeepSeekTeacher:
 # GENOME OPERATORS
 # ============================================================================
 
+from genome.encoding import ArchitectureLayer, Genome, LayerType
 from genome.operators import (
-    MutationOperator,
-    MutationConfig,
-    MutationType,
-    CrossoverOperator,
     CrossoverConfig,
+    CrossoverOperator,
     CrossoverType,
-    EvolutionStrategy,
     EvolutionConfig,
+    EvolutionStrategy,
+    MutationConfig,
+    MutationOperator,
+    MutationType,
 )
-from genome.encoding import Genome, ArchitectureLayer, LayerType, Hyperparameters
 
 
 def _make_test_genome(num_encoder=3, hidden_size=256) -> Genome:
@@ -1059,7 +1046,7 @@ def _make_test_genome(num_encoder=3, hidden_size=256) -> Genome:
 class TestMutationConfig:
     def test_validate_valid(self):
         config = MutationConfig()
-        is_valid, errors = config.validate()
+        is_valid, _errors = config.validate()
         assert is_valid is True
 
     def test_validate_min_layers(self):
@@ -1070,7 +1057,7 @@ class TestMutationConfig:
 
     def test_validate_max_less_than_min(self):
         config = MutationConfig(min_layers=10, max_layers=5)
-        is_valid, errors = config.validate()
+        is_valid, _errors = config.validate()
         assert is_valid is False
 
 

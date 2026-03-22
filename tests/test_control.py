@@ -8,16 +8,15 @@ Tests for the Phase 2 control subsystem:
 
 from __future__ import annotations
 
-import time
 import uuid
 
 import pytest
 
-from control.interfaces import Goal, GoalStatus, Plan
-from control.goal_stack import GoalStack
-from control.planner import ClassicalPlanner
-from control.executor import ToolExecutor
 from control.controller import ExecutiveController
+from control.executor import ToolExecutor
+from control.goal_stack import GoalStack
+from control.interfaces import Goal, GoalStatus, Plan
+from control.planner import ClassicalPlanner
 
 # ============================================================================
 # Helpers
@@ -361,7 +360,7 @@ class TestExecutiveController:
     def test_tick_marks_goal_complete_on_success(self):
         ctrl = ExecutiveController()
         ctrl.add_goal("noop task", priority=1.0)
-        summary = ctrl.tick()
+        ctrl.tick()
         # With only noop-capable tools available, any status is acceptable
         # but goal should no longer be active
         stats = ctrl.stats()

@@ -20,7 +20,7 @@ is protected by a lock.
 from __future__ import annotations
 
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -43,8 +43,8 @@ class ToolRegistry(AbstractToolRegistry):
                           of each call is screened before execution.
     """
 
-    def __init__(self, safety_screener: Optional[Any] = None) -> None:
-        self._tools: Dict[str, AbstractTool] = {}
+    def __init__(self, safety_screener: Any | None = None) -> None:
+        self._tools: dict[str, AbstractTool] = {}
         self._screener = safety_screener
         self._lock = threading.RLock()
 
@@ -69,11 +69,11 @@ class ToolRegistry(AbstractToolRegistry):
                 return True
         return False
 
-    def get(self, name: str) -> Optional[AbstractTool]:
+    def get(self, name: str) -> AbstractTool | None:
         with self._lock:
             return self._tools.get(name)
 
-    def list_tools(self) -> List[ToolSpec]:
+    def list_tools(self) -> list[ToolSpec]:
         with self._lock:
             return [t.spec for t in self._tools.values()]
 

@@ -11,7 +11,6 @@ Covers:
 from __future__ import annotations
 
 import inspect
-import re
 
 import pytest
 
@@ -149,7 +148,7 @@ class TestC154DenominationOverflow:
     """PLANCK_PER_DALLA is consistent across all modules and fits in int64."""
 
     def test_rewards_denomination_is_1e12(self):
-        from blockchain.rewards import PLANCK_PER_DALLA, DALLA_DECIMALS
+        from blockchain.rewards import DALLA_DECIMALS, PLANCK_PER_DALLA
 
         assert DALLA_DECIMALS == 12
         assert PLANCK_PER_DALLA == 10**12
@@ -207,7 +206,7 @@ class TestC154DenominationOverflow:
 
     def test_reward_calculation_planck_is_int(self):
         """RewardCalculator.calculate_reward produces integer Planck."""
-        from blockchain.rewards import FitnessScores, RewardCalculator, PLANCK_PER_DALLA
+        from blockchain.rewards import PLANCK_PER_DALLA, FitnessScores, RewardCalculator
 
         calc = RewardCalculator()
         fs = FitnessScores(quality=75, timeliness=80, honesty=85)

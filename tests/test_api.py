@@ -18,12 +18,9 @@ the test suite runs without GPU, blockchain node, or checkpoint files.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import time
-from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -32,8 +29,6 @@ from pydantic import ValidationError
 
 from api.inference_server import (
     InferenceRequest,
-    InferenceResponse,
-    ModelInfo,
     _RateLimiter,
     app,
 )
@@ -100,9 +95,8 @@ def client_with_model(fresh_rate_limiter, mock_services):
         "api.inference_server.BelizeChainLLM.from_checkpoint",
         return_value=mock_model,
         create=True,
-    ):
-        with TestClient(app, raise_server_exceptions=False) as c:
-            yield c, mock_model
+    ), TestClient(app, raise_server_exceptions=False) as c:
+        yield c, mock_model
 
 
 # ============================================================================
@@ -281,8 +275,8 @@ class TestModelInfoEndpoint:
         assert response.status_code == 200
 
     def test_model_info_structure(self, client_with_model):
-        client, mock_model = client_with_model
-        data = response = client.get("/model/info").json()
+        client, _mock_model = client_with_model
+        data = client.get("/model/info").json()
         assert data["model_name"] == "BelizeChainLLM"
         assert data["version"] == "test-v1"
         assert data["parameters"] == 117_000_000
@@ -305,7 +299,7 @@ class TestInferEndpoint:
         assert response.status_code == 503
 
     def test_infer_with_model_returns_200(self, client_with_model):
-        client, mock_model = client_with_model
+        client, _mock_model = client_with_model
         response = client.post(
             "/infer", json={"prompt": "What is Belize?"}, headers=_AUTH_HEADERS
         )

@@ -8,9 +8,9 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Any, Optional
 import warnings
-from .encoding import Genome, ArchitectureLayer, LayerType
+
+from .encoding import ArchitectureLayer, Genome, LayerType
 
 
 class LayerGene:
@@ -28,7 +28,7 @@ class LayerGene:
         self,
         innovation_id: int,
         layer_type: str,
-        params: Optional[dict] = None,
+        params: dict | None = None,
         enabled: bool = True,
     ):
         self.innovation_id = innovation_id
@@ -167,8 +167,8 @@ class DNA:
         self,
         input_size: int,
         output_size: int,
-        layer_genes: Optional[List[LayerGene]] = None,
-        connection_genes: Optional[List[ConnectionGene]] = None,
+        layer_genes: list[LayerGene] | None = None,
+        connection_genes: list[ConnectionGene] | None = None,
     ):
         warnings.warn(
             "DNA is deprecated, use Genome from genome.encoding directly",
@@ -179,17 +179,13 @@ class DNA:
         self.output_size = output_size
         self.layer_genes = layer_genes or []
         self.connection_genes = connection_genes or []
-        self._genome: Optional[Genome] = None
+        self._genome: Genome | None = None
 
     def to_genome(self) -> Genome:
         """Convert to new Genome format."""
         if self._genome is None:
             # Convert LayerGenes to ArchitectureLayers
-            layers = [
-                gene.to_architecture_layer()
-                for gene in self.layer_genes
-                if gene.enabled
-            ]
+            layers = [gene.to_architecture_layer() for gene in self.layer_genes if gene.enabled]
 
             self._genome = Genome(
                 genome_id=f"dna_{id(self)}",
@@ -321,9 +317,7 @@ class DNA:
             DNA instance restored from dictionary
         """
         layer_genes = [LayerGene.from_dict(g) for g in data.get("layer_genes", [])]
-        connection_genes = [
-            ConnectionGene.from_dict(g) for g in data.get("connection_genes", [])
-        ]
+        connection_genes = [ConnectionGene.from_dict(g) for g in data.get("connection_genes", [])]
 
         return cls(
             input_size=data["input_size"],
@@ -333,4 +327,4 @@ class DNA:
         )
 
 
-__all__ = ["DNA", "LayerGene", "ConnectionGene"]
+__all__ = ["DNA", "ConnectionGene", "LayerGene"]

@@ -14,16 +14,15 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, Optional, List
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from enum import Enum
 import hashlib
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from enum import Enum
 
 from loguru import logger
 
-from .substrate_client import SubstrateClient, ExtrinsicReceipt
 from .staking_interface import StakingInterface
+from .substrate_client import ExtrinsicReceipt, SubstrateClient
 
 
 class KYCStatus(Enum):
@@ -65,15 +64,15 @@ class ValidatorIdentity:
     address: str
     name: str
     email: str
-    website: Optional[str] = None
-    legal_name: Optional[str] = None
+    website: str | None = None
+    legal_name: str | None = None
     jurisdiction: str = "BZ"  # Belize
-    tax_id: Optional[str] = None
+    tax_id: str | None = None
     kyc_status: KYCStatus = KYCStatus.PENDING
-    kyc_verified_at: Optional[datetime] = None
+    kyc_verified_at: datetime | None = None
     tier: ValidatorTier = ValidatorTier.BRONZE
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary for chain storage.
 
         PII fields (email, legal_name, tax_id) are SHA-256 hashed
@@ -158,9 +157,7 @@ class ValidatorManager:
         Returns:
             Extrinsic receipt
         """
-        logger.info(
-            f"Registering validator identity: {identity.name} " f"({identity.address})"
-        )
+        logger.info(f"Registering validator identity: {identity.name} " f"({identity.address})")
 
         receipt = self.client.submit_extrinsic(
             keypair=keypair,
@@ -178,7 +175,7 @@ class ValidatorManager:
 
         return receipt
 
-    def get_identity(self, address: str) -> Optional[ValidatorIdentity]:
+    def get_identity(self, address: str) -> ValidatorIdentity | None:
         """
         Get validator identity from chain.
 
@@ -209,7 +206,7 @@ class ValidatorManager:
                 tax_id=data.get("tax_id"),
                 kyc_status=KYCStatus(data.get("kyc_status", "pending")),
                 kyc_verified_at=(
-                    datetime.fromtimestamp(data["kyc_verified_at"], tz=timezone.utc)
+                    datetime.fromtimestamp(data["kyc_verified_at"], tz=UTC)
                     if data.get("kyc_verified_at")
                     else None
                 ),
@@ -225,7 +222,7 @@ class ValidatorManager:
     def submit_kyc(
         self,
         keypair,
-        documents: Dict[str, str],
+        documents: dict[str, str],
         wait_for_finalization: bool = False,
     ) -> ExtrinsicReceipt:
         """
@@ -283,9 +280,7 @@ class ValidatorManager:
 
         # Check KYC status
         if identity.kyc_status != KYCStatus.VERIFIED:
-            logger.warning(
-                f"KYC not verified: {address} (status={identity.kyc_status.value})"
-            )
+            logger.warning(f"KYC not verified: {address} (status={identity.kyc_status.value})")
             return False
 
         # Check stake
@@ -395,7 +390,7 @@ class ValidatorManager:
             logger.error(f"Failed to get reputation: {e}")
             return 0.0
 
-    def get_all_validators(self) -> List[ValidatorIdentity]:
+    def get_all_validators(self) -> list[ValidatorIdentity]:
         """
         Get all registered validators.
 
@@ -435,7 +430,7 @@ class ValidatorManager:
             logger.error(f"Failed to get all validators: {e}")
             return []
 
-    def get_compliant_validators(self) -> List[str]:
+    def get_compliant_validators(self) -> list[str]:
         """
         Get list of compliant validator addresses.
 
@@ -443,11 +438,7 @@ class ValidatorManager:
             List of compliant validator addresses
         """
         all_validators = self.get_all_validators()
-        compliant = [
-            v.address for v in all_validators if self.check_compliance(v.address)
-        ]
+        compliant = [v.address for v in all_validators if self.check_compliance(v.address)]
 
-        logger.info(
-            f"Found {len(compliant)}/{len(all_validators)} compliant validators"
-        )
+        logger.info(f"Found {len(compliant)}/{len(all_validators)} compliant validators")
         return compliant

@@ -11,12 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
 import time
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -106,8 +103,9 @@ class TestApiServerModels:
         assert req.stake_amount == 5000
 
     def test_enroll_request_below_min_stake(self):
-        from api_server import EnrollRequest
         import pydantic
+
+        from api_server import EnrollRequest
 
         with pytest.raises((pydantic.ValidationError, ValueError)):
             EnrollRequest(account_id="acc", stake_amount=0)
@@ -215,7 +213,7 @@ class TestApiServerEndpoints:
 
     @pytest.fixture(autouse=True)
     def setup_state(self, tmp_path):
-        from api_server import app_state, ServerConfig
+        from api_server import ServerConfig, app_state
 
         app_state.active_rounds.clear()
         app_state.completed_rounds.clear()
@@ -256,14 +254,14 @@ class TestApiServerEndpoints:
         assert result.active_rounds == 0
 
     def test_start_fl_round(self, setup_state):
-        from api_server import start_fl_round, StartRoundRequest
+        from api_server import StartRoundRequest, start_fl_round
 
         req = StartRoundRequest(dataset_name="belize_corpus")
         result = _run(start_fl_round(req))
         assert "round_id" in result.__dict__ or hasattr(result, "round_id")
 
     def test_start_multiple_rounds(self, setup_state):
-        from api_server import start_fl_round, StartRoundRequest
+        from api_server import StartRoundRequest, start_fl_round
 
         r1 = _run(start_fl_round(StartRoundRequest(dataset_name="ds1")))
         r2 = _run(start_fl_round(StartRoundRequest(dataset_name="ds2")))
@@ -271,7 +269,7 @@ class TestApiServerEndpoints:
         assert setup_state.round_counter == 2
 
     def test_get_round_status(self, setup_state):
-        from api_server import start_fl_round, get_round_status, StartRoundRequest
+        from api_server import StartRoundRequest, get_round_status, start_fl_round
 
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
         round_id = r.round_id
@@ -280,16 +278,18 @@ class TestApiServerEndpoints:
         assert status.participants == 0
 
     def test_get_round_not_found(self, setup_state):
-        from api_server import get_round_status
         from fastapi import HTTPException
+
+        from api_server import get_round_status
 
         with pytest.raises(HTTPException) as exc_info:
             _run(get_round_status("nonexistent_round_xyz"))
         assert exc_info.value.status_code == 404
 
     def test_enroll_no_blockchain(self, setup_state):
-        from api_server import enroll_participant, EnrollRequest
         from fastapi import HTTPException
+
+        from api_server import EnrollRequest, enroll_participant
 
         req = EnrollRequest(account_id="5FHne...", stake_amount=5000)
         with pytest.raises(HTTPException) as exc_info:
@@ -297,7 +297,7 @@ class TestApiServerEndpoints:
         assert exc_info.value.status_code == 503
 
     def test_enroll_with_mock_blockchain(self, setup_state):
-        from api_server import enroll_participant, EnrollRequest
+        from api_server import EnrollRequest, enroll_participant
 
         mock_connector = AsyncMock()
         mock_connector.enroll_participant = AsyncMock(
@@ -312,8 +312,9 @@ class TestApiServerEndpoints:
         assert result.success is True
 
     def test_enroll_blockchain_failure(self, setup_state):
-        from api_server import enroll_participant, EnrollRequest
         from fastapi import HTTPException
+
+        from api_server import EnrollRequest, enroll_participant
 
         mock_connector = AsyncMock()
         mock_connector.enroll_participant = AsyncMock(
@@ -329,8 +330,9 @@ class TestApiServerEndpoints:
         assert exc_info.value.status_code == 400
 
     def test_submit_round_not_found(self, setup_state):
-        from api_server import submit_model_delta, SubmitModelRequest
         from fastapi import HTTPException
+
+        from api_server import SubmitModelRequest, submit_model_delta
 
         req = SubmitModelRequest(
             participant_id="p1",
@@ -344,13 +346,14 @@ class TestApiServerEndpoints:
         assert exc_info.value.status_code == 404
 
     def test_submit_round_not_active(self, setup_state):
+        from fastapi import HTTPException
+
         from api_server import (
-            start_fl_round,
-            submit_model_delta,
             StartRoundRequest,
             SubmitModelRequest,
+            start_fl_round,
+            submit_model_delta,
         )
-        from fastapi import HTTPException
 
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
         round_id = r.round_id
@@ -367,10 +370,10 @@ class TestApiServerEndpoints:
 
     def test_submit_active_round_no_blockchain(self, setup_state):
         from api_server import (
-            start_fl_round,
-            submit_model_delta,
             StartRoundRequest,
             SubmitModelRequest,
+            start_fl_round,
+            submit_model_delta,
         )
 
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
@@ -390,10 +393,10 @@ class TestApiServerEndpoints:
 
     def test_submit_low_quality_not_eligible(self, setup_state):
         from api_server import (
-            start_fl_round,
-            submit_model_delta,
             StartRoundRequest,
             SubmitModelRequest,
+            start_fl_round,
+            submit_model_delta,
         )
 
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
@@ -412,10 +415,10 @@ class TestApiServerEndpoints:
 
     def test_submit_with_blockchain_success(self, setup_state):
         from api_server import (
-            start_fl_round,
-            submit_model_delta,
             StartRoundRequest,
             SubmitModelRequest,
+            start_fl_round,
+            submit_model_delta,
         )
 
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
@@ -438,13 +441,14 @@ class TestApiServerEndpoints:
         assert result.success is True
 
     def test_submit_with_blockchain_failure(self, setup_state):
+        from fastapi import HTTPException
+
         from api_server import (
-            start_fl_round,
-            submit_model_delta,
             StartRoundRequest,
             SubmitModelRequest,
+            start_fl_round,
+            submit_model_delta,
         )
-        from fastapi import HTTPException
 
         r = _run(start_fl_round(StartRoundRequest(dataset_name="test")))
         round_id = r.round_id
@@ -469,16 +473,18 @@ class TestApiServerEndpoints:
         assert exc_info.value.status_code == 400
 
     def test_participant_stats_no_blockchain(self, setup_state):
-        from api_server import get_participant_stats
         from fastapi import HTTPException
+
+        from api_server import get_participant_stats
 
         with pytest.raises(HTTPException) as exc_info:
             _run(get_participant_stats("5FHne..."))
         assert exc_info.value.status_code == 503
 
     def test_participant_stats_not_found(self, setup_state):
-        from api_server import get_participant_stats
         from fastapi import HTTPException
+
+        from api_server import get_participant_stats
 
         mock_connector = AsyncMock()
         mock_connector.get_participant = AsyncMock(return_value=None)
@@ -541,10 +547,11 @@ class TestApiServerEndpoints:
         assert result.active_participants == 1
 
     def test_system_metrics_with_completed_rounds(self, setup_state):
-        from api_server import get_system_metrics
         from datetime import timedelta
 
-        now = datetime.now(timezone.utc)
+        from api_server import get_system_metrics
+
+        now = datetime.now(UTC)
         setup_state.completed_rounds.append(
             {
                 "start_time": now.isoformat(),
@@ -575,7 +582,7 @@ class TestApiServerEndpoints:
         assert result is None
 
     def test_auth_health_skips_check(self, setup_state):
-        from api_server import verify_api_key, ServerConfig
+        from api_server import ServerConfig, verify_api_key
 
         setup_state.config = ServerConfig(
             blockchain_enabled=False,
@@ -596,7 +603,7 @@ class TestApiServerEndpoints:
         assert result is None
 
     def test_auth_enabled_missing_key(self, setup_state):
-        from api_server import verify_api_key, ServerConfig
+        from api_server import ServerConfig, verify_api_key
 
         setup_state.config = ServerConfig(
             blockchain_enabled=False,
@@ -616,7 +623,7 @@ class TestApiServerEndpoints:
         assert result.status_code == 401
 
     def test_auth_enabled_correct_key(self, setup_state):
-        from api_server import verify_api_key, ServerConfig
+        from api_server import ServerConfig, verify_api_key
 
         setup_state.config = ServerConfig(
             blockchain_enabled=False,
@@ -644,8 +651,9 @@ class TestApiServerEndpoints:
 
 class TestPrometheusExporter:
     def test_init_creates_metrics(self):
-        from monitoring.prometheus_exporter import PrometheusExporter
         from prometheus_client import CollectorRegistry
+
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         reg = CollectorRegistry()
         exp = PrometheusExporter(port=29091, registry=reg)
@@ -657,7 +665,6 @@ class TestPrometheusExporter:
 
     def test_init_without_prometheus_raises(self):
         with patch("monitoring.prometheus_exporter.PROMETHEUS_AVAILABLE", False):
-            import importlib
             import monitoring.prometheus_exporter as m
 
             orig = m.PROMETHEUS_AVAILABLE
@@ -672,8 +679,10 @@ class TestPrometheusExporter:
 
     def test_start_and_stop(self):
         import socket
-        from monitoring.prometheus_exporter import PrometheusExporter
+
         from prometheus_client import CollectorRegistry
+
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
@@ -688,8 +697,10 @@ class TestPrometheusExporter:
 
     def test_start_idempotent(self):
         import socket
-        from monitoring.prometheus_exporter import PrometheusExporter
+
         from prometheus_client import CollectorRegistry
+
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
@@ -702,17 +713,19 @@ class TestPrometheusExporter:
         exp.stop()
 
     def test_stop_when_not_running(self):
-        from monitoring.prometheus_exporter import PrometheusExporter
         from prometheus_client import CollectorRegistry
+
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         reg = CollectorRegistry()
         exp = PrometheusExporter(port=29099, registry=reg)
         exp.stop()  # should not raise
 
     def test_update_from_collector_full(self):
-        from monitoring.prometheus_exporter import PrometheusExporter
-        from monitoring.metrics import MetricsCollector, MetricType
         from prometheus_client import CollectorRegistry
+
+        from monitoring.metrics import MetricsCollector, MetricType
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         reg = CollectorRegistry()
         exp = PrometheusExporter(port=29095, registry=reg)
@@ -733,9 +746,10 @@ class TestPrometheusExporter:
         exp.update_from_collector(collector)  # should not raise
 
     def test_update_from_collector_empty(self):
-        from monitoring.prometheus_exporter import PrometheusExporter
-        from monitoring.metrics import MetricsCollector
         from prometheus_client import CollectorRegistry
+
+        from monitoring.metrics import MetricsCollector
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         reg = CollectorRegistry()
         exp = PrometheusExporter(port=29096, registry=reg)
@@ -745,8 +759,10 @@ class TestPrometheusExporter:
     def test_metrics_http_endpoint(self):
         import socket
         import urllib.request
-        from monitoring.prometheus_exporter import PrometheusExporter
+
         from prometheus_client import CollectorRegistry
+
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
@@ -764,8 +780,10 @@ class TestPrometheusExporter:
     def test_health_http_endpoint(self):
         import socket
         import urllib.request
-        from monitoring.prometheus_exporter import PrometheusExporter
+
         from prometheus_client import CollectorRegistry
+
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
@@ -783,8 +801,10 @@ class TestPrometheusExporter:
     def test_404_endpoint(self):
         import socket
         import urllib.request
-        from monitoring.prometheus_exporter import PrometheusExporter
+
         from prometheus_client import CollectorRegistry
+
+        from monitoring.prometheus_exporter import PrometheusExporter
 
         with socket.socket() as s:
             s.bind(("127.0.0.1", 0))
@@ -1120,7 +1140,7 @@ class TestEpisodicMemoryQdrantBackend:
             patches[6],
             patches[7],
         ):
-            em = EpisodicMemory(qdrant_url="http://localhost:6333")
+            EpisodicMemory(qdrant_url="http://localhost:6333")
             q.create_collection.assert_not_called()
 
     def test_qdrant_store(self):
@@ -1514,7 +1534,7 @@ class TestFederatedAggregatorExtra:
         assert stats["total_rounds"] == 0
 
     def test_get_statistics_with_history(self):
-        from server.aggregator import FederatedAggregator, AggregationRound
+        from server.aggregator import AggregationRound, FederatedAggregator
 
         fa = FederatedAggregator()
         fa.aggregation_history.append(
@@ -1525,7 +1545,7 @@ class TestFederatedAggregatorExtra:
                 total_samples=300,
                 avg_fitness=80.0,
                 strategy_used="FedAvg",
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 aggregation_time=1.0,
             )
         )
@@ -1618,8 +1638,8 @@ class TestPopulationSelectionStrategies:
 
     def _pop(self, strategy: str = "TOURNAMENT"):
         from genome.population import (
-            PopulationManager,
             PopulationConfig,
+            PopulationManager,
             SelectionStrategy,
         )
 
@@ -1667,8 +1687,6 @@ class TestPopulationSelectionStrategies:
         # Test the default case in select_parent match
         from genome.population import (
             PopulationManager,
-            PopulationConfig,
-            SelectionStrategy,
         )
 
         pop = PopulationManager()
@@ -1747,11 +1765,11 @@ class TestPopulationSelectionStrategies:
         from genome.population import PopulationConfig
 
         cfg = PopulationConfig(target_size=1, min_size=5)
-        valid, errors = cfg.validate()
+        valid, _errors = cfg.validate()
         assert not valid
 
     def test_invalid_config_raises(self):
-        from genome.population import PopulationManager, PopulationConfig
+        from genome.population import PopulationConfig, PopulationManager
 
         cfg = PopulationConfig(target_size=1, min_size=5)
         with pytest.raises(ValueError):
@@ -1973,15 +1991,17 @@ class TestGenomeRegistryLocal:
 
 class TestActivationFactory:
     def test_unknown_activation_returns_gelu(self):
-        from genome.model_builder import ActivationFactory
         import torch.nn as nn
+
+        from genome.model_builder import ActivationFactory
 
         act = ActivationFactory.create("totally_unknown_xyz")
         assert isinstance(act, nn.GELU)
 
     def test_all_known_activations(self):
-        from genome.model_builder import ActivationFactory
         import torch.nn as nn
+
+        from genome.model_builder import ActivationFactory
 
         for name in ["relu", "gelu", "silu", "swish", "tanh", "mish", "sigmoid"]:
             act = ActivationFactory.create(name)
@@ -1990,15 +2010,17 @@ class TestActivationFactory:
 
 class TestNormalizationFactory:
     def test_unknown_norm_returns_layernorm(self):
-        from genome.model_builder import NormalizationFactory
         import torch.nn as nn
+
+        from genome.model_builder import NormalizationFactory
 
         norm = NormalizationFactory.create("unknown_norm_xyz", 64)
         assert isinstance(norm, nn.LayerNorm)
 
     def test_group_norm(self):
-        from genome.model_builder import NormalizationFactory
         import torch.nn as nn
+
+        from genome.model_builder import NormalizationFactory
 
         norm = NormalizationFactory.create("group_norm", 64)
         assert isinstance(norm, nn.GroupNorm)
@@ -2010,8 +2032,9 @@ class TestNormalizationFactory:
         assert isinstance(norm, RMSNorm)
 
     def test_batch_norm(self):
-        from genome.model_builder import NormalizationFactory
         import torch.nn as nn
+
+        from genome.model_builder import NormalizationFactory
 
         norm = NormalizationFactory.create("batch_norm", 64)
         assert isinstance(norm, nn.BatchNorm1d)
@@ -2084,13 +2107,13 @@ class TestSubstrateClientMocked:
 
     def test_init_no_substrate_raises(self):
         with patch("blockchain.substrate_client.SUBSTRATE_AVAILABLE", False):
-            from blockchain.substrate_client import SubstrateClient, ChainConfig
+            from blockchain.substrate_client import ChainConfig, SubstrateClient
 
             with pytest.raises(RuntimeError):
                 SubstrateClient(ChainConfig())
 
     def test_connect_success(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         sub = self._mock_substrate()
         with (
@@ -2102,7 +2125,7 @@ class TestSubstrateClientMocked:
             assert client.is_connected()
 
     def test_connect_failure_raises(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         with (
             patch("blockchain.substrate_client.SUBSTRATE_AVAILABLE", True),
@@ -2116,7 +2139,7 @@ class TestSubstrateClientMocked:
                 client.connect(max_retries=1, base_delay=0.01)
 
     def test_disconnect(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         sub = self._mock_substrate()
         with (
@@ -2130,7 +2153,7 @@ class TestSubstrateClientMocked:
             assert not client.is_connected()
 
     def test_query_storage_auto_connect(self):
-        from blockchain.substrate_client import SubstrateClient, ChainConfig
+        from blockchain.substrate_client import ChainConfig, SubstrateClient
 
         sub = self._mock_substrate()
         with (
@@ -2299,7 +2322,7 @@ class TestGenomeEncodingExtra:
         assert g2.genome_id == "enc_test"
 
     def test_genome_with_layers_to_dict(self):
-        from genome.dna import Genome, ArchitectureLayer, LayerType
+        from genome.dna import ArchitectureLayer, Genome, LayerType
 
         g = Genome(
             genome_id="g_layers",
@@ -2381,7 +2404,7 @@ class TestTokenizerRemaining:
         assert isinstance(t.vocab["<UNK>"], int)
 
     def test_word_tokenizer_encode_returns_ids(self):
-        from data.tokenizers import WordTokenizer, TokenizerConfig, TokenizerType
+        from data.tokenizers import TokenizerConfig, TokenizerType, WordTokenizer
 
         cfg = TokenizerConfig(
             tokenizer_type=TokenizerType.WORD, vocab_size=1000, max_length=2
@@ -2409,7 +2432,7 @@ class TestTokenizerRemaining:
         assert cfg.max_length == 512
 
     def test_create_tokenizer_char_type(self):
-        from data.tokenizers import create_tokenizer, TokenizerConfig, TokenizerType
+        from data.tokenizers import TokenizerConfig, TokenizerType, create_tokenizer
 
         t = create_tokenizer(TokenizerConfig(tokenizer_type=TokenizerType.CHARACTER))
         assert t is not None
@@ -2435,8 +2458,8 @@ class TestMaintenance4:
         assert f.is_safe("safe normal text") is True
 
     def test_output_filter_add_pattern(self):
-        from maintenance.output_filter import OutputFilter
         from maintenance.interfaces import RiskLevel
+        from maintenance.output_filter import OutputFilter
 
         f = OutputFilter()
         import re
@@ -2526,8 +2549,8 @@ class TestMemoryCoverage:
         assert rec.content == "test content"
 
     def test_manager_store_record(self):
-        from memory.manager import MemoryManager
         from memory.interfaces import MemoryRecord
+        from memory.manager import MemoryManager
 
         mm = MemoryManager()
         rec = MemoryRecord(key="k2", content="hello world")
@@ -2536,8 +2559,8 @@ class TestMemoryCoverage:
         assert retrieved is not None
 
     def test_manager_retrieve_semantic(self):
-        from memory.manager import MemoryManager
         from memory.interfaces import MemoryRecord
+        from memory.manager import MemoryManager
 
         mm = MemoryManager()
         rec = MemoryRecord(
@@ -2563,8 +2586,8 @@ class TestMemoryCoverage:
         assert "working" in stats or isinstance(stats, dict)
 
     def test_semantic_memory_store(self):
-        from memory.semantic import SemanticMemory
         from memory.interfaces import MemoryRecord
+        from memory.semantic import SemanticMemory
 
         sm = SemanticMemory()
         rec = MemoryRecord(

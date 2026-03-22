@@ -19,20 +19,16 @@ License: MIT
 Date: October 2025 - PRODUCTION READY
 """
 
-from typing import Dict, List, Optional, Tuple
-import secrets
 import hashlib
 import hmac
+import secrets
 from dataclasses import dataclass
 
 import torch
-import torch.nn as nn
 from loguru import logger
 
 # Production-grade Paillier encryption
 try:
-    from Crypto.PublicKey import RSA
-    from Crypto.Random import get_random_bytes
     from Crypto.Util import number
 
     CRYPTO_AVAILABLE = True
@@ -183,9 +179,7 @@ class PaillierKeyPair:
 
         # Create key pair
         self.public_key = PaillierPublicKey(n=n, g=g, n_squared=n_squared)
-        self.private_key = PaillierPrivateKey(
-            lambda_=lambda_, mu=mu, public_key=self.public_key
-        )
+        self.private_key = PaillierPrivateKey(lambda_=lambda_, mu=mu, public_key=self.public_key)
 
         logger.info(f"Generated Paillier key pair (key_size={key_size} bits)")
 
@@ -251,10 +245,10 @@ class EncryptionKey:
     - Scalar multiplication (k * E(a) = E(k*a))
     """
 
-    paillier_keypair: Optional[PaillierKeyPair] = None
+    paillier_keypair: PaillierKeyPair | None = None
     # Legacy fields for backwards compatibility (no longer used)
     public_key: int = 0
-    private_key: Optional[int] = None
+    private_key: int | None = None
     modulus: int = 0
 
     def __post_init__(self):
@@ -262,8 +256,7 @@ class EncryptionKey:
         if self.paillier_keypair is None:
             if not CRYPTO_AVAILABLE:
                 raise RuntimeError(
-                    "PyCryptodome is required for encryption. "
-                    "Install: pip install pycryptodome"
+                    "PyCryptodome is required for encryption. " "Install: pip install pycryptodome"
                 )
             self.paillier_keypair = PaillierKeyPair(key_size=2048)
             logger.info("✅ Initialized production Paillier encryption")
@@ -347,15 +340,15 @@ class SecureAggregator:
         self.mask_scale = mask_scale
 
         # Client secrets for masking (256-bit seeds per client)
-        self.client_secrets: Dict[int, bytes] = {}
-        self.pairwise_masks: Dict[Tuple[int, int], torch.Tensor] = {}
+        self.client_secrets: dict[int, bytes] = {}
+        self.pairwise_masks: dict[tuple[int, int], torch.Tensor] = {}
 
         logger.info(
             f"SecureAggregator initialized: {num_clients} clients, "
             f"encryption={'ON' if encryption_enabled else 'OFF'}"
         )
 
-    def generate_client_keys(self) -> Dict[int, EncryptionKey]:
+    def generate_client_keys(self) -> dict[int, EncryptionKey]:
         """
         Generate encryption keys for each client.
 
@@ -376,9 +369,7 @@ class SecureAggregator:
         return keys
 
     @staticmethod
-    def _derive_pairwise_seed(
-        seed_i: bytes, seed_j: bytes, pair: Tuple[int, int]
-    ) -> bytes:
+    def _derive_pairwise_seed(seed_i: bytes, seed_j: bytes, pair: tuple[int, int]) -> bytes:
         """
         Derive a deterministic pairwise seed from two client secrets.
 
@@ -399,7 +390,7 @@ class SecureAggregator:
     def generate_pairwise_masks(
         self,
         client_id: int,
-        model_shape: Dict[str, torch.Size],
+        model_shape: dict[str, torch.Size],
     ) -> None:
         """
         Generate deterministic pairwise masks from client seeds.
@@ -446,8 +437,8 @@ class SecureAggregator:
     def mask_update(
         self,
         client_id: int,
-        model_update: Dict[str, torch.Tensor],
-    ) -> Dict[str, torch.Tensor]:
+        model_update: dict[str, torch.Tensor],
+    ) -> dict[str, torch.Tensor]:
         """
         Mask client model update with secret shares.
 
@@ -494,9 +485,9 @@ class SecureAggregator:
 
     def aggregate_masked_updates(
         self,
-        masked_updates: List[Dict[str, torch.Tensor]],
-        weights: Optional[List[float]] = None,
-    ) -> Dict[str, torch.Tensor]:
+        masked_updates: list[dict[str, torch.Tensor]],
+        weights: list[float] | None = None,
+    ) -> dict[str, torch.Tensor]:
         """
         Aggregate masked updates securely.
 
@@ -519,11 +510,11 @@ class SecureAggregator:
 
         # Initialize aggregated parameters
         aggregated = {}
-        for param_name in masked_updates[0].keys():
+        for param_name in masked_updates[0]:
             aggregated[param_name] = torch.zeros_like(masked_updates[0][param_name])
 
         # Weighted sum
-        for update, weight in zip(masked_updates, weights):
+        for update, weight in zip(masked_updates, weights, strict=False):
             for param_name, param in update.items():
                 aggregated[param_name] += param * weight
 
@@ -532,9 +523,9 @@ class SecureAggregator:
 
     def encrypt_gradients(
         self,
-        gradients: Dict[str, torch.Tensor],
+        gradients: dict[str, torch.Tensor],
         key: EncryptionKey,
-    ) -> Dict[str, List[int]]:
+    ) -> dict[str, list[int]]:
         """
         Encrypt gradients using homomorphic encryption (placeholder).
 
@@ -561,10 +552,10 @@ class SecureAggregator:
 
     def decrypt_gradients(
         self,
-        encrypted_gradients: Dict[str, List[int]],
+        encrypted_gradients: dict[str, list[int]],
         key: EncryptionKey,
-        shapes: Dict[str, torch.Size],
-    ) -> Dict[str, torch.Tensor]:
+        shapes: dict[str, torch.Size],
+    ) -> dict[str, torch.Tensor]:
         """
         Decrypt encrypted gradients.
 
@@ -588,7 +579,7 @@ class SecureAggregator:
 
     def verify_client_participation(
         self,
-        client_ids: List[int],
+        client_ids: list[int],
         min_clients: int,
     ) -> bool:
         """
@@ -605,18 +596,16 @@ class SecureAggregator:
         sufficient = participated >= min_clients
 
         if not sufficient:
-            logger.warning(
-                f"Insufficient clients: {participated}/{min_clients} required"
-            )
+            logger.warning(f"Insufficient clients: {participated}/{min_clients} required")
 
         return sufficient
 
     def dropout_resilient_aggregation(
         self,
-        masked_updates: List[Dict[str, torch.Tensor]],
+        masked_updates: list[dict[str, torch.Tensor]],
         expected_clients: int,
-        participating_client_ids: Optional[List[int]] = None,
-    ) -> Dict[str, torch.Tensor]:
+        participating_client_ids: list[int] | None = None,
+    ) -> dict[str, torch.Tensor]:
         """
         Aggregate updates with dropout resilience.
 
@@ -639,9 +628,7 @@ class SecureAggregator:
             return self.aggregate_masked_updates(masked_updates)
 
         # Compensate for dropouts
-        logger.warning(
-            f"Client dropout detected: {actual_clients}/{expected_clients} participated"
-        )
+        logger.warning(f"Client dropout detected: {actual_clients}/{expected_clients} participated")
 
         # First, do a raw aggregation (masks from active clients cancel)
         aggregated = self.aggregate_masked_updates(masked_updates)
@@ -656,10 +643,7 @@ class SecureAggregator:
                 for dropped_id in dropped_ids:
                     for active_id in participating_client_ids:
                         pair = (min(dropped_id, active_id), max(dropped_id, active_id))
-                        if (
-                            pair in self.pairwise_masks
-                            and param_name in self.pairwise_masks[pair]
-                        ):
+                        if pair in self.pairwise_masks and param_name in self.pairwise_masks[pair]:
                             mask = self.pairwise_masks[pair][param_name]
                             # The active client added this mask but the dropped
                             # client never subtracted it, so subtract here
@@ -676,7 +660,7 @@ class SecureAggregator:
 
         return aggregated
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
             "num_clients": self.num_clients,
@@ -708,7 +692,7 @@ class SecureChannel:
 
     def send_encrypted(
         self,
-        data: Dict[str, torch.Tensor],
+        data: dict[str, torch.Tensor],
         recipient_key: EncryptionKey,
     ) -> bytes:
         """
@@ -729,7 +713,7 @@ class SecureChannel:
         self,
         encrypted_data: bytes,
         private_key: EncryptionKey,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> dict[str, torch.Tensor]:
         """
         Receive and decrypt data.
 
@@ -746,7 +730,7 @@ class SecureChannel:
 
 
 # Production recommendation
-def recommend_production_libraries() -> Dict[str, str]:
+def recommend_production_libraries() -> dict[str, str]:
     """
     Recommend production-grade secure aggregation libraries.
 

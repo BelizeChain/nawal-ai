@@ -10,31 +10,30 @@ Python: 3.13+
 """
 
 import asyncio
-import pytest
-from datetime import datetime, timezone
-from unittest.mock import Mock, AsyncMock, patch
+from datetime import UTC, datetime
 
 # Import blockchain components
-from pathlib import Path
+from unittest.mock import Mock
 
-from blockchain.staking_connector import (
-    StakingConnector,
-    ParticipantInfo,
-    TrainingSubmission,
-)
-from blockchain.rewards import (
-    RewardCalculator,
-    RewardDistributor,
-    FitnessScores,
-    RewardCalculation,
-    dalla_to_planck,
-    planck_to_dalla,
-)
+import pytest
+
 from blockchain.events import (
     BlockchainEventListener,
     EventType,
     TrainingEvent,
     create_training_round_handler,
+)
+from blockchain.rewards import (
+    FitnessScores,
+    RewardCalculation,
+    RewardCalculator,
+    RewardDistributor,
+    dalla_to_planck,
+    planck_to_dalla,
+)
+from blockchain.staking_connector import (
+    StakingConnector,
+    TrainingSubmission,
 )
 
 # =============================================================================
@@ -577,7 +576,7 @@ class TestBlockchainEventListener:
             event_type=EventType.TRAINING_ROUND_STARTED,
             block_number=100,
             block_hash="0x1234567890abcdef",
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             data={"round_number": 42, "genome_id": "genome_001"},
         )
 
@@ -730,7 +729,7 @@ class TestBlockchainIntegration:
 
         rewards = []
 
-        for (participant_id, stake), fitness in zip(validators, fitness_scores):
+        for (participant_id, stake), fitness in zip(validators, fitness_scores, strict=False):
             # Submit proof
             submission = TrainingSubmission(
                 participant_id=participant_id,

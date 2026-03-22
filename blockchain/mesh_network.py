@@ -24,26 +24,27 @@ Python: 3.11+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import math
 import os
 import re
-from dataclasses import dataclass, field
 from collections import OrderedDict
-from datetime import datetime, timezone
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set
-from pathlib import Path
+from typing import Any
 
-from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives import serialization
-from loguru import logger
 import aiohttp
 from aiohttp import web
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from loguru import logger
 
 try:
-    from substrateinterface import SubstrateInterface, Keypair
+    from substrateinterface import SubstrateInterface
 
     SUBSTRATE_AVAILABLE = True
 except ImportError:
@@ -84,11 +85,11 @@ class PeerInfo:
     reputation: float = 100.0
     last_seen: float = 0.0  # Unix timestamp
     is_validator: bool = False
-    capabilities: List[str] = field(default_factory=list)
+    capabilities: list[str] = field(default_factory=list)
 
     def is_alive(self, timeout: float = 300.0) -> bool:
         """Check if peer is alive based on last heartbeat."""
-        now = datetime.now(timezone.utc).timestamp()
+        now = datetime.now(UTC).timestamp()
         return (now - self.last_seen) < timeout
 
 
@@ -100,11 +101,11 @@ class MeshMessage:
     message_type: MessageType
     sender_id: str
     timestamp: float
-    payload: Dict[str, Any]
-    signature: Optional[str] = None
+    payload: dict[str, Any]
+    signature: str | None = None
     ttl: int = 5  # Time-to-live for gossip
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "message_id": self.message_id,
@@ -117,7 +118,7 @@ class MeshMessage:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> MeshMessage:
+    def from_dict(cls, data: dict[str, Any]) -> MeshMessage:
         """Create from dictionary."""
         return cls(
             message_id=data["message_id"],
@@ -187,8 +188,8 @@ class MeshNetworkClient:
         peer_id: str,
         listen_port: int = 9090,
         blockchain_rpc: str = "ws://localhost:9944",
-        private_key: Optional[ed25519.Ed25519PrivateKey] = None,
-        gossip_fanout: Optional[int] = None,
+        private_key: ed25519.Ed25519PrivateKey | None = None,
+        gossip_fanout: int | None = None,
         max_message_age: float = 300.0,
     ):
         """
@@ -224,30 +225,28 @@ class MeshNetworkClient:
         ).hex()
 
         # Peer management
-        self.peers: Dict[str, PeerInfo] = {}
-        self.seen_messages: OrderedDict[str, float] = (
-            OrderedDict()
-        )  # msg_id -> timestamp for LRU
+        self.peers: dict[str, PeerInfo] = {}
+        self.seen_messages: OrderedDict[str, float] = OrderedDict()  # msg_id -> timestamp for LRU
         self._seen_messages_max = 10000
-        self.message_handlers: Dict[MessageType, List[Callable]] = {}
+        self.message_handlers: dict[MessageType, list[Callable]] = {}
 
         # Rate limiting: per-IP message counters
-        self._rate_limits: Dict[str, List[float]] = {}  # ip -> list of timestamps
+        self._rate_limits: dict[str, list[float]] = {}  # ip -> list of timestamps
         self._rate_limit_max = 100  # max messages per window
         self._rate_limit_window = 60.0  # seconds
 
         # Networking
-        self.app: Optional[web.Application] = None
-        self.runner: Optional[web.AppRunner] = None
-        self.site: Optional[web.TCPSite] = None
+        self.app: web.Application | None = None
+        self.runner: web.AppRunner | None = None
+        self.site: web.TCPSite | None = None
         self._running = False
         self._message_queue: asyncio.Queue = asyncio.Queue()
 
         # Consensus state
-        self.consensus_rounds: Dict[str, ConsensusRound] = {}
+        self.consensus_rounds: dict[str, ConsensusRound] = {}
 
         # Blockchain connection
-        self.substrate: Optional[SubstrateInterface] = None
+        self.substrate: SubstrateInterface | None = None
         self._background_tasks: list = []
 
         logger.info(
@@ -305,10 +304,8 @@ class MeshNetworkClient:
         for task in getattr(self, "_background_tasks", []):
             task.cancel()
         for task in getattr(self, "_background_tasks", []):
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
         self._background_tasks = []
 
         if self.site:
@@ -363,7 +360,7 @@ class MeshNetworkClient:
             "coordinator_id": self.peer_id,
             "dataset_name": dataset_name,
             "target_participants": target_participants,
-            "start_time": datetime.now(timezone.utc).timestamp(),
+            "start_time": datetime.now(UTC).timestamp(),
             "deadline": deadline,
             "min_stake": min_stake,
             "reward_pool": reward_pool,
@@ -481,7 +478,7 @@ class MeshNetworkClient:
                 f"({cr.approve_count}/{cr.total_peers} approved)"
             )
 
-    def get_consensus_result(self, round_id: str) -> Optional[ConsensusRound]:
+    def get_consensus_result(self, round_id: str) -> ConsensusRound | None:
         """Return the ConsensusRound for a given round_id, or None."""
         return self.consensus_rounds.get(round_id)
 
@@ -489,7 +486,7 @@ class MeshNetworkClient:
     # Peer Discovery
     # -------------------------------------------------------------------------
 
-    async def discover_peers(self) -> List[PeerInfo]:
+    async def discover_peers(self) -> list[PeerInfo]:
         """
         Discover peers from blockchain validator registry.
 
@@ -527,14 +524,12 @@ class MeshNetworkClient:
                             continue
 
                         peer = PeerInfo(
-                            peer_id=hashlib.sha256(
-                                validator_account.encode()
-                            ).hexdigest()[:16],
+                            peer_id=hashlib.sha256(validator_account.encode()).hexdigest()[:16],
                             account_id=validator_account,
                             multiaddr=addr,
                             public_key=metadata.get("public_key", ""),
                             stake_amount=metadata.get("stake", 0),
-                            last_seen=datetime.now(timezone.utc).timestamp(),
+                            last_seen=datetime.now(UTC).timestamp(),
                             is_validator=True,
                         )
 
@@ -555,14 +550,14 @@ class MeshNetworkClient:
     async def _broadcast_message(
         self,
         message_type: MessageType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         ttl: int = 5,
     ) -> None:
         """Broadcast message to all known peers via gossip."""
         message = self._create_message(message_type, payload, ttl)
 
         # Mark as seen (LRU OrderedDict)
-        self.seen_messages[message.message_id] = datetime.now(timezone.utc).timestamp()
+        self.seen_messages[message.message_id] = datetime.now(UTC).timestamp()
         if len(self.seen_messages) > self._seen_messages_max:
             self.seen_messages.popitem(last=False)
 
@@ -576,15 +571,13 @@ class MeshNetworkClient:
         results = await asyncio.gather(*tasks, return_exceptions=True)
         success_count = sum(1 for r in results if r is True)
 
-        logger.debug(
-            f"Broadcast {message_type.value} to {success_count}/{len(tasks)} peers"
-        )
+        logger.debug(f"Broadcast {message_type.value} to {success_count}/{len(tasks)} peers")
 
     async def _send_to_peer(
         self,
         peer_id: str,
         message_type: MessageType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
     ) -> bool:
         """Send message to specific peer."""
         if peer_id not in self.peers:
@@ -612,13 +605,15 @@ class MeshNetworkClient:
                 logger.error(f"Invalid multiaddr format: {multiaddr}")
                 return False
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
                     url,
                     json=message.to_dict(),
                     timeout=aiohttp.ClientTimeout(total=10),
-                ) as response:
-                    return response.status == 200
+                ) as response,
+            ):
+                return response.status == 200
 
         except Exception as e:
             logger.debug(f"Failed to send to {multiaddr}: {e}")
@@ -668,19 +663,19 @@ class MeshNetworkClient:
     def _create_message(
         self,
         message_type: MessageType,
-        payload: Dict[str, Any],
+        payload: dict[str, Any],
         ttl: int = 5,
     ) -> MeshMessage:
         """Create and sign a mesh message."""
         message_id = hashlib.sha256(
-            f"{self.peer_id}{datetime.now(timezone.utc).timestamp()}{json.dumps(payload)}".encode()
+            f"{self.peer_id}{datetime.now(UTC).timestamp()}{json.dumps(payload)}".encode()
         ).hexdigest()
 
         message = MeshMessage(
             message_id=message_id,
             message_type=message_type,
             sender_id=self.peer_id,
-            timestamp=datetime.now(timezone.utc).timestamp(),
+            timestamp=datetime.now(UTC).timestamp(),
             payload=payload,
             ttl=ttl,
         )
@@ -697,7 +692,7 @@ class MeshNetworkClient:
         try:
             # Rate limiting per remote IP
             remote_ip = request.remote or "unknown"
-            now = datetime.now(timezone.utc).timestamp()
+            now = datetime.now(UTC).timestamp()
             timestamps = self._rate_limits.setdefault(remote_ip, [])
             # Purge old entries outside the window
             timestamps[:] = [t for t in timestamps if now - t < self._rate_limit_window]
@@ -712,9 +707,7 @@ class MeshNetworkClient:
             # Replay protection: reject stale messages
             age = now - message.timestamp
             if age > self._max_message_age:
-                logger.warning(
-                    f"Rejected stale message {message.message_id} (age={age:.0f}s)"
-                )
+                logger.warning(f"Rejected stale message {message.message_id} (age={age:.0f}s)")
                 return web.Response(status=400, text="message too old")
 
             # Deduplication via LRU OrderedDict
@@ -733,9 +726,7 @@ class MeshNetworkClient:
 
             # Update peer info
             if message.sender_id in self.peers:
-                self.peers[message.sender_id].last_seen = datetime.now(
-                    timezone.utc
-                ).timestamp()
+                self.peers[message.sender_id].last_seen = datetime.now(UTC).timestamp()
 
             # Call registered handlers
             if message.message_type in self.message_handlers:
@@ -761,9 +752,7 @@ class MeshNetworkClient:
         import random
 
         alive_peers = [
-            p
-            for p in self.peers.values()
-            if p.is_alive() and p.peer_id != message.sender_id
+            p for p in self.peers.values() if p.is_alive() and p.peer_id != message.sender_id
         ]
 
         # Forward to gossip_fanout peers (or ~50% heuristic)
@@ -808,7 +797,7 @@ class MeshNetworkClient:
 
             await self._broadcast_message(
                 message_type=MessageType.HEARTBEAT,
-                payload={"timestamp": datetime.now(timezone.utc).timestamp()},
+                payload={"timestamp": datetime.now(UTC).timestamp()},
                 ttl=1,
             )
 
@@ -825,9 +814,7 @@ class MeshNetworkClient:
 
             # Remove dead peers
             dead_peers = [
-                peer_id
-                for peer_id, peer in self.peers.items()
-                if not peer.is_alive(timeout=600)
+                peer_id for peer_id, peer in self.peers.items() if not peer.is_alive(timeout=600)
             ]
 
             for peer_id in dead_peers:
@@ -849,7 +836,7 @@ class MeshNetworkClient:
                     timeout=1.0,
                 )
                 yield message
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
 

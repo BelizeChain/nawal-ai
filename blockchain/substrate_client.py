@@ -18,26 +18,23 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Optional, Any, Callable
-from dataclasses import dataclass, field
-from pathlib import Path
-from enum import Enum
-import json
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any
 
 from loguru import logger
 
 # Optional substrate-interface library
 try:
-    from substrateinterface import SubstrateInterface, Keypair
+    from substrateinterface import Keypair, SubstrateInterface
     from substrateinterface.exceptions import SubstrateRequestException
 
     SUBSTRATE_AVAILABLE = True
 except ImportError:
     SUBSTRATE_AVAILABLE = False
-    logger.warning(
-        "substrate-interface not available. " "Install: pip install substrate-interface"
-    )
+    logger.warning("substrate-interface not available. " "Install: pip install substrate-interface")
 
 
 class NetworkType(Enum):
@@ -62,7 +59,7 @@ class ChainConfig:
 
     network: NetworkType = NetworkType.LOCAL
     rpc_url: str = "ws://127.0.0.1:9944"
-    type_registry: Optional[Dict] = None
+    type_registry: dict | None = None
     ss58_format: int = 42
 
     @classmethod
@@ -105,11 +102,11 @@ class ExtrinsicReceipt:
     """
 
     extrinsic_hash: str
-    block_hash: Optional[str] = None
-    block_number: Optional[int] = None
+    block_hash: str | None = None
+    block_number: int | None = None
     success: bool = False
-    events: List[Dict] = field(default_factory=list)
-    error: Optional[str] = None
+    events: list[dict] = field(default_factory=list)
+    error: str | None = None
 
     # Compatibility properties matching substrate-interface library naming
     @property
@@ -118,12 +115,12 @@ class ExtrinsicReceipt:
         return self.success
 
     @property
-    def error_message(self) -> Optional[str]:
+    def error_message(self) -> str | None:
         """Alias for `error` — matches substrate-interface receipt API."""
         return self.error
 
     @property
-    def triggered_events(self) -> List[Dict]:
+    def triggered_events(self) -> list[dict]:
         """Alias for `events` — matches substrate-interface receipt API."""
         return self.events
 
@@ -168,12 +165,11 @@ class SubstrateClient:
         """
         if not SUBSTRATE_AVAILABLE:
             raise RuntimeError(
-                "substrate-interface required. "
-                "Install: pip install substrate-interface"
+                "substrate-interface required. " "Install: pip install substrate-interface"
             )
 
         self.config = config
-        self.substrate: Optional[SubstrateInterface] = None
+        self.substrate: SubstrateInterface | None = None
         self._connected = False
 
         logger.info(f"SubstrateClient initialized: {config.network.value}")
@@ -230,8 +226,8 @@ class SubstrateClient:
         self,
         module: str,
         storage_function: str,
-        params: Optional[List[Any]] = None,
-        block_hash: Optional[str] = None,
+        params: list[Any] | None = None,
+        block_hash: str | None = None,
     ) -> Any:
         """
         Query chain storage.
@@ -256,9 +252,7 @@ class SubstrateClient:
                 block_hash=block_hash,
             )
 
-            logger.debug(
-                f"Queried {module}.{storage_function}: " f"{str(result)[:100]}"
-            )
+            logger.debug(f"Queried {module}.{storage_function}: " f"{str(result)[:100]}")
 
             return result.value if hasattr(result, "value") else result
 
@@ -270,8 +264,8 @@ class SubstrateClient:
         self,
         module: str,
         storage_function: str,
-        block_hash: Optional[str] = None,
-    ) -> List[tuple]:
+        block_hash: str | None = None,
+    ) -> list[tuple]:
         """
         Query all entries in a storage map.
 
@@ -307,7 +301,7 @@ class SubstrateClient:
         keypair: "Keypair",
         call_module: str,
         call_function: str,
-        call_params: Dict[str, Any],
+        call_params: dict[str, Any],
         wait_for_inclusion: bool = True,
         wait_for_finalization: bool = False,
     ) -> ExtrinsicReceipt:
@@ -372,9 +366,7 @@ class SubstrateClient:
                 receipt.events = self._get_extrinsic_events(result)
 
                 if receipt.success:
-                    logger.success(
-                        f"Extrinsic included in block #{receipt.block_number}"
-                    )
+                    logger.success(f"Extrinsic included in block #{receipt.block_number}")
                 else:
                     logger.error(f"Extrinsic failed: {receipt.error}")
 
@@ -384,7 +376,7 @@ class SubstrateClient:
             logger.error(f"Extrinsic submission failed: {e}")
             raise
 
-    def _get_extrinsic_events(self, result) -> List[Dict]:
+    def _get_extrinsic_events(self, result) -> list[dict]:
         """Extract events from extrinsic result."""
         events = []
 
@@ -400,7 +392,7 @@ class SubstrateClient:
 
         return events
 
-    def get_block(self, block_hash: Optional[str] = None) -> Dict:
+    def get_block(self, block_hash: str | None = None) -> dict:
         """
         Get block information.
 
@@ -415,7 +407,7 @@ class SubstrateClient:
 
         return self.substrate.get_block(block_hash=block_hash)
 
-    def get_block_number(self, block_hash: Optional[str] = None) -> int:
+    def get_block_number(self, block_hash: str | None = None) -> int:
         """
         Get block number.
 
@@ -428,7 +420,7 @@ class SubstrateClient:
         block = self.get_block(block_hash=block_hash)
         return block["header"]["number"]
 
-    def get_events(self, block_hash: Optional[str] = None) -> List[Dict]:
+    def get_events(self, block_hash: str | None = None) -> list[dict]:
         """
         Get events from block.
 
@@ -455,9 +447,9 @@ class SubstrateClient:
 
     def subscribe_events(
         self,
-        callback: Callable[[Dict], None],
-        module_filter: Optional[str] = None,
-        event_filter: Optional[str] = None,
+        callback: Callable[[dict], None],
+        module_filter: str | None = None,
+        event_filter: str | None = None,
     ) -> None:
         """
         Subscribe to chain events.
@@ -473,9 +465,7 @@ class SubstrateClient:
         if not self.is_connected():
             self.connect()
 
-        logger.info(
-            f"Subscribing to events: " f"module={module_filter}, event={event_filter}"
-        )
+        logger.info(f"Subscribing to events: " f"module={module_filter}, event={event_filter}")
 
         def event_handler(obj, update_nr, subscription_id):
             """Handle incoming events."""
@@ -520,14 +510,14 @@ class SubstrateClient:
 
         return result.value if hasattr(result, "value") else result
 
-    def get_metadata(self) -> Dict:
+    def get_metadata(self) -> dict:
         """Get runtime metadata."""
         if not self.is_connected():
             self.connect()
 
         return self.substrate.get_metadata()
 
-    def get_account_info(self, address: str) -> Dict:
+    def get_account_info(self, address: str) -> dict:
         """
         Get account information.
 
@@ -558,9 +548,9 @@ class SubstrateClient:
 
     @staticmethod
     def create_keypair(
-        mnemonic: Optional[str] = None,
-        seed: Optional[str] = None,
-        uri: Optional[str] = None,
+        mnemonic: str | None = None,
+        seed: str | None = None,
+        uri: str | None = None,
     ) -> "Keypair":
         """
         Create keypair for signing.

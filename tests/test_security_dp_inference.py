@@ -161,9 +161,8 @@ class TestInferenceContext:
     def test_is_active_restored_on_exception(self):
         """_active must be reset to False even if an exception is raised inside."""
         guard = DPInferenceGuard()
-        with pytest.raises(RuntimeError):
-            with guard.inference_context():
-                raise RuntimeError("test error")
+        with pytest.raises(RuntimeError), guard.inference_context():
+            raise RuntimeError("test error")
         assert guard.is_active is False
 
     def test_context_manager_yields(self):

@@ -9,8 +9,8 @@ and enforcing hard safety constraints before any action is dispatched.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -43,10 +43,10 @@ class AbstractRewardModel(ABC):
     @abstractmethod
     def score(
         self,
-        candidates: List[Dict[str, Any]],
-        context: Dict[str, Any],
-        drives: Optional[List[DriveSignal]] = None,
-    ) -> List[float]:
+        candidates: list[dict[str, Any]],
+        context: dict[str, Any],
+        drives: list[DriveSignal] | None = None,
+    ) -> list[float]:
         """
         Assign a composite score to each candidate.
 
@@ -63,10 +63,10 @@ class AbstractRewardModel(ABC):
     @abstractmethod
     def ranked(
         self,
-        candidates: List[Dict[str, Any]],
-        context: Dict[str, Any],
-        drives: Optional[List[DriveSignal]] = None,
-    ) -> List[Dict[str, Any]]:
+        candidates: list[dict[str, Any]],
+        context: dict[str, Any],
+        drives: list[DriveSignal] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Return *candidates* sorted by descending score.
         """
@@ -90,7 +90,7 @@ class SafetyFilter(ABC):
         """
 
     @abstractmethod
-    def filter(self, candidates: List[Any]) -> List[Any]:
+    def filter(self, candidates: list[Any]) -> list[Any]:
         """
         Remove or rewrite unsafe entries.
 

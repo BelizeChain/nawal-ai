@@ -15,10 +15,12 @@ Python: 3.13+
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable, Awaitable
+from typing import Any
+
 from loguru import logger
 
 try:
@@ -267,7 +269,7 @@ class BlockchainEventListener:
             event_type=event_type,
             block_number=block_number,
             block_hash=block_hash,
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             data=attributes,
         )
 
@@ -282,10 +284,9 @@ class BlockchainEventListener:
             self.is_listening = True
             return
 
-        if not self.substrate:
-            if not await self.connect():
-                logger.error("Cannot start listening: not connected")
-                return
+        if not self.substrate and not await self.connect():
+            logger.error("Cannot start listening: not connected")
+            return
 
         self.is_listening = True
         logger.info("Started listening for blockchain events")
@@ -387,7 +388,7 @@ class BlockchainEventListener:
             event_type=event_type,
             block_number=len(self.event_history) + 1,
             block_hash=f"0x{'0' * 64}",
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=datetime.now(UTC).isoformat(),
             data=data,
         )
 
@@ -452,9 +453,9 @@ async def create_training_round_handler(
 # =============================================================================
 
 __all__ = [
+    "BlockchainEventListener",
+    "EventHandler",
     "EventType",
     "TrainingEvent",
-    "EventHandler",
-    "BlockchainEventListener",
     "create_training_round_handler",
 ]

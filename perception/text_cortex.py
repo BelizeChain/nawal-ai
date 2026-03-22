@@ -25,7 +25,7 @@ from __future__ import annotations
 import hashlib
 import math
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import torch
 from loguru import logger
@@ -37,21 +37,75 @@ from perception.interfaces import AbstractCortex, WorldState
 # --------------------------------------------------------------------------- #
 
 _STOP = frozenset(
-    "a an the is are was were be been being have has had do does did "
-    "will would could should may might shall must can i you he she it we "
-    "they me him her us them my your his its our their of in on at to for "
-    "and or but not with by from".split()
+    [
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "must",
+        "can",
+        "i",
+        "you",
+        "he",
+        "she",
+        "it",
+        "we",
+        "they",
+        "me",
+        "him",
+        "her",
+        "us",
+        "them",
+        "my",
+        "your",
+        "his",
+        "its",
+        "our",
+        "their",
+        "of",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "and",
+        "or",
+        "but",
+        "not",
+        "with",
+        "by",
+        "from",
+    ]
 )
 
 
-def _hash_token(token: str, dim: int) -> List[float]:
+def _hash_token(token: str, dim: int) -> list[float]:
     """
     Map a token to a pseudo-random unit vector using SHA-256.
     Deterministic and consistent across runs.
     """
     digest = hashlib.sha256(token.encode("utf-8")).digest()
     # Use every 4 bytes as one float component, wrapping around digest
-    components: List[float] = []
+    components: list[float] = []
     for i in range(dim):
         byte_idx = (i * 4) % len(digest)
         val = int.from_bytes(digest[byte_idx : byte_idx + 4], "big", signed=True)
@@ -59,7 +113,7 @@ def _hash_token(token: str, dim: int) -> List[float]:
     return components
 
 
-def _l2_normalize(vec: List[float]) -> List[float]:
+def _l2_normalize(vec: list[float]) -> list[float]:
     mag = math.sqrt(sum(x * x for x in vec))
     if mag < 1e-9:
         return vec
@@ -94,7 +148,7 @@ class TextCortex(AbstractCortex):
     def __init__(
         self,
         embed_dim: int = 256,
-        model_name: Optional[str] = None,
+        model_name: str | None = None,
         ngram_range: tuple[int, int] = (1, 2),
         max_length: int = 512,
         device: str = "auto",
@@ -104,9 +158,7 @@ class TextCortex(AbstractCortex):
         self.ngram_range = ngram_range
         self.max_length = max_length
         self.device = (
-            ("cuda" if torch.cuda.is_available() else "cpu")
-            if device == "auto"
-            else device
+            ("cuda" if torch.cuda.is_available() else "cpu") if device == "auto" else device
         )
 
         # Lazy-loaded BERT assets
@@ -136,7 +188,7 @@ class TextCortex(AbstractCortex):
             text = text[: self.MAX_TEXT_LENGTH]
         return text
 
-    def encode(self, raw_input: Any) -> List[float]:
+    def encode(self, raw_input: Any) -> list[float]:
         """
         Encode text to a dense float embedding.
 
@@ -154,7 +206,7 @@ class TextCortex(AbstractCortex):
             return self._bert_embed(text)
         return self._hash_ngram_embed(text)
 
-    def _to_world_state(self, embedding: List[float], raw_input: Any) -> WorldState:
+    def _to_world_state(self, embedding: list[float], raw_input: Any) -> WorldState:
         return WorldState(
             text_embedding=embedding,
             raw_text=raw_input if isinstance(raw_input, str) else str(raw_input),
@@ -168,7 +220,7 @@ class TextCortex(AbstractCortex):
     # Hash n-gram mode                                                     #
     # ------------------------------------------------------------------ #
 
-    def _hash_ngram_embed(self, text: str) -> List[float]:
+    def _hash_ngram_embed(self, text: str) -> list[float]:
         """
         Bag-of-n-grams embedding using SHA-256 token hashing.
 
@@ -180,7 +232,7 @@ class TextCortex(AbstractCortex):
         tokens = re.findall(r"\b[a-zA-Z0-9']+\b", text.lower())
         tokens = [t for t in tokens if t not in _STOP] or tokens  # fallback if all stop
 
-        ngrams: List[str] = []
+        ngrams: list[str] = []
         min_n, max_n = self.ngram_range
         for n in range(min_n, max_n + 1):
             for i in range(len(tokens) - n + 1):
@@ -223,7 +275,7 @@ class TextCortex(AbstractCortex):
             self.model_name = None
             self._model_loaded = True  # don't retry
 
-    def _bert_embed(self, text: str) -> List[float]:
+    def _bert_embed(self, text: str) -> list[float]:
         """Mean-pool BERT hidden states over non-padding positions."""
         self._load_model()
         if not self.model_name:  # fallback engaged
@@ -258,12 +310,12 @@ class TextCortex(AbstractCortex):
 # --------------------------------------------------------------------------- #
 
 
-def _project(vec: List[float], out_dim: int) -> List[float]:
+def _project(vec: list[float], out_dim: int) -> list[float]:
     """Truncate or repeat-tile a vector to *out_dim*."""
     if len(vec) >= out_dim:
         return vec[:out_dim]
     ratio = out_dim / len(vec)
-    result: List[float] = []
+    result: list[float] = []
     for i in range(out_dim):
         result.append(vec[int(i / ratio)])
     return result

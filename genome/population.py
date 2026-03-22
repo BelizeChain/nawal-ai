@@ -18,12 +18,11 @@ from __future__ import annotations
 
 import random
 from collections import defaultdict
-from dataclasses import dataclass, field
-from typing import Protocol, Callable
+from dataclasses import dataclass
+
 from loguru import logger
 
 from .encoding import Genome
-from .fitness import FitnessScore
 from .operators import SelectionStrategy
 
 # =============================================================================
@@ -267,9 +266,7 @@ class PopulationManager:
             generation: Current generation number
         """
         # Get genomes with fitness scores
-        scored_genomes = [
-            g for g in self.genomes.values() if g.fitness_score is not None
-        ]
+        scored_genomes = [g for g in self.genomes.values() if g.fitness_score is not None]
 
         if not scored_genomes:
             logger.warning("No scored genomes available for elite selection")
@@ -342,9 +339,7 @@ class PopulationManager:
         min_fitness = min(fitness_values)
 
         # Standard deviation
-        variance = sum((f - avg_fitness) ** 2 for f in fitness_values) / len(
-            fitness_values
-        )
+        variance = sum((f - avg_fitness) ** 2 for f in fitness_values) / len(fitness_values)
         std_fitness = variance**0.5
 
         # Component averages
@@ -353,7 +348,7 @@ class PopulationManager:
         avg_honesty = sum(honesty_values) / len(honesty_values)
 
         # Diversity metrics
-        unique_architectures = len(set(g.genome_hash for g in genomes))
+        unique_architectures = len({g.genome_hash for g in genomes})
         diversity_score = unique_architectures / len(genomes) if genomes else 0.0
 
         # Elite statistics
@@ -395,9 +390,7 @@ class PopulationManager:
 
         return stats
 
-    def get_statistics(
-        self, generation: int | None = None
-    ) -> PopulationStatistics | None:
+    def get_statistics(self, generation: int | None = None) -> PopulationStatistics | None:
         """
         Get statistics for a specific generation.
 
@@ -459,7 +452,7 @@ class PopulationManager:
         spin = random.uniform(0, total_fitness)
         cumulative = 0.0
 
-        for genome, fitness in zip(scored, fitness_values):
+        for genome, fitness in zip(scored, fitness_values, strict=False):
             cumulative += fitness
             if cumulative >= spin:
                 return genome
@@ -485,7 +478,7 @@ class PopulationManager:
         spin = random.uniform(0, total_rank)
         cumulative = 0.0
 
-        for genome, rank in zip(scored, ranks):
+        for genome, rank in zip(scored, ranks, strict=False):
             cumulative += rank
             if cumulative >= spin:
                 return genome
@@ -538,7 +531,7 @@ class PopulationManager:
             return 1.0
 
         # Count unique genome hashes
-        unique_hashes = len(set(g.genome_hash for g in self.genomes.values()))
+        unique_hashes = len({g.genome_hash for g in self.genomes.values()})
 
         # Diversity is ratio of unique to total
         diversity = unique_hashes / len(self.genomes)
@@ -556,7 +549,7 @@ class PopulationManager:
             hash_groups[genome.genome_hash].append(genome)
 
         # Remove excess similar genomes
-        for genome_hash, group in hash_groups.items():
+        for _genome_hash, group in hash_groups.items():
             if len(group) > self.config.max_similar_genomes:
                 # Sort by fitness (keep best)
                 group.sort(key=lambda g: g.fitness_score or 0.0, reverse=True)
@@ -586,8 +579,8 @@ Population = PopulationManager
 # =============================================================================
 
 __all__ = [
-    "PopulationConfig",
-    "PopulationStatistics",
-    "PopulationManager",
     "Population",  # Alias for backward compatibility
+    "PopulationConfig",
+    "PopulationManager",
+    "PopulationStatistics",
 ]

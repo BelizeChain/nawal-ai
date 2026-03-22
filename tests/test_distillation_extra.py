@@ -15,9 +15,7 @@ Targets the uncovered branches:
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-from typing import Dict
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -26,7 +24,6 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from training.distillation import (
     KnowledgeDistillationTrainer,
-    KnowledgeDistillationLoss,
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -89,7 +86,7 @@ def _make_teacher() -> MagicMock:
     return teacher
 
 
-def _make_batch() -> Dict[str, torch.Tensor]:
+def _make_batch() -> dict[str, torch.Tensor]:
     return {
         "input_ids": torch.randint(0, VOCAB, (BATCH, SEQ)),
         "labels": torch.randint(0, VOCAB, (BATCH, SEQ)),
@@ -102,16 +99,16 @@ def _make_loader(n_batches: int = 2) -> DataLoader:
     ds = TensorDataset(ids, lbls)
 
     def collate(batch):
-        a, b = zip(*batch)
+        a, b = zip(*batch, strict=False)
         return {"input_ids": torch.stack(a), "labels": torch.stack(b)}
 
     return DataLoader(ds, batch_size=BATCH, collate_fn=collate)
 
 
 def _make_trainer(**kwargs) -> KnowledgeDistillationTrainer:
-    defaults = dict(
-        student_model=_make_student(), teacher_model=_make_teacher(), device="cpu"
-    )
+    defaults = {
+        "student_model": _make_student(), "teacher_model": _make_teacher(), "device": "cpu"
+    }
     defaults.update(kwargs)
     return KnowledgeDistillationTrainer(**defaults)
 
@@ -162,7 +159,7 @@ class TestDefaultStudentBranch:
             MockConfig.nawal_medium.return_value = mock_config
             MockTransformer.return_value = mock_student
 
-            trainer = KnowledgeDistillationTrainer(
+            KnowledgeDistillationTrainer(
                 teacher_model=_make_teacher(),
                 device="cpu",
             )
@@ -389,7 +386,6 @@ class TestEvaluateMethod:
 
     def test_evaluate_perplexity_matches_exp_loss(self):
         """perplexity ≈ exp(cross_entropy_hard_loss) — should be > 1 for random model."""
-        import math
 
         trainer = _make_trainer()
         metrics = trainer.evaluate(_make_loader(n_batches=1))
@@ -631,7 +627,7 @@ class TestEvaluateAttentionMask:
         ds = TensorDataset(ids, ids.clone(), mask)
 
         def collate(batch):
-            a, b, m = zip(*batch)
+            a, b, m = zip(*batch, strict=False)
             return {
                 "input_ids": torch.stack(a),
                 "labels": torch.stack(b),

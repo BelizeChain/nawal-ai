@@ -12,17 +12,16 @@ import asyncio
 import hashlib
 import sys
 from pathlib import Path
-from decimal import Decimal
+
 from loguru import logger
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from blockchain.payroll_connector import (
+    EmployeeType,
     PayrollConnector,
     PayrollEntry,
-    PayrollSubmission,
-    EmployeeType,
 )
 
 # Configure logging

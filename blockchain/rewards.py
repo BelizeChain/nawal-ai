@@ -12,7 +12,8 @@ Python: 3.13+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any
+
 from loguru import logger
 
 # =============================================================================
@@ -171,9 +172,7 @@ class RewardCalculator:
             self.max_bonus_stake_dalla - self.min_stake_dalla
         )
 
-        return MIN_STAKE_MULTIPLIER + stake_ratio * (
-            MAX_STAKE_MULTIPLIER - MIN_STAKE_MULTIPLIER
-        )
+        return MIN_STAKE_MULTIPLIER + stake_ratio * (MAX_STAKE_MULTIPLIER - MIN_STAKE_MULTIPLIER)
 
     def calculate_reward(
         self,
@@ -389,9 +388,7 @@ class RewardDistributor:
         Returns:
             Statistics dictionary
         """
-        total_pending = sum(
-            self.get_total_pending(pid) for pid in self.pending_rewards.keys()
-        )
+        total_pending = sum(self.get_total_pending(pid) for pid in self.pending_rewards)
 
         total_distributed = sum(self.distributed_rewards.values())
 
@@ -431,16 +428,16 @@ def format_dalla(planck: int, decimals: int = 2) -> str:
 # =============================================================================
 
 __all__ = [
+    "BASE_REWARD_DALLA",
+    "HONESTY_WEIGHT",
+    "PLANCK_PER_DALLA",
+    "QUALITY_WEIGHT",
+    "TIMELINESS_WEIGHT",
     "FitnessScores",
     "RewardCalculation",
     "RewardCalculator",
     "RewardDistributor",
     "dalla_to_planck",
-    "planck_to_dalla",
     "format_dalla",
-    "BASE_REWARD_DALLA",
-    "PLANCK_PER_DALLA",
-    "QUALITY_WEIGHT",
-    "TIMELINESS_WEIGHT",
-    "HONESTY_WEIGHT",
+    "planck_to_dalla",
 ]

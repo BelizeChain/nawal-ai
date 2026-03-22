@@ -9,11 +9,11 @@ Decision logic:
 """
 
 import hashlib
-import threading
-import torch
-from typing import Dict, Optional, Tuple
 import logging
-from datetime import datetime, timezone
+import threading
+from datetime import UTC, datetime
+
+import torch
 
 from .sovereignty_metrics import SovereigntyMetrics
 
@@ -56,16 +56,14 @@ class IntelligentRouter:
         # Time-windowed sovereignty tracker
         self.sovereignty_metrics = SovereigntyMetrics()
 
-        logger.info(
-            f"Initialized IntelligentRouter with threshold={confidence_threshold}"
-        )
+        logger.info(f"Initialized IntelligentRouter with threshold={confidence_threshold}")
 
     def route(
         self,
         query: str,
         nawal_logits: torch.Tensor,
-        confidence_scores: Dict[str, float],
-    ) -> Tuple[str, Dict]:
+        confidence_scores: dict[str, float],
+    ) -> tuple[str, dict]:
         """
         Decide whether to use Nawal or DeepSeek
 
@@ -101,7 +99,7 @@ class IntelligentRouter:
 
         # Prepare metadata
         metadata = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "decision": decision,
             "confidence": overall_confidence,
             "threshold": self.threshold,
@@ -120,7 +118,7 @@ class IntelligentRouter:
 
         return decision, metadata
 
-    def _log_fallback(self, query: str, metadata: Dict) -> None:
+    def _log_fallback(self, query: str, metadata: dict) -> None:
         """
         Log fallback query for knowledge distillation
 
@@ -148,7 +146,7 @@ class IntelligentRouter:
         with open(self.fallback_log_path, "a") as f:
             f.write(json.dumps(log_entry) + "\n")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get routing statistics (includes rolling windowed sovereignty rate)"""
         with self._lock:
             stats_copy = {**self.stats}
@@ -156,7 +154,7 @@ class IntelligentRouter:
             **stats_copy,
             "sovereignty_rate_windowed": self.sovereignty_metrics.sovereignty_rate(),
             "sovereignty_snapshot": self.sovereignty_metrics.snapshot(),
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         }
 
     def reset_statistics(self) -> None:
@@ -199,8 +197,8 @@ class IntelligentRouter:
         Returns:
             Number of fallback queries exported
         """
-        import shutil
         import os
+        import shutil
 
         if os.path.exists(self.fallback_log_path):
             shutil.copy(self.fallback_log_path, output_path)

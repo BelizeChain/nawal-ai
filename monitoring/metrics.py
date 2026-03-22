@@ -8,14 +8,15 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field
-from enum import Enum
-from datetime import datetime
 import threading
 import time
-import psutil
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
 from pathlib import Path
+from typing import Any
+
+import psutil
 
 # Optional GPU monitoring
 try:
@@ -78,8 +79,8 @@ class Metric:
     name: str
     value: float
     timestamp: datetime
-    labels: Dict[str, str] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MetricsCollector:
@@ -97,25 +98,25 @@ class MetricsCollector:
             buffer_size: Maximum number of metrics to buffer
         """
         self.buffer_size = buffer_size
-        self.metrics: List[Metric] = []
+        self.metrics: list[Metric] = []
         self._lock = threading.Lock()
         self._start_time = time.time()
         self._system_metrics_enabled = True
 
         # Track metric history
-        self.history: Dict[str, List[float]] = {}
+        self.history: dict[str, list[float]] = {}
 
         # Performance tracking
-        self._epoch_start: Optional[float] = None
-        self._batch_start: Optional[float] = None
-        self._round_start: Optional[float] = None
+        self._epoch_start: float | None = None
+        self._batch_start: float | None = None
+        self._round_start: float | None = None
 
     def record(
         self,
         metric_type: MetricType,
         value: float,
-        labels: Optional[Dict[str, str]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        labels: dict[str, str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Record a metric value.
@@ -149,9 +150,7 @@ class MetricsCollector:
 
             # Trim history
             if len(self.history[metric_type.value]) > 1000:
-                self.history[metric_type.value] = self.history[metric_type.value][
-                    -1000:
-                ]
+                self.history[metric_type.value] = self.history[metric_type.value][-1000:]
 
     def record_training_epoch(
         self,
@@ -204,7 +203,7 @@ class MetricsCollector:
         generation: int,
         best: float,
         average: float,
-        individual: Optional[float] = None,
+        individual: float | None = None,
     ) -> None:
         """
         Record evolutionary fitness metrics.
@@ -259,8 +258,8 @@ class MetricsCollector:
         self,
         success: bool,
         tx_time: float,
-        block_number: Optional[int] = None,
-        finalization_time: Optional[float] = None,
+        block_number: int | None = None,
+        finalization_time: float | None = None,
     ) -> None:
         """
         Record blockchain transaction metrics.
@@ -315,9 +314,7 @@ class MetricsCollector:
 
                     # GPU utilization
                     util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-                    self.record(
-                        MetricType.GPU_USAGE, float(util.gpu), {"device": str(i)}
-                    )
+                    self.record(MetricType.GPU_USAGE, float(util.gpu), {"device": str(i)})
 
                     # GPU memory
                     mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
@@ -327,8 +324,8 @@ class MetricsCollector:
                 pass  # GPU metrics not available
 
     def get_metrics(
-        self, metric_type: Optional[MetricType] = None, since: Optional[datetime] = None
-    ) -> List[Metric]:
+        self, metric_type: MetricType | None = None, since: datetime | None = None
+    ) -> list[Metric]:
         """
         Get collected metrics.
 
@@ -349,7 +346,7 @@ class MetricsCollector:
 
         return metrics
 
-    def get_latest(self, metric_type: MetricType) -> Optional[Metric]:
+    def get_latest(self, metric_type: MetricType) -> Metric | None:
         """
         Get latest metric value.
 
@@ -362,7 +359,7 @@ class MetricsCollector:
         metrics = self.get_metrics(metric_type)
         return metrics[-1] if metrics else None
 
-    def get_average(self, metric_type: MetricType, window: int = 10) -> Optional[float]:
+    def get_average(self, metric_type: MetricType, window: int = 10) -> float | None:
         """
         Get average metric value over window.
 
@@ -379,7 +376,7 @@ class MetricsCollector:
         values = self.history[metric_type.value][-window:]
         return sum(values) / len(values) if values else None
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """
         Get metrics summary.
 

@@ -19,25 +19,22 @@ Coverage:
 from __future__ import annotations
 
 import pytest
-from pathlib import Path
-
-# ─────────────────────────────────────────────────────────────────────────── #
-# Shared types                                                                  #
-# ─────────────────────────────────────────────────────────────────────────── #
-
-from nawal_types import WorldState, GenerationResult, FeedbackSignal
+from nawal.action import ActionLayer
+from nawal.control import ExecutiveController
+from nawal.maintenance import MaintenanceLayer
 
 # ─────────────────────────────────────────────────────────────────────────── #
 # Brain layers                                                                  #
 # ─────────────────────────────────────────────────────────────────────────── #
-
 from nawal.memory import MemoryManager
-from nawal.control import ExecutiveController
-from nawal.valuation import ValuationLayer
 from nawal.metacognition import MetacognitionLayer
 from nawal.perception import SensoryHub
-from nawal.maintenance import MaintenanceLayer
-from nawal.action import ActionLayer
+from nawal.valuation import ValuationLayer
+
+# ─────────────────────────────────────────────────────────────────────────── #
+# Shared types                                                                  #
+# ─────────────────────────────────────────────────────────────────────────── #
+from nawal_types import FeedbackSignal, GenerationResult, WorldState
 
 # ═══════════════════════════════════════════════════════════════════════════ #
 # Canonical types                                                              #
@@ -225,7 +222,7 @@ class TestEndToEndPipeline:
         assert read_result.status.value == "success"
 
     def test_feedback_loop(self, brain):
-        vl = brain["valuation"]
+        brain["valuation"]
         fb = FeedbackSignal(
             prompt="Tell me about Belize.",
             response="Belize is located in Central America.",
@@ -264,6 +261,7 @@ class TestEndToEndPipeline:
 class TestOrchestratorIntegration:
     def test_orchestrator_has_maintenance(self, tmp_path):
         from nawal.config import NawalConfig
+
         from orchestrator import EvolutionOrchestrator
 
         config = NawalConfig()
@@ -274,6 +272,7 @@ class TestOrchestratorIntegration:
 
     def test_orchestrator_has_action(self, tmp_path):
         from nawal.config import NawalConfig
+
         from orchestrator import EvolutionOrchestrator
 
         config = NawalConfig()
@@ -284,6 +283,7 @@ class TestOrchestratorIntegration:
 
     def test_orchestrator_action_can_search(self, tmp_path):
         from nawal.config import NawalConfig
+
         from orchestrator import EvolutionOrchestrator
 
         config = NawalConfig()

@@ -14,12 +14,12 @@ Author: BelizeChain Team
 License: MIT
 """
 
-from typing import Dict, List, Optional, Callable, Any
 import re
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
-import torch
 from loguru import logger
 
 
@@ -76,9 +76,7 @@ class TextCleaner:
         self.url_pattern = re.compile(
             r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
         )
-        self.email_pattern = re.compile(
-            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
-        )
+        self.email_pattern = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
         self.special_char_pattern = re.compile(r"[^a-zA-Z0-9\s.,!?;:\'\"-]")
 
         logger.info("TextCleaner initialized")
@@ -125,7 +123,7 @@ class TextCleaner:
 
         return text.strip()
 
-    def clean_batch(self, texts: List[str]) -> List[str]:
+    def clean_batch(self, texts: list[str]) -> list[str]:
         """
         Clean batch of texts.
 
@@ -189,10 +187,7 @@ class DataValidator:
             return False
 
         # Check if text is mostly ASCII or has enough alphanumeric
-        if not self._has_enough_content(text):
-            return False
-
-        return True
+        return self._has_enough_content(text)
 
     def _has_enough_content(self, text: str, threshold: float = 0.5) -> bool:
         """
@@ -213,7 +208,7 @@ class DataValidator:
 
         return ratio >= threshold
 
-    def filter_valid(self, samples: List[Any]) -> List[Any]:
+    def filter_valid(self, samples: list[Any]) -> list[Any]:
         """
         Filter valid samples from list.
 
@@ -231,7 +226,7 @@ class DataValidator:
 
         return valid_samples
 
-    def remove_duplicates(self, samples: List[Any]) -> List[Any]:
+    def remove_duplicates(self, samples: list[Any]) -> list[Any]:
         """
         Remove duplicate samples.
 
@@ -292,7 +287,7 @@ class DataAugmenter:
         text: str,
         num_aug: int = 1,
         alpha: float = 0.1,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Augment text with multiple techniques.
 
@@ -345,7 +340,7 @@ class DataAugmenter:
 
         # Simple synonym replacement (placeholder)
         # In production, use WordNet or word embeddings
-        for idx in indices:
+        for _idx in indices:
             # Keep original for now (no WordNet dependency)
             pass
 
@@ -456,8 +451,8 @@ class DataPreprocessor:
 
     def __init__(
         self,
-        config: Optional[PreprocessingConfig] = None,
-        custom_functions: Optional[List[Callable]] = None,
+        config: PreprocessingConfig | None = None,
+        custom_functions: list[Callable] | None = None,
     ):
         """
         Initialize DataPreprocessor.
@@ -479,7 +474,7 @@ class DataPreprocessor:
         sample: Any,
         augment: bool = False,
         num_aug: int = 1,
-    ) -> Optional[Any]:
+    ) -> Any | None:
         """
         Preprocess single sample.
 
@@ -515,8 +510,7 @@ class DataPreprocessor:
             texts = self.augmenter.augment(text, num_aug=num_aug)
             if is_dict:
                 return [
-                    {"text": t, **{k: v for k, v in sample.items() if k != "text"}}
-                    for t in texts
+                    {"text": t, **{k: v for k, v in sample.items() if k != "text"}} for t in texts
                 ]
             else:
                 return texts
@@ -530,10 +524,10 @@ class DataPreprocessor:
 
     def preprocess_batch(
         self,
-        samples: List[Any],
+        samples: list[Any],
         augment: bool = False,
         num_aug: int = 1,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """
         Preprocess batch of samples.
 
@@ -578,7 +572,7 @@ class DataPreprocessor:
         self.custom_functions.append(func)
         logger.info(f"Added custom preprocessing function: {func.__name__}")
 
-    def get_stats(self, samples: List[Any]) -> Dict[str, Any]:
+    def get_stats(self, samples: list[Any]) -> dict[str, Any]:
         """
         Get preprocessing statistics.
 

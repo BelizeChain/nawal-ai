@@ -9,7 +9,6 @@ License: MIT
 
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Optional loguru library
 try:
@@ -24,12 +23,12 @@ except ImportError:
 
 
 def configure_logging(
-    log_level: Optional[str] = None,
-    log_file: Optional[Path] = None,
+    log_level: str | None = None,
+    log_file: Path | None = None,
     rotation: str = "100 MB",
     retention: str = "30 days",
-    format_string: Optional[str] = None,
-    serialize: Optional[bool] = None,
+    format_string: str | None = None,
+    serialize: bool | None = None,
 ) -> None:
     """
     Configure logging for Nawal AI.
@@ -152,8 +151,7 @@ def log_training_start(epochs: int, batch_size: int, learning_rate: float):
     """Log training start."""
     with LogContext(phase="training"):
         logger.info(
-            f"Starting training: epochs={epochs}, "
-            f"batch_size={batch_size}, lr={learning_rate}"
+            f"Starting training: epochs={epochs}, " f"batch_size={batch_size}, lr={learning_rate}"
         )
 
 
@@ -189,8 +187,7 @@ def log_evolution_start(generations: int, population_size: int):
     """Log evolution start."""
     with LogContext(phase="evolution"):
         logger.info(
-            f"Starting evolution: generations={generations}, "
-            f"population_size={population_size}"
+            f"Starting evolution: generations={generations}, " f"population_size={population_size}"
         )
 
 
@@ -206,9 +203,7 @@ def log_evolution_generation(
         )
 
 
-def log_evolution_complete(
-    best_fitness: float, total_generations: int, total_time: float
-):
+def log_evolution_complete(best_fitness: float, total_generations: int, total_time: float):
     """Log evolution completion."""
     with LogContext(phase="evolution"):
         logger.success(
@@ -229,16 +224,15 @@ def log_federated_round_complete(round_num: int, accuracy: float, round_time: fl
     """Log federated round completion."""
     with LogContext(phase="federated", round=round_num):
         logger.info(
-            f"Round {round_num} complete: "
-            f"accuracy={accuracy:.2%}, time={round_time:.2f}s"
+            f"Round {round_num} complete: " f"accuracy={accuracy:.2%}, time={round_time:.2f}s"
         )
 
 
 def log_blockchain_transaction(
     tx_type: str,
     success: bool,
-    block_number: Optional[int] = None,
-    tx_time: Optional[float] = None,
+    block_number: int | None = None,
+    tx_time: float | None = None,
 ):
     """Log blockchain transaction."""
     with LogContext(phase="blockchain", tx_type=tx_type):
@@ -271,9 +265,7 @@ def log_validator_registered(address: str, name: str):
         logger.info(f"Validator registered: address={address[:16]}..., name={name}")
 
 
-def log_fitness_submitted(
-    quality: float, timeliness: float, honesty: float, total: float
-):
+def log_fitness_submitted(quality: float, timeliness: float, honesty: float, total: float):
     """Log fitness score submission."""
     with LogContext(phase="blockchain", operation="fitness_submit"):
         logger.info(
@@ -282,7 +274,7 @@ def log_fitness_submitted(
         )
 
 
-def log_error(message: str, exception: Optional[Exception] = None):
+def log_error(message: str, exception: Exception | None = None):
     """Log error with optional exception."""
     if exception:
         logger.exception(f"{message}: {exception}")
