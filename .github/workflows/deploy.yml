@@ -126,6 +126,8 @@ jobs:
               app: nawal-ai
           spec:
             replicas: 1
+            strategy:
+              type: Recreate
             selector:
               matchLabels:
                 app: nawal-ai
@@ -141,6 +143,8 @@ jobs:
                       - containerPort: 8080
                         name: api
                     env:
+                      - name: NAWAL_API_HOST
+                        value: "0.0.0.0"
                       - name: BLOCKCHAIN_RPC
                         value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
                       - name: ENVIRONMENT
