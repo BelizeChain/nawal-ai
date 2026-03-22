@@ -41,7 +41,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sed -e '/^torch/d' -e '/^torchvision/d' -e '/^flwr/d' -e '/^wandb/d' requirements.txt > /tmp/ci-req.txt
+          sed -e '/^torch/d' -e '/^torchvision/d' -e '/^flwr/d' requirements.txt > /tmp/ci-req.txt
           pip install -r /tmp/ci-req.txt
           pip install --no-deps flwr
           pip install pytest pytest-asyncio pytest-cov httpx
