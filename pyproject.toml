@@ -90,7 +90,7 @@ dependencies = [
     "websockets>=13.1.0,<14.0.0",
 
     # Secure code sandbox
-    "RestrictedPython>=7.5,<8.0",
+    "RestrictedPython>=7.5,<9.0",
 
     # gRPC for federated communication
     "grpcio>=1.67.0,<2.0.0",
