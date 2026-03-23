@@ -22,7 +22,7 @@ RUN if [ "$COMPUTE" = "gpu" ]; then \
       apt-get update && \
       apt-get upgrade -y && \
       apt-get install -y --no-install-recommends \
-        python3 python3-pip python3-venv python3-dev curl && \
+        python3 python3-venv python3-dev curl && \
       update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
       rm -f /usr/lib/python*/EXTERNALLY-MANAGED && \
       curl -sS https://bootstrap.pypa.io/get-pip.py | python3 && \
