@@ -74,6 +74,11 @@ RUN sed \
     uv pip install --no-cache --system -r /tmp/prod-req.txt && \
     rm -f /tmp/prod-req.txt
 
+# Re-enforce setuptools after dependency resolution (some deps pull in older versions)
+RUN pip install --no-cache-dir --upgrade "setuptools>=75.8" && \
+    rm -rf /usr/local/lib/python*/site-packages/setuptools-[0-6]*.dist-info \
+           /usr/local/lib/python*/site-packages/setuptools-7[0-4]*.dist-info
+
 # Remove build tools no longer needed at runtime (shrinks image)
 RUN apt-get purge -y --auto-remove build-essential && \
     rm -rf /var/lib/apt/lists/*
