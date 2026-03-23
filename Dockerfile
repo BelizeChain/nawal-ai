@@ -41,10 +41,11 @@ RUN apt-get update && \
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip and setuptools to fix CVE-2024-6345 (path traversal / RCE)
-# Remove stale apt-managed dist-info so Trivy doesn't flag the old version
+# Upgrade pip and setuptools to fix CVE-2024-6345 / CVE-2025-47273 (path traversal)
+# Remove stale dist-info from both apt and base-image paths so Trivy doesn't flag old versions
 RUN pip install --no-cache-dir --upgrade pip "setuptools>=75.8" && \
-    rm -rf /usr/lib/python3/dist-packages/setuptools* \
+    rm -rf /usr/local/lib/python*/site-packages/setuptools-70* \
+           /usr/lib/python3/dist-packages/setuptools* \
            /usr/lib/python3/dist-packages/pkg_resources*
 
 # Install uv for fast dependency resolution
