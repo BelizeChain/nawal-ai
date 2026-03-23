@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: nawal-ai
-          image: belizechainacr.azurecr.io/nawal:latest
+          image: __IMAGE__
           ports:
             - containerPort: 8080
               name: api
@@ -65,6 +65,8 @@ spec:
               mountPath: /app/models
       volumes:
         - name: checkpoints
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: nawal-checkpoints
         - name: models
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: nawal-models

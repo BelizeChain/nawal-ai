@@ -122,91 +122,9 @@ jobs:
 
       - name: Deploy to AKS
         run: |
-          kubectl delete deployment nawal-ai -n belizechain --ignore-not-found
-          cat <<EOFK | kubectl apply -f -
-          apiVersion: apps/v1
-          kind: Deployment
-          metadata:
-            name: nawal-ai
-            namespace: belizechain
-            labels:
-              app: nawal-ai
-          spec:
-            replicas: 1
-            strategy:
-              type: Recreate
-            selector:
-              matchLabels:
-                app: nawal-ai
-            template:
-              metadata:
-                labels:
-                  app: nawal-ai
-              spec:
-                containers:
-                  - name: nawal-ai
-                    image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.img.outputs.tag }}
-                    ports:
-                      - containerPort: 8080
-                        name: api
-                    envFrom:
-                      - configMapRef:
-                          name: belizechain-config
-                      - secretRef:
-                          name: belizechain-secrets
-                    env:
-                      - name: BLOCKCHAIN_RPC
-                        value: "ws://belizechain-node.belizechain.svc.cluster.local:9944"
-                      - name: ENVIRONMENT
-                        value: "production"
-                      - name: WORKERS
-                        value: "1"
-                    livenessProbe:
-                      httpGet:
-                        path: /health
-                        port: 8080
-                      initialDelaySeconds: 60
-                      periodSeconds: 30
-                      timeoutSeconds: 10
-                    readinessProbe:
-                      httpGet:
-                        path: /health
-                        port: 8080
-                      initialDelaySeconds: 30
-                      periodSeconds: 10
-                      timeoutSeconds: 10
-                    resources:
-                      requests:
-                        cpu: "250m"
-                        memory: "512Mi"
-                      limits:
-                        cpu: "1000m"
-                        memory: "2Gi"
-                    volumeMounts:
-                      - name: checkpoints
-                        mountPath: /app/checkpoints
-                      - name: models
-                        mountPath: /app/models
-                volumes:
-                  - name: checkpoints
-                    emptyDir: {}
-                  - name: models
-                    emptyDir: {}
-          ---
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: nawal-ai
-            namespace: belizechain
-          spec:
-            selector:
-              app: nawal-ai
-            ports:
-              - name: api
-                port: 8080
-                targetPort: 8080
-            type: ClusterIP
-          EOFK
+          kubectl apply -f k8s/pvc.yaml
+          sed "s|__IMAGE__|${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.img.outputs.tag }}|" k8s/deployment.yaml | kubectl apply -f -
+          kubectl apply -f k8s/service.yaml
 
       - name: Wait for rollout
         id: rollout
@@ -234,5 +152,6 @@ jobs:
 
       - name: Verify deployment
         run: |
+          kubectl get pvc -n belizechain
           kubectl get pods -n belizechain -o wide
           kubectl get svc -n belizechain
