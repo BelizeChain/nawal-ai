@@ -295,7 +295,8 @@ async def batch_inference(
             response = await generate_text(req, http_request, belizeid)
             results.append({"status": "success", "data": response.model_dump()})
         except Exception as e:
-            results.append({"status": "error", "error": str(e)})
+            logger.error(f"Batch request failed: {e}")
+            results.append({"status": "error", "error": "Request failed"})
 
     return {"results": results, "total": len(requests)}
 

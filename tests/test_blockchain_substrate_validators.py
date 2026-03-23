@@ -970,7 +970,7 @@ class TestBelizeTrainingConfig:
             participant_id="p4",
             azure_endpoint="https://ml.azure.com/endpoint",
         )
-        assert "azure.com" in cfg2.azure_endpoint
+        assert cfg2.azure_endpoint == "https://ml.azure.com/endpoint"
 
 
 ###############################################################################

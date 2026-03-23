@@ -74,7 +74,7 @@ class TextCleaner:
         # Compile regex patterns
         self.html_pattern = re.compile(r"<[^>]+>")
         self.url_pattern = re.compile(
-            r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+            r"http[s]?://(?:[a-zA-Z0-9$_@.&+/:\-?=~#!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
         )
         self.email_pattern = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
         self.special_char_pattern = re.compile(r"[^a-zA-Z0-9\s.,!?;:\'\"-]")
