@@ -5,10 +5,11 @@
 
 ARG COMPUTE=cpu
 
-# GPU: NVIDIA CUDA 12.4 + Python 3.12 runtime (includes cuDNN)
+# GPU: NVIDIA CUDA 12.6 + Python 3.12 runtime (includes cuDNN)
 # CPU: slim Python (no CUDA overhead)
 # Use floating tags to pick up OS-level security patches (zlib, openssl, sqlite, etc.)
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu24.04 AS base-gpu
+# Note: CUDA 12.6 is backward-compatible with cu124 PyTorch wheels
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04 AS base-gpu
 FROM python:3.12-slim                             AS base-cpu
 FROM base-${COMPUTE}                              AS base
 
