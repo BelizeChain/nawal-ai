@@ -5,40 +5,42 @@
 
 ARG COMPUTE=cpu
 
-# GPU: NVIDIA CUDA 12.4 + Python 3.11 runtime (includes cuDNN)
+# GPU: NVIDIA CUDA 12.4 + Python 3.12 runtime (includes cuDNN)
 # CPU: slim Python (no CUDA overhead)
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04 AS base-gpu
-FROM python:3.11.11-slim                          AS base-cpu
+# Use floating tags to pick up OS-level security patches (zlib, openssl, sqlite, etc.)
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu24.04 AS base-gpu
+FROM python:3.12-slim                             AS base-cpu
 FROM base-${COMPUTE}                              AS base
 
-# GPU images don't ship Python — install 3.11 from deadsnakes PPA
+# GPU images don't ship Python — Ubuntu 24.04 has Python 3.12 natively
 ARG COMPUTE
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
 RUN if [ "$COMPUTE" = "gpu" ]; then \
       ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
       apt-get update && \
+      apt-get upgrade -y && \
       apt-get install -y --no-install-recommends \
-        software-properties-common gpg-agent curl && \
-      add-apt-repository -y ppa:deadsnakes/ppa && \
-      apt-get update && \
-      apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv python3.11-dev python3.11-distutils && \
-      update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
-      update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
-      curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11 && \
+        python3 python3-pip python3-venv python3-dev curl && \
+      update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
+      curl -sS https://bootstrap.pypa.io/get-pip.py | python3 && \
       rm -rf /var/lib/apt/lists/*; \
     fi
 
 WORKDIR /app
 
 # Install system + runtime dependencies in one layer, then clean up
+# apt-get upgrade patches remaining OS-level CVEs (zlib, openssl, sqlite3)
 RUN apt-get update && \
+    apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and setuptools to fix CVE-2024-6345 (path traversal / RCE)
+RUN pip install --no-cache-dir --upgrade pip "setuptools>=75.8"
 
 # Install uv for fast dependency resolution
 RUN pip install --no-cache-dir uv

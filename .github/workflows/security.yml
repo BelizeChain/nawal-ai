@@ -18,20 +18,20 @@ jobs:
   bandit:
     name: Bandit Security Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install Bandit
         run: |
           pip install bandit[toml]
-      
+
       - name: Run Bandit scan
         run: |
           bandit -r . \
@@ -40,7 +40,7 @@ jobs:
             -ll \
             --exit-zero \
             --exclude ./tests
-      
+
       - name: Upload Bandit results
         uses: actions/upload-artifact@v4
         with:
@@ -51,27 +51,27 @@ jobs:
   safety:
     name: Safety Dependency Check
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      
+
       - name: Install dependencies
         run: |
           pip install safety
-      
+
       - name: Run Safety check
         run: |
           safety check \
             --json \
             --output safety-report.json \
             --continue-on-error || true
-      
+
       - name: Upload Safety results
         uses: actions/upload-artifact@v4
         with:
@@ -82,20 +82,20 @@ jobs:
   codeql:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: python
           queries: security-extended
-      
+
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
-      
+
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
@@ -104,16 +104,16 @@ jobs:
   trivy-container:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-        continue-on-error: true
+
       - name: Build Docker image
+        continue-on-error: true
         run: |
           docker build -t nawal-ai:scan .
-      
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -122,13 +122,13 @@ jobs:
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           exit-code: 0
-      
+
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: trivy-results.sarif
           category: trivy-container
-      
+
       - name: Upload Trivy results as artifact
         uses: actions/upload-artifact@v4
         with:
@@ -140,11 +140,11 @@ jobs:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
@@ -154,11 +154,11 @@ jobs:
   osv-scanner:
     name: OSV Scanner
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Run OSV Scanner
         continue-on-error: true
         uses: google/osv-scanner-action/osv-scanner-action@v2.3.2
@@ -168,7 +168,7 @@ jobs:
             --json
             --output osv-results.json
             ./
-      
+
       - name: Upload OSV results
         uses: actions/upload-artifact@v4
         with:
